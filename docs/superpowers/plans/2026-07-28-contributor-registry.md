@@ -908,11 +908,17 @@ export function toIdentity(profile: unknown): Identity {
 /**
  * GitHub answers the token endpoint with form-encoded data unless the request
  * asks for JSON, so every request from this client carries the header.
+ *
+ * The type is `client.CustomFetch`, not `typeof fetch`: openid-client's own
+ * body type is `Uint8Array<ArrayBufferLike>`, which the DOM lib's `BodyInit`
+ * does not structurally accept. Every member of the library's `FetchBody` is a
+ * valid runtime fetch body, so the assertion is inert — the library documents
+ * this friction and suggests suppressing it at the `fetch` call.
  */
-const jsonFetch: typeof fetch = (url, options) => {
-  const headers = new Headers(options?.headers)
+const jsonFetch: client.CustomFetch = (url, options) => {
+  const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
-  return fetch(url, { ...options, headers })
+  return fetch(url, { ...options, headers } as RequestInit)
 }
 
 function configuration(): client.Configuration {
@@ -1077,6 +1083,7 @@ Create `src/lib/providers/discord.test.ts`:
 
 ```typescript
 import { expect, test } from 'vitest'
+import type { ZodError } from 'zod'
 import { toIdentity } from './discord.ts'
 
 test('takes the snowflake id and username', () => {
@@ -1089,9 +1096,18 @@ test('rejects a profile with no username', () => {
 })
 
 test('rejects a profile with no id', () => {
-  expect(() => toIdentity({ username: 'nelly' })).toThrow(/id/)
+  try {
+    toIdentity({ username: 'nelly' })
+    expect.unreachable('a profile with no id must be rejected')
+  } catch (error) {
+    // A /id/ regex on the message would also match Zod's "invalid_type" code,
+    // so it passes for a missing username too. Assert the failing path instead.
+    expect((error as ZodError).issues.map((issue) => issue.path)).toEqual([['id']])
+  }
 })
 ```
+
+The `id` case asserts the failing field by path rather than by a message regex. Zod 4's error message embeds `"code": "invalid_type"`, whose text contains `id`, so `/id/` matches whichever field actually failed — verified against zod 4.4.3. `/username/` has no such collision and stays as a regex.
 
 - [ ] **Step 2: Run it to verify it fails**
 
