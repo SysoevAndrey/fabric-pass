@@ -1286,12 +1286,26 @@ export function toIdentity(claims: unknown): Identity {
 
 let cached: Promise<client.Configuration> | undefined
 
+/**
+ * `??=` alone would memoise a rejected promise forever — a rejection is not
+ * nullish, so a transient discovery failure would wedge Telegram linking for
+ * the process's whole lifetime. Instead: assign the in-flight promise
+ * synchronously (so concurrent callers still share one discovery request),
+ * then clear the cache on rejection — but only if nobody has since started a
+ * newer attempt — so a later call can retry instead of replaying the failure.
+ */
 function configuration(): Promise<client.Configuration> {
-  cached ??= client.discovery(
-    new URL('https://oauth.telegram.org'),
-    env.TELEGRAM_CLIENT_ID,
-    env.TELEGRAM_CLIENT_SECRET,
-  )
+  if (!cached) {
+    const attempt = client.discovery(
+      new URL('https://oauth.telegram.org'),
+      env.TELEGRAM_CLIENT_ID,
+      env.TELEGRAM_CLIENT_SECRET,
+    )
+    attempt.catch(() => {
+      if (cached === attempt) cached = undefined
+    })
+    cached = attempt
+  }
   return cached
 }
 
