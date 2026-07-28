@@ -2049,6 +2049,20 @@ WORKDIR /app
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `env.ts` validates the whole environment at import, and `next build` imports
+# the route modules while collecting page data — so the build fails without
+# syntactically valid values even though it never contacts a provider. These
+# placeholders exist only in this stage. Real credentials arrive at runtime,
+# and the app still fails fast at container start when any are missing.
+ENV DATABASE_URL=postgresql://placeholder:5432/placeholder \
+    SESSION_PASSWORD=build-time-placeholder-at-least-32-characters \
+    APP_URL=http://localhost:3000 \
+    GITHUB_CLIENT_ID=placeholder \
+    GITHUB_CLIENT_SECRET=placeholder \
+    DISCORD_CLIENT_ID=placeholder \
+    DISCORD_CLIENT_SECRET=placeholder \
+    TELEGRAM_CLIENT_ID=placeholder \
+    TELEGRAM_CLIENT_SECRET=placeholder
 RUN pnpm build
 
 FROM node:24-alpine AS run
@@ -2062,6 +2076,11 @@ COPY migrations ./migrations
 EXPOSE 3000
 CMD ["sh", "-c", "node migrations/run.ts && pnpm start"]
 ```
+
+Two things about `pnpm build` worth knowing before you run it:
+
+1. It needs every environment variable populated, including the provider credentials, because `env.ts` validates at import and `next build` imports the route modules while collecting page data. Placeholder values are enough — the build never contacts a provider.
+2. `next build` rewrites `tsconfig.json` on each run. Decide once whether to commit what it writes or to revert it; leaving it uncommitted means every build dirties the working tree.
 
 - [ ] **Step 7: Write the `README.md`**
 
