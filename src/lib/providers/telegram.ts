@@ -32,6 +32,25 @@ export function toIdentity(claims: unknown): Identity {
   return { providerId: parsed.sub }
 }
 
+/**
+ * Corrects `redirect_uri` on the token exchange, same defect and same fix as
+ * GitHub and Discord: `openid-client` derives that parameter from
+ * `currentUrl` rather than the URL actually registered with Telegram, and a
+ * `tokenEndpointParameters` override does not survive — the library
+ * overwrites `redirect_uri` from the callback URL after merging additional
+ * parameters. Rewriting the body here, after that overwrite, is the only
+ * point that sticks (see `openid-client`'s `customFetch` doc, "Correcting
+ * redirect_uri for Token Endpoint").
+ */
+function tokenFetch(registeredRedirectUri: string): client.CustomFetch {
+  return (url, options) => {
+    if (options.body instanceof URLSearchParams && options.body.get('grant_type') === 'authorization_code') {
+      options.body.set('redirect_uri', registeredRedirectUri)
+    }
+    return fetch(url, options as RequestInit)
+  }
+}
+
 let cached: Promise<client.Configuration> | undefined
 
 /**
@@ -78,8 +97,12 @@ export const telegram: Provider = {
     return { url, codeVerifier, state }
   },
 
-  async callback(currentUrl, _redirectUri, codeVerifier, state): Promise<Identity> {
+  async callback(currentUrl, redirectUri, codeVerifier, state): Promise<Identity> {
     const config = await configuration()
+    // `configuration()` is memoised across calls (see above), so the
+    // customFetch override is applied here, right before use, rather than
+    // baked into the cached instance at discovery time.
+    config[client.customFetch] = tokenFetch(redirectUri)
     const tokens = await client.authorizationCodeGrant(config, currentUrl, {
       pkceCodeVerifier: codeVerifier,
       expectedState: state,

@@ -58,6 +58,43 @@ test('exchanges the code and returns identity only', async () => {
   vi.unstubAllGlobals()
 })
 
+test('sends the registered redirect_uri, not one derived from a proxied request URL', async () => {
+  const registeredRedirectUri = 'https://sas-titles-warranty-translator.trycloudflare.com/auth/github/callback'
+  let tokenRequestBody: URLSearchParams | undefined
+
+  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input)
+
+    if (url.startsWith('https://github.com/login/oauth/access_token')) {
+      tokenRequestBody = new URLSearchParams(init?.body as string)
+      return new Response(JSON.stringify({ access_token: 'gho_test', token_type: 'bearer' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    if (url.startsWith('https://api.github.com/user')) {
+      return new Response(JSON.stringify({ id: 583231, login: 'octocat' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    throw new Error(`unexpected request: ${url}`)
+  })
+
+  vi.stubGlobal('fetch', fetchMock)
+
+  const request = await github.authRequest(registeredRedirectUri)
+  // This mimics what Next.js sees inside the Cloudflare tunnel: a different
+  // scheme and host than the one registered with GitHub.
+  const callbackUrl = new URL(`http://localhost:3000/auth/github/callback?code=abc123&state=${request.state}`)
+
+  await github.callback(callbackUrl, registeredRedirectUri, request.codeVerifier, request.state)
+
+  expect(tokenRequestBody?.get('redirect_uri')).toBe(registeredRedirectUri)
+
+  vi.unstubAllGlobals()
+})
+
 test('rejects a callback whose state does not match the one we stored', async () => {
   // `state` is the CSRF boundary: the callback URL's `state` query parameter
   // must match what the session stored from authRequest(), or the callback

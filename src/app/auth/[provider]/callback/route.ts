@@ -1,3 +1,4 @@
+import { inspect } from 'node:util'
 import { NextResponse } from 'next/server'
 import { env } from '@/lib/env'
 import { isProviderName, providers } from '@/lib/providers'
@@ -39,7 +40,12 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     // provider error alike: the contributor gets one identical, generic
     // message either way, but the container's logs keep the real cause so a
     // genuine regression is distinguishable from someone clicking "cancel".
-    console.error(`auth callback error (${name}):`, error)
+    //
+    // Logged at full depth on purpose: when a provider rejects the exchange,
+    // the reason is its own error body nested inside openid-client's cause
+    // chain, and the default console depth prints it as `[Object]` — hiding
+    // the one fact worth having.
+    console.error(`auth callback error (${name}):`, inspect(error, { depth: null }))
     await session.save()
     return NextResponse.redirect(withNotice(home, 'link-failed', name))
   }

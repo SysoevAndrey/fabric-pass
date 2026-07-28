@@ -16,14 +16,34 @@ export function toIdentity(profile: unknown): Identity {
 /**
  * GitHub answers the token endpoint with form-encoded data unless the request
  * asks for JSON, so every request from this client carries the header.
+ *
+ * This also corrects `redirect_uri` on the token exchange. `openid-client`
+ * derives that parameter from `currentUrl` — the request URL as the app sees
+ * it, which behind a reverse proxy or tunnel differs in scheme and/or host
+ * from the URL actually registered with GitHub. GitHub's authorize endpoint
+ * accepts subpaths of the registered URL, so the authorization step never
+ * catches this; its token endpoint requires an exact match, so the callback
+ * with the deriving-config still passing `tokenEndpointParameters.redirect_uri`
+ * has no effect — the library sets `redirect_uri` from the callback URL after
+ * merging any additional parameters, silently overriding it. Rewriting the
+ * body here, after that overwrite, is the only point that sticks (see
+ * `openid-client`'s `customFetch` doc, "Correcting redirect_uri for Token
+ * Endpoint").
  */
-const jsonFetch: client.CustomFetch = (url, options) => {
-  const headers = new Headers(options.headers)
-  headers.set('Accept', 'application/json')
-  return fetch(url, { ...options, headers } as RequestInit)
+function tokenFetch(registeredRedirectUri: string): client.CustomFetch {
+  return (url, options) => {
+    const headers = new Headers(options.headers)
+    headers.set('Accept', 'application/json')
+
+    if (options.body instanceof URLSearchParams && options.body.get('grant_type') === 'authorization_code') {
+      options.body.set('redirect_uri', registeredRedirectUri)
+    }
+
+    return fetch(url, { ...options, headers } as RequestInit)
+  }
 }
 
-function configuration(): client.Configuration {
+function configuration(registeredRedirectUri: string): client.Configuration {
   const config = new client.Configuration(
     {
       issuer: 'https://github.com',
@@ -33,7 +53,7 @@ function configuration(): client.Configuration {
     env.GITHUB_CLIENT_ID,
     env.GITHUB_CLIENT_SECRET,
   )
-  config[client.customFetch] = jsonFetch
+  config[client.customFetch] = tokenFetch(registeredRedirectUri)
   return config
 }
 
@@ -41,7 +61,7 @@ export const github: Provider = {
   name: 'github',
 
   async authRequest(redirectUri: string): Promise<AuthRequest> {
-    const config = configuration()
+    const config = configuration(redirectUri)
     const codeVerifier = client.randomPKCECodeVerifier()
     const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
     const state = client.randomState()
@@ -58,8 +78,8 @@ export const github: Provider = {
     return { url, codeVerifier, state }
   },
 
-  async callback(currentUrl, _redirectUri, codeVerifier, state): Promise<Identity> {
-    const config = configuration()
+  async callback(currentUrl, redirectUri, codeVerifier, state): Promise<Identity> {
+    const config = configuration(redirectUri)
     const tokens = await client.authorizationCodeGrant(config, currentUrl, {
       pkceCodeVerifier: codeVerifier,
       expectedState: state,

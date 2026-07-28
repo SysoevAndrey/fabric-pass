@@ -14,8 +14,30 @@ export function toIdentity(profile: unknown): Identity {
   return { providerId: parsed.id, username: parsed.username }
 }
 
-function configuration(): client.Configuration {
-  return new client.Configuration(
+/**
+ * Corrects `redirect_uri` on the token exchange. `openid-client` derives that
+ * parameter from `currentUrl` — the request URL as the app sees it, which
+ * behind a reverse proxy or tunnel differs in scheme and/or host from the URL
+ * actually registered with Discord. Discord's authorize endpoint accepts
+ * subpaths of the registered URL, so the authorization step never catches
+ * this; its token endpoint requires an exact match. Passing the registered
+ * value as a `tokenEndpointParameters` argument does not survive either —
+ * `openid-client` sets `redirect_uri` from the callback URL after merging any
+ * additional parameters, silently overriding it. Rewriting the body here,
+ * after that overwrite, is the only point that sticks (see `openid-client`'s
+ * `customFetch` doc, "Correcting redirect_uri for Token Endpoint").
+ */
+function tokenFetch(registeredRedirectUri: string): client.CustomFetch {
+  return (url, options) => {
+    if (options.body instanceof URLSearchParams && options.body.get('grant_type') === 'authorization_code') {
+      options.body.set('redirect_uri', registeredRedirectUri)
+    }
+    return fetch(url, options as RequestInit)
+  }
+}
+
+function configuration(registeredRedirectUri: string): client.Configuration {
+  const config = new client.Configuration(
     {
       issuer: 'https://discord.com',
       authorization_endpoint: 'https://discord.com/oauth2/authorize',
@@ -24,13 +46,15 @@ function configuration(): client.Configuration {
     env.DISCORD_CLIENT_ID,
     env.DISCORD_CLIENT_SECRET,
   )
+  config[client.customFetch] = tokenFetch(registeredRedirectUri)
+  return config
 }
 
 export const discord: Provider = {
   name: 'discord',
 
   async authRequest(redirectUri: string): Promise<AuthRequest> {
-    const config = configuration()
+    const config = configuration(redirectUri)
     const codeVerifier = client.randomPKCECodeVerifier()
     const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
     const state = client.randomState()
@@ -46,8 +70,8 @@ export const discord: Provider = {
     return { url, codeVerifier, state }
   },
 
-  async callback(currentUrl, _redirectUri, codeVerifier, state): Promise<Identity> {
-    const config = configuration()
+  async callback(currentUrl, redirectUri, codeVerifier, state): Promise<Identity> {
+    const config = configuration(redirectUri)
     const tokens = await client.authorizationCodeGrant(config, currentUrl, {
       pkceCodeVerifier: codeVerifier,
       expectedState: state,
