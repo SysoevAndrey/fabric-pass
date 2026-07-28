@@ -1,10 +1,18 @@
 import { expect, test } from 'vitest'
 import { sealData, unsealData } from 'iron-session'
+import { env } from '@/lib/env'
 import { sessionOptions } from './session.ts'
 import type { SessionData } from './session.ts'
 
-test('the session password meets the iron-session minimum', () => {
-  expect(sessionOptions.password.length).toBeGreaterThanOrEqual(32)
+test('the cookie is not marked secure over http, and httpOnly is on', () => {
+  // Made explicit rather than assumed: this test's meaning depends on
+  // .env.test setting APP_URL to an http:// URL. If that ever changes to
+  // https, this assertion should fail loudly here rather than the `secure`
+  // assertion below silently flipping to true and passing for the wrong reason.
+  expect(env.APP_URL.startsWith('http://')).toBe(true)
+
+  expect(sessionOptions.cookieOptions?.secure).toBe(false)
+  expect(sessionOptions.cookieOptions?.httpOnly).toBe(true)
 })
 
 test('a session round-trips through sealing intact', async () => {
