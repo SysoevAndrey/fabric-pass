@@ -4,18 +4,20 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { AccountAlreadyLinkedError, findByGithubId, upsert } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
-import { parseForm, type SaveResult } from '@/app/form-schema'
+import { parseForm, submittedValues, type SaveResult } from '@/app/form-schema'
 
 export async function save(_prev: SaveResult, form: FormData): Promise<SaveResult> {
   const session = await getSession()
   if (!session.github) return { ok: false, message: 'Please sign in with GitHub first.' }
+
+  const values = submittedValues(form)
 
   let fields
   try {
     fields = parseForm(form)
   } catch (error) {
     const issue = error instanceof z.ZodError ? error.issues[0]?.message : undefined
-    return { ok: false, message: issue ?? 'Please check the form and try again.' }
+    return { ok: false, message: issue ?? 'Please check the form and try again.', values }
   }
 
   // Existing links come from the record; links made in this session win.
@@ -35,11 +37,20 @@ export async function save(_prev: SaveResult, form: FormData): Promise<SaveResul
       ...fields,
     })
   } catch (error) {
-    if (error instanceof AccountAlreadyLinkedError) return { ok: false, message: error.message }
-    return { ok: false, message: 'Could not save right now. Please try again in a moment.' }
+    if (error instanceof AccountAlreadyLinkedError) {
+      // Only the identity that actually conflicted belongs to someone else —
+      // drop just that one, leaving any other pending link untouched, or
+      // the contributor would be stuck resubmitting a stranger's account.
+      if (error.provider === 'telegram') session.pending = { ...session.pending, telegram: undefined }
+      else session.pending = { ...session.pending, discord: undefined }
+      await session.save()
+      return { ok: false, message: error.message, values }
+    }
+    return { ok: false, message: 'Could not save right now. Please try again in a moment.', values }
   }
 
   session.pending = undefined
+  session.error = undefined
   await session.save()
   revalidatePath('/')
   return { ok: true }

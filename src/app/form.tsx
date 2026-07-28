@@ -29,6 +29,12 @@ export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defa
     )
   }
 
+  // A failed submission's values take over as the fields' defaultValue, so
+  // when React resets the (uncontrolled) form after the action settles, it
+  // resets to what the contributor typed rather than the original,
+  // database-loaded defaults.
+  const shown = result.values ?? defaults
+
   return (
     <>
       <h1>Contributor registry</h1>
@@ -54,16 +60,16 @@ export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defa
 
       <form action={formAction}>
         <label htmlFor="firstName">First name</label>
-        <input id="firstName" name="firstName" defaultValue={defaults.firstName} required />
+        <input id="firstName" name="firstName" defaultValue={shown.firstName} required />
 
         <label htmlFor="lastName">Last name</label>
-        <input id="lastName" name="lastName" defaultValue={defaults.lastName} required />
+        <input id="lastName" name="lastName" defaultValue={shown.lastName} required />
 
         <label htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" defaultValue={defaults.email} required />
+        <input id="email" name="email" type="email" defaultValue={shown.email} required />
 
         <label htmlFor="company">Company (optional)</label>
-        <input id="company" name="company" defaultValue={defaults.company} />
+        <input id="company" name="company" defaultValue={shown.company} />
 
         <button type="submit" disabled={pending}>
           {pending ? 'Saving…' : 'Save'}
