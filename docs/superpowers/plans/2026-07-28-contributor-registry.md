@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **TypeScript only. Never author a `.js` file** — including config and scripts. Node 24.16.0 strips types natively, so `node script.ts` runs without a loader or a build step. Verified on this machine.
+- **TypeScript only. Never author a `.js` file** — including config and scripts. Node 24.16.0 strips types natively, so `node script.ts` runs without a loader or a build step. Verified on this machine. Because Node needs the literal `.ts` extension in relative imports, `tsconfig.json` carries `allowImportingTsExtensions: true` — without it `tsc --noEmit` rejects the test files' `./module.ts` imports.
 - Package manager: **pnpm 11.17.0**. Node **24.16.0**.
 - **Only identity is persisted from providers.** No access tokens, no refresh tokens, no `id_token`, no avatars, no provider-supplied email addresses or names. A task that stores any of these is wrong.
 - Store **both** the provider's numeric ID and the username for every provider. Usernames are user-changeable; numeric IDs are not.
@@ -99,8 +99,8 @@ The happy path across all three providers is a **manual gate in Task 10**, walke
     "@types/node": "24.10.1",
     "@types/pg": "8.20.0",
     "@types/react": "19.2.8",
-    "@types/react-dom": "19.2.8",
-    "typescript": "5.9.4",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
     "vitest": "4.1.10"
   }
 }
@@ -122,6 +122,7 @@ Expected: a lockfile is written and `node_modules/` appears. If any pinned versi
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -156,6 +157,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'migrations/**/*.test.ts'],
     setupFiles: ['./tests/setup.ts'],
+    // Every test file talks to the one contributor_registry_test database,
+    // and the migration test drops the contributors table in its beforeEach.
+    // Run files one at a time.
+    fileParallelism: false,
   },
   resolve: {
     alias: { '@': new URL('./src/', import.meta.url).pathname },
@@ -163,7 +168,7 @@ export default defineConfig({
 })
 ```
 
-The `migrations/` glob matters: Task 2's migration-runner test lives there and would otherwise never run.
+The `migrations/` glob matters: Task 2's migration-runner test lives there and would otherwise never run. `fileParallelism: false` matters just as much: the whole suite shares one test database, and the migration test drops `contributors` in its `beforeEach`, so concurrent files fail intermittently with `relation "contributors" does not exist`.
 
 - [ ] **Step 6: Create the test environment**
 
@@ -709,11 +714,19 @@ Create `src/lib/session.test.ts`. It exercises the sealing round-trip directly, 
 ```typescript
 import { expect, test } from 'vitest'
 import { sealData, unsealData } from 'iron-session'
+import { env } from '@/lib/env'
 import { sessionOptions } from './session.ts'
 import type { SessionData } from './session.ts'
 
-test('the session password meets the iron-session minimum', () => {
-  expect(sessionOptions.password.length).toBeGreaterThanOrEqual(32)
+test('the cookie is not marked secure over http, and httpOnly is on', () => {
+  // Made explicit rather than assumed: this test's meaning depends on
+  // .env.test setting APP_URL to an http:// URL. If that ever changes to
+  // https, this assertion should fail loudly here rather than the `secure`
+  // assertion below silently flipping to true and passing for the wrong reason.
+  expect(env.APP_URL.startsWith('http://')).toBe(true)
+
+  expect(sessionOptions.cookieOptions?.secure).toBe(false)
+  expect(sessionOptions.cookieOptions?.httpOnly).toBe(true)
 })
 
 test('a session round-trips through sealing intact', async () => {
@@ -729,12 +742,20 @@ test('a session round-trips through sealing intact', async () => {
   expect(opened.pending?.telegram?.username).toBe('ada')
 })
 
-test('the cookie is not readable without the password', async () => {
-  const sealed = await sealData({ github: { id: '1', login: 'x' } }, { password: sessionOptions.password })
+test('the cookie leaks nothing without the password', async () => {
+  const data: SessionData = { github: { id: '1001', login: 'octocat' } }
+  const sealed = await sealData(data, { password: sessionOptions.password })
+
+  // The payload is encrypted, not merely signed, so the login must not appear.
   expect(sealed).not.toContain('octocat')
-  await expect(unsealData(sealed, { password: 'a'.repeat(32) })).rejects.toThrow()
+
+  // iron-session does not throw on a bad password — it recovers nothing.
+  const opened = await unsealData<SessionData>(sealed, { password: 'a'.repeat(32) })
+  expect(opened.github).toBeUndefined()
 })
 ```
+
+Both assertions here are load-bearing. `unsealData` does **not** reject on a wrong password: `iron-session` 8.0.4 catches `Bad hmac value` and returns `{}`, so an assertion that it throws can never pass. And the sealed payload must actually contain `octocat` for the `not.toContain` check to mean anything.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -887,11 +908,17 @@ export function toIdentity(profile: unknown): Identity {
 /**
  * GitHub answers the token endpoint with form-encoded data unless the request
  * asks for JSON, so every request from this client carries the header.
+ *
+ * The type is `client.CustomFetch`, not `typeof fetch`: openid-client's own
+ * body type is `Uint8Array<ArrayBufferLike>`, which the DOM lib's `BodyInit`
+ * does not structurally accept. Every member of the library's `FetchBody` is a
+ * valid runtime fetch body, so the assertion is inert — the library documents
+ * this friction and suggests suppressing it at the `fetch` call.
  */
-const jsonFetch: typeof fetch = (url, options) => {
-  const headers = new Headers(options?.headers)
+const jsonFetch: client.CustomFetch = (url, options) => {
+  const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
-  return fetch(url, { ...options, headers })
+  return fetch(url, { ...options, headers } as RequestInit)
 }
 
 function configuration(): client.Configuration {
@@ -1056,6 +1083,7 @@ Create `src/lib/providers/discord.test.ts`:
 
 ```typescript
 import { expect, test } from 'vitest'
+import type { ZodError } from 'zod'
 import { toIdentity } from './discord.ts'
 
 test('takes the snowflake id and username', () => {
@@ -1068,9 +1096,18 @@ test('rejects a profile with no username', () => {
 })
 
 test('rejects a profile with no id', () => {
-  expect(() => toIdentity({ username: 'nelly' })).toThrow(/id/)
+  try {
+    toIdentity({ username: 'nelly' })
+    expect.unreachable('a profile with no id must be rejected')
+  } catch (error) {
+    // A /id/ regex on the message would also match Zod's "invalid_type" code,
+    // so it passes for a missing username too. Assert the failing path instead.
+    expect((error as ZodError).issues.map((issue) => issue.path)).toEqual([['id']])
+  }
 })
 ```
+
+The `id` case asserts the failing field by path rather than by a message regex. Zod 4's error message embeds `"code": "invalid_type"`, whose text contains `id`, so `/id/` matches whichever field actually failed — verified against zod 4.4.3. `/username/` has no such collision and stays as a regex.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -1249,12 +1286,26 @@ export function toIdentity(claims: unknown): Identity {
 
 let cached: Promise<client.Configuration> | undefined
 
+/**
+ * `??=` alone would memoise a rejected promise forever — a rejection is not
+ * nullish, so a transient discovery failure would wedge Telegram linking for
+ * the process's whole lifetime. Instead: assign the in-flight promise
+ * synchronously (so concurrent callers still share one discovery request),
+ * then clear the cache on rejection — but only if nobody has since started a
+ * newer attempt — so a later call can retry instead of replaying the failure.
+ */
 function configuration(): Promise<client.Configuration> {
-  cached ??= client.discovery(
-    new URL('https://oauth.telegram.org'),
-    env.TELEGRAM_CLIENT_ID,
-    env.TELEGRAM_CLIENT_SECRET,
-  )
+  if (!cached) {
+    const attempt = client.discovery(
+      new URL('https://oauth.telegram.org'),
+      env.TELEGRAM_CLIENT_ID,
+      env.TELEGRAM_CLIENT_SECRET,
+    )
+    attempt.catch(() => {
+      if (cached === attempt) cached = undefined
+    })
+    cached = attempt
+  }
   return cached
 }
 
@@ -1463,16 +1514,31 @@ export async function GET(request: Request, context: { params: Promise<{ provide
       transaction.codeVerifier,
       transaction.state,
     )
-  } catch {
+  } catch (error) {
     // Covers a cancelled authorization, a state or PKCE mismatch, and a
-    // provider error alike: the contributor gets one clear message.
+    // provider error alike: the contributor gets one identical, generic
+    // message either way, but the container's logs keep the real cause so a
+    // genuine regression is distinguishable from someone clicking "cancel".
+    console.error(`auth callback error (${name}):`, error)
     session.error = `Linking ${name} did not complete. Please try again.`
     await session.save()
     return NextResponse.redirect(home)
   }
 
   if (name === 'github') {
-    session.github = { id: identity.providerId, login: identity.username! }
+    // `username` is optional on Identity; it is populated here only because
+    // github.ts's toIdentity currently guarantees it. That guarantee lives in
+    // another module and isn't visible to the compiler here, so it is
+    // re-checked at runtime rather than asserted — an absent username fails
+    // the same way every other provider error already does, instead of
+    // writing `login: undefined` into a session field typed `string`.
+    if (!identity.username) {
+      console.error(`github callback: identity had no username (providerId=${identity.providerId})`)
+      session.error = `Linking ${name} did not complete. Please try again.`
+      await session.save()
+      return NextResponse.redirect(home)
+    }
+    session.github = { id: identity.providerId, login: identity.username }
     session.error = undefined
     await session.save()
     return NextResponse.redirect(home)
@@ -1983,6 +2049,20 @@ WORKDIR /app
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `env.ts` validates the whole environment at import, and `next build` imports
+# the route modules while collecting page data — so the build fails without
+# syntactically valid values even though it never contacts a provider. These
+# placeholders exist only in this stage. Real credentials arrive at runtime,
+# and the app still fails fast at container start when any are missing.
+ENV DATABASE_URL=postgresql://placeholder:5432/placeholder \
+    SESSION_PASSWORD=build-time-placeholder-at-least-32-characters \
+    APP_URL=http://localhost:3000 \
+    GITHUB_CLIENT_ID=placeholder \
+    GITHUB_CLIENT_SECRET=placeholder \
+    DISCORD_CLIENT_ID=placeholder \
+    DISCORD_CLIENT_SECRET=placeholder \
+    TELEGRAM_CLIENT_ID=placeholder \
+    TELEGRAM_CLIENT_SECRET=placeholder
 RUN pnpm build
 
 FROM node:24-alpine AS run
@@ -1996,6 +2076,11 @@ COPY migrations ./migrations
 EXPOSE 3000
 CMD ["sh", "-c", "node migrations/run.ts && pnpm start"]
 ```
+
+Two things about `pnpm build` worth knowing before you run it:
+
+1. It needs every environment variable populated, including the provider credentials, because `env.ts` validates at import and `next build` imports the route modules while collecting page data. Placeholder values are enough — the build never contacts a provider.
+2. `next build` rewrites `tsconfig.json` on each run. Decide once whether to commit what it writes or to revert it; leaving it uncommitted means every build dirties the working tree.
 
 - [ ] **Step 7: Write the `README.md`**
 
