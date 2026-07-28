@@ -19,6 +19,44 @@ main {
   margin: 0 auto;
 }
 
+.brand {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  margin-bottom: 2.5rem;
+}
+
+.brand-logo {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+}
+
+.brand-text h1 {
+  margin: 0 0 0.4rem;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.brand-tagline {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  max-width: 46rem;
+}
+
+.brand-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.brand-links a {
+  color: var(--muted);
+}
+
 label {
   display: block;
   margin: 1rem 0 0.25rem;
@@ -32,6 +70,36 @@ input {
   border-radius: 6px;
   font: inherit;
   box-sizing: border-box;
+}
+
+/* A field that carries its own clear button: the button is laid over the input's
+   right edge, and the input reserves that much padding so text never runs under
+   it. */
+.clearable {
+  position: relative;
+}
+
+.clearable input {
+  padding-right: 2.4rem;
+}
+
+.clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.4rem;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.clear:hover {
+  color: var(--ink);
 }
 
 button,
@@ -54,6 +122,34 @@ button,
   margin-right: 0.5rem;
 }
 
+/* One provider per row: its current state, then its button. */
+.links {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+
+.links li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+/* A shared minimum width on the label is what lines the buttons up with each
+   other; the labels themselves differ in length. It gives way on narrow
+   screens, where flex-wrap drops the button to its own line instead. */
+.links .linked {
+  min-width: 14rem;
+}
+
+/* The shared button rule adds top spacing for the form's Save button; inside a
+   row it would push the button off the label's baseline. */
+.links .link-button {
+  margin: 0;
+}
+
 .linked {
   color: var(--muted);
 }
@@ -61,6 +157,66 @@ button,
 .pending {
   color: #a15c00;
   font-weight: 600;
+}
+
+.collected {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.collected h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+/* The table is the widest thing on the page, so it scrolls inside itself
+   rather than making the whole page scroll sideways on a phone. */
+.collected table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.collected th,
+.collected td {
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.collected th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.collected code {
+  padding: 0.1rem 0.3rem;
+  background: #f3f3f3;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.req {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #eceff4;
+  color: #33415c;
+}
+
+.collected-never {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  max-width: 46rem;
 }
 
 .error {

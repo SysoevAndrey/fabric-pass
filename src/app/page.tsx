@@ -1,6 +1,7 @@
 import { findByGithubId } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
 import { noticeMessage } from './auth/notice'
+import { Collected } from './collected'
 import { ContributorForm } from './form'
 import { isUnsaved } from './pending-link'
 
@@ -19,12 +20,13 @@ export default async function Page({ searchParams }: PageProps) {
   if (!session.github) {
     return (
       <>
-        <h1>Contributor registry</h1>
+        <h2>Contributor registry</h2>
         <p>Sign in with GitHub to add or update your entry.</p>
         {error ? <p className="error">{error}</p> : null}
         <a className="link-button" href="/auth/github">
           Sign in with GitHub
         </a>
+        <Collected />
       </>
     )
   }
