@@ -99,8 +99,8 @@ The happy path across all three providers is a **manual gate in Task 10**, walke
     "@types/node": "24.10.1",
     "@types/pg": "8.20.0",
     "@types/react": "19.2.8",
-    "@types/react-dom": "19.2.8",
-    "typescript": "5.9.4",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
     "vitest": "4.1.10"
   }
 }
