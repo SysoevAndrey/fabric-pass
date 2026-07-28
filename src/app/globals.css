@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+  --ink: #1a1a1a;
+  --muted: #666;
+  --line: #ddd;
+  --ground: #fff;
+}
+
+body {
+  margin: 0;
+  padding: 3rem 1.5rem;
+  background: var(--ground);
+  color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, sans-serif;
+}
+
+main {
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+label {
+  display: block;
+  margin: 1rem 0 0.25rem;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+button,
+.link-button {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--ground);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-button {
+  background: var(--ground);
+  color: var(--ink);
+  margin-right: 0.5rem;
+}
+
+.linked {
+  color: var(--muted);
+}
+
+.error {
+  padding: 0.75rem;
+  border: 1px solid #c33;
+  border-radius: 6px;
+  color: #c33;
+}
