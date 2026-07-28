@@ -734,12 +734,20 @@ test('a session round-trips through sealing intact', async () => {
   expect(opened.pending?.telegram?.username).toBe('ada')
 })
 
-test('the cookie is not readable without the password', async () => {
-  const sealed = await sealData({ github: { id: '1', login: 'x' } }, { password: sessionOptions.password })
+test('the cookie leaks nothing without the password', async () => {
+  const data: SessionData = { github: { id: '1001', login: 'octocat' } }
+  const sealed = await sealData(data, { password: sessionOptions.password })
+
+  // The payload is encrypted, not merely signed, so the login must not appear.
   expect(sealed).not.toContain('octocat')
-  await expect(unsealData(sealed, { password: 'a'.repeat(32) })).rejects.toThrow()
+
+  // iron-session does not throw on a bad password — it recovers nothing.
+  const opened = await unsealData<SessionData>(sealed, { password: 'a'.repeat(32) })
+  expect(opened.github).toBeUndefined()
 })
 ```
+
+Both assertions here are load-bearing. `unsealData` does **not** reject on a wrong password: `iron-session` 8.0.4 catches `Bad hmac value` and returns `{}`, so an assertion that it throws can never pass. And the sealed payload must actually contain `octocat` for the `not.toContain` check to mean anything.
 
 - [ ] **Step 2: Run it to verify it fails**
 
