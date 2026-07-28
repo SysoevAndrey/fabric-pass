@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **TypeScript only. Never author a `.js` file** — including config and scripts. Node 24.16.0 strips types natively, so `node script.ts` runs without a loader or a build step. Verified on this machine.
+- **TypeScript only. Never author a `.js` file** — including config and scripts. Node 24.16.0 strips types natively, so `node script.ts` runs without a loader or a build step. Verified on this machine. Because Node needs the literal `.ts` extension in relative imports, `tsconfig.json` carries `allowImportingTsExtensions: true` — without it `tsc --noEmit` rejects the test files' `./module.ts` imports.
 - Package manager: **pnpm 11.17.0**. Node **24.16.0**.
 - **Only identity is persisted from providers.** No access tokens, no refresh tokens, no `id_token`, no avatars, no provider-supplied email addresses or names. A task that stores any of these is wrong.
 - Store **both** the provider's numeric ID and the username for every provider. Usernames are user-changeable; numeric IDs are not.
@@ -122,6 +122,7 @@ Expected: a lockfile is written and `node_modules/` appears. If any pinned versi
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -156,6 +157,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'migrations/**/*.test.ts'],
     setupFiles: ['./tests/setup.ts'],
+    // Every test file talks to the one contributor_registry_test database,
+    // and the migration test drops the contributors table in its beforeEach.
+    // Run files one at a time.
+    fileParallelism: false,
   },
   resolve: {
     alias: { '@': new URL('./src/', import.meta.url).pathname },
@@ -163,7 +168,7 @@ export default defineConfig({
 })
 ```
 
-The `migrations/` glob matters: Task 2's migration-runner test lives there and would otherwise never run.
+The `migrations/` glob matters: Task 2's migration-runner test lives there and would otherwise never run. `fileParallelism: false` matters just as much: the whole suite shares one test database, and the migration test drops `contributors` in its `beforeEach`, so concurrent files fail intermittently with `relation "contributors" does not exist`.
 
 - [ ] **Step 6: Create the test environment**
 
