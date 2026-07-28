@@ -135,6 +135,25 @@ button,
   margin-right: 0.5rem;
 }
 
+/* The one call to action on the signed-out page: it has to read as the thing
+   to press, not as one link among the rest. */
+.link-button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.5rem;
+  border-color: #1a7f37;
+  background: #1a7f37;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.link-button.primary:hover {
+  border-color: #14682c;
+  background: #14682c;
+}
+
 /* One provider per row: its current state, then its button. */
 .links {
   list-style: none;
