@@ -9,7 +9,6 @@ export interface SessionData {
   pending?: { telegram?: Identity; discord?: Identity }
   /** The in-flight authorization request. */
   oauth?: { provider: ProviderName; codeVerifier: string; state: string; variant?: 'phone' }
-  error?: string
 }
 
 export const sessionOptions: SessionOptions = {

@@ -1,26 +1,21 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
 // save() is a server action: it reads the session via getSession() and talks
-// to Postgres via findByGithubId/upsert. Neither is available in a unit
-// test, so both are replaced with in-memory doubles — the same seam used in
-// tests/auth-callback-github-guard.test.ts for the callback route.
+// to Postgres via upsert(). Neither is available in a unit test, so both are
+// replaced with in-memory doubles — the same seam used in
+// tests/auth-callback-github-guard.test.ts for the callback route. There is
+// no findByGithubId double here: the save action no longer reads the row
+// before writing it (contributors.ts's upsert carries existing link columns
+// forward itself, via COALESCE).
 const { fakeSession, contributorsState } = vi.hoisted(() => ({
   fakeSession: {
     github: { id: '1001', login: 'octocat' } as { id: string; login: string } | undefined,
     pending: undefined as
       | { telegram?: { providerId: string; username?: string; phone?: string }; discord?: { providerId: string; username?: string } }
       | undefined,
-    error: undefined as string | undefined,
     save: async () => {},
   },
   contributorsState: {
-    existing: null as null | {
-      telegramId?: string
-      telegramUsername?: string
-      telegramPhone?: string
-      discordId?: string
-      discordUsername?: string
-    },
     // Controls what the mocked upsert() does on the next call.
     upsertOutcome: 'resolve' as 'resolve' | 'conflict-telegram' | 'conflict-discord' | 'db-error',
   },
@@ -36,7 +31,6 @@ vi.mock('@/lib/contributors', async () => {
   const actual = await vi.importActual<typeof import('@/lib/contributors')>('@/lib/contributors')
   return {
     ...actual,
-    findByGithubId: async () => contributorsState.existing,
     upsert: async () => {
       if (contributorsState.upsertOutcome === 'conflict-telegram') throw new actual.AccountAlreadyLinkedError('telegram')
       if (contributorsState.upsertOutcome === 'conflict-discord') throw new actual.AccountAlreadyLinkedError('discord')
@@ -66,8 +60,6 @@ function form(fields: Record<string, string>): FormData {
 beforeEach(() => {
   fakeSession.github = { id: '1001', login: 'octocat' }
   fakeSession.pending = undefined
-  fakeSession.error = undefined
-  contributorsState.existing = null
   contributorsState.upsertOutcome = 'resolve'
 })
 
@@ -141,18 +133,4 @@ test('a discord conflict clears only discord from pending, leaving telegram unto
 
   expect(fakeSession.pending?.discord).toBeUndefined()
   expect(fakeSession.pending?.telegram).toEqual({ providerId: '111', username: 'ada-telegram' })
-})
-
-// Finding 3: a successful save must clear a stale session.error alongside
-// pending, so an earlier failed link attempt doesn't reappear as an error
-// banner after an unrelated, successful save.
-
-test('a successful save clears a stale session error', async () => {
-  fakeSession.error = 'Linking discord did not complete. Please try again.'
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' })
-
-  const result = await save({ ok: false }, data)
-
-  expect(result.ok).toBe(true)
-  expect(fakeSession.error).toBeUndefined()
 })

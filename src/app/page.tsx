@@ -1,10 +1,19 @@
 import { findByGithubId } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
+import { noticeMessage } from './auth/notice'
 import { ContributorForm } from './form'
 
-export default async function Page() {
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function Page({ searchParams }: PageProps) {
   const session = await getSession()
-  const error = session.error
+  const params = await searchParams
+  // A one-shot notice from an OAuth redirect, read from the URL rather than
+  // the session — a Server Component can't clear a cookie during render, but
+  // a query parameter is naturally gone on the next navigation.
+  const error = noticeMessage(params.notice, params.provider)
 
   if (!session.github) {
     return (

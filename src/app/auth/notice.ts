@@ -1,0 +1,50 @@
+import type { ProviderName } from '@/lib/providers/types'
+
+/**
+ * A one-shot notice from an OAuth redirect, carried as a query parameter
+ * rather than in the session. `session.error` used to hold this, but a
+ * Server Component cannot clear a cookie during render, so a stale banner
+ * would persist across every later visit until an unrelated success cleared
+ * it. A query parameter disappears on the next navigation for free, which is
+ * exactly the one-shot lifetime this notice needs.
+ *
+ * The code is a fixed, closed set chosen only by callback/route.ts — never
+ * free text — so nothing reaches page.tsx from the URL except a lookup key.
+ */
+export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact'
+
+function isNoticeCode(value: string): value is NoticeCode {
+  return value === 'expired' || value === 'link-failed' || value === 'telegram-no-contact'
+}
+
+/** Builds the redirect target that carries a one-shot notice to `page.tsx`. */
+export function withNotice(base: URL, code: NoticeCode, provider?: ProviderName): URL {
+  const url = new URL(base)
+  url.searchParams.set('notice', code)
+  if (provider) url.searchParams.set('provider', provider)
+  return url
+}
+
+/**
+ * The inverse of `withNotice`: turns the query parameters `page.tsx` reads
+ * back into the same contributor-facing message the callback route would
+ * have shown, or `undefined` if there is nothing to show (including an
+ * unrecognized or tampered code, which fails safe by showing nothing).
+ */
+export function noticeMessage(
+  rawCode: string | string[] | undefined,
+  rawProvider: string | string[] | undefined,
+): string | undefined {
+  const code = typeof rawCode === 'string' ? rawCode : undefined
+  const provider = typeof rawProvider === 'string' ? rawProvider : undefined
+  if (!code || !isNoticeCode(code)) return undefined
+
+  switch (code) {
+    case 'expired':
+      return 'That sign-in link has expired. Please try again.'
+    case 'link-failed':
+      return provider ? `Linking ${provider} did not complete. Please try again.` : undefined
+    case 'telegram-no-contact':
+      return 'Your Telegram account has no username, and no phone number was shared, so it could not be linked.'
+  }
+}

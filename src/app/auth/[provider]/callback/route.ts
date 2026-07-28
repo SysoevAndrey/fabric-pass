@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { env } from '@/lib/env'
 import { isProviderName, providers } from '@/lib/providers'
 import { getSession } from '@/lib/session'
+import { withNotice } from '@/app/auth/notice'
 import { resolveTelegramOutcome } from './outcome'
 
 export async function GET(request: Request, context: { params: Promise<{ provider: string }> }) {
@@ -14,10 +15,9 @@ export async function GET(request: Request, context: { params: Promise<{ provide
 
   // A callback with no matching transaction is a replay or a stale tab.
   if (!transaction || transaction.provider !== name) {
-    session.error = 'That sign-in link has expired. Please try again.'
     session.oauth = undefined
     await session.save()
-    return NextResponse.redirect(home)
+    return NextResponse.redirect(withNotice(home, 'expired'))
   }
 
   const redirectUri = `${env.APP_URL}/auth/${name}/callback`
@@ -37,9 +37,8 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     // message either way, but the container's logs keep the real cause so a
     // genuine regression is distinguishable from someone clicking "cancel".
     console.error(`auth callback error (${name}):`, error)
-    session.error = `Linking ${name} did not complete. Please try again.`
     await session.save()
-    return NextResponse.redirect(home)
+    return NextResponse.redirect(withNotice(home, 'link-failed', name))
   }
 
   if (name === 'github') {
@@ -51,19 +50,25 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     // writing `login: undefined` into a session field typed `string`.
     if (!identity.username) {
       console.error(`github callback: identity had no username (providerId=${identity.providerId})`)
-      session.error = `Linking ${name} did not complete. Please try again.`
       await session.save()
-      return NextResponse.redirect(home)
+      return NextResponse.redirect(withNotice(home, 'link-failed', name))
+    }
+    // A pending Telegram/Discord link belongs to whichever GitHub identity
+    // was in the session when the link was made. Signing in as a *different*
+    // GitHub account in the same browser must not carry it over — or saving
+    // would write a stranger's link into this identity's row, and the
+    // telegram_id/discord_id unique constraint would then block the
+    // rightful owner from ever linking their own account.
+    if (session.github && session.github.id !== identity.providerId) {
+      session.pending = undefined
     }
     session.github = { id: identity.providerId, login: identity.username }
-    session.error = undefined
     await session.save()
     return NextResponse.redirect(home)
   }
 
   if (name === 'discord') {
     session.pending = { ...session.pending, discord: identity }
-    session.error = undefined
     await session.save()
     return NextResponse.redirect(home)
   }
@@ -74,13 +79,11 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     return NextResponse.redirect(new URL('/auth/telegram?variant=phone', env.APP_URL))
   }
   if (outcome.kind === 'failed') {
-    session.error = outcome.message
     await session.save()
-    return NextResponse.redirect(home)
+    return NextResponse.redirect(withNotice(home, 'telegram-no-contact'))
   }
 
   session.pending = { ...session.pending, telegram: outcome.identity }
-  session.error = undefined
   await session.save()
   return NextResponse.redirect(home)
 }

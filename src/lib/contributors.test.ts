@@ -66,3 +66,39 @@ test('refuses a discord account already linked to someone else', async () => {
     upsert({ ...base, githubId: '1002', githubLogin: 'grace', discordId: '888', discordUsername: 'ada' }),
   ).rejects.toBeInstanceOf(AccountAlreadyLinkedError)
 })
+
+// Link columns (telegram_id/username/phone, discord_id/username) are
+// preserved by COALESCE when a later save omits them — the save action no
+// longer reads the row first, so "omitted" and "never linked" look the same
+// on the wire, and the upsert itself must carry existing links forward.
+// first_name/last_name/email/company are not link columns: they still
+// overwrite unconditionally, so omitting company clears it to NULL.
+test('a later save that omits link fields preserves them, but omitting company clears it', async () => {
+  await upsert({
+    ...base,
+    telegramId: '555',
+    telegramUsername: 'ada',
+    telegramPhone: '+359888123456',
+    discordId: '777',
+    discordUsername: 'ada-discord',
+    company: 'Analytical Engines',
+  })
+
+  // Same github id, second save carries no link fields and no company.
+  await upsert(base)
+
+  const found = await findByGithubId('1001')
+  expect(found?.telegramId).toBe('555')
+  expect(found?.telegramUsername).toBe('ada')
+  expect(found?.telegramPhone).toBe('+359888123456')
+  expect(found?.discordId).toBe('777')
+  expect(found?.discordUsername).toBe('ada-discord')
+  expect(found?.company).toBeUndefined()
+
+  const { rows } = await pool.query(
+    'SELECT telegram_id, company FROM contributors WHERE github_id = $1',
+    ['1001'],
+  )
+  expect(rows[0].telegram_id).toBe('555')
+  expect(rows[0].company).toBeNull()
+})

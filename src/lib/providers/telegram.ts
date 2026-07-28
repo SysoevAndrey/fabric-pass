@@ -3,10 +3,17 @@ import { z } from 'zod'
 import { env } from '@/lib/env'
 import type { AuthRequest, Identity, Provider } from '@/lib/providers/types'
 
+// An empty string must be treated the same as an absent claim: it is
+// unknown whether Telegram omits `preferred_username`/`phone_number` or
+// sends `""` for an account with neither, since no OAuth application has
+// been registered with Telegram yet to observe a real response. `.min(1)`
+// alone would throw on `""` instead, which would abort `toIdentity` and skip
+// the phone fallback entirely — the spec's headline edge case.
+const emptyToUndefined = (value: string) => (value === '' ? undefined : value)
 const claimsSchema = z.object({
   sub: z.string().min(1),
-  preferred_username: z.string().min(1).optional(),
-  phone_number: z.string().min(1).optional(),
+  preferred_username: z.string().transform(emptyToUndefined).optional(),
+  phone_number: z.string().transform(emptyToUndefined).optional(),
 })
 
 /**

@@ -71,7 +71,12 @@ export async function findByGithubId(githubId: string): Promise<Contributor | nu
 
 /**
  * One statement, so concurrent submissions cannot race: there is no
- * read-modify-write cycle to interleave.
+ * read-modify-write cycle to interleave. The link columns (telegram_*,
+ * discord_*) are COALESCEd against the existing row rather than overwritten,
+ * because the caller no longer reads the row first — an omitted link field
+ * means "not touched this save," not "clear it." There is deliberately no
+ * way to unlink a provider at the SQL level; the caller already had no way
+ * to express that either.
  */
 export async function upsert(input: ContributorInput): Promise<Contributor> {
   try {
@@ -82,11 +87,11 @@ export async function upsert(input: ContributorInput): Promise<Contributor> {
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (github_id) DO UPDATE SET
          github_login      = EXCLUDED.github_login,
-         telegram_id       = EXCLUDED.telegram_id,
-         telegram_username = EXCLUDED.telegram_username,
-         telegram_phone    = EXCLUDED.telegram_phone,
-         discord_id        = EXCLUDED.discord_id,
-         discord_username  = EXCLUDED.discord_username,
+         telegram_id       = COALESCE(EXCLUDED.telegram_id, contributors.telegram_id),
+         telegram_username = COALESCE(EXCLUDED.telegram_username, contributors.telegram_username),
+         telegram_phone    = COALESCE(EXCLUDED.telegram_phone, contributors.telegram_phone),
+         discord_id        = COALESCE(EXCLUDED.discord_id, contributors.discord_id),
+         discord_username  = COALESCE(EXCLUDED.discord_username, contributors.discord_username),
          first_name        = EXCLUDED.first_name,
          last_name         = EXCLUDED.last_name,
          email             = EXCLUDED.email,

@@ -57,3 +57,27 @@ test('exchanges the code and returns identity only', async () => {
 
   vi.unstubAllGlobals()
 })
+
+test('rejects a callback whose state does not match the one we stored', async () => {
+  // `state` is the CSRF boundary: the callback URL's `state` query parameter
+  // must match what the session stored from authRequest(), or the callback
+  // must be refused before any token exchange happens. This proves our
+  // wiring actually passes `expectedState` through to `openid-client` — not
+  // `openid-client`'s own state-matching logic, which is out of scope.
+  const fetchMock = vi.fn(async () => {
+    throw new Error('must not reach the network: state must be rejected first')
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  const request = await github.authRequest('http://localhost:3000/auth/github/callback')
+  const callbackUrl = new URL(
+    `http://localhost:3000/auth/github/callback?code=abc123&state=not-the-state-we-stored`,
+  )
+
+  await expect(
+    github.callback(callbackUrl, 'http://localhost:3000/auth/github/callback', request.codeVerifier, request.state),
+  ).rejects.toThrow()
+  expect(fetchMock).not.toHaveBeenCalled()
+
+  vi.unstubAllGlobals()
+})
