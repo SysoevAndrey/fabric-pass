@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { save } from './actions'
 import { Collected } from './collected'
+import { DiscordMark, TelegramMark } from './marks'
 import type { SaveResult } from './form-schema'
 
 interface Props {
@@ -71,14 +72,16 @@ export function ContributorForm({
           {/* The label is rendered even when nothing is linked, so every row's
               button starts at the same x rather than sliding left. */}
           <span className="linked">Telegram: {telegramLabel ?? 'not linked'}</span>
-          <a className="link-button" href="/auth/telegram">
+          <a className="link-button brand telegram" href="/auth/telegram">
+            <TelegramMark />
             {telegramLabel ? 'Re-link Telegram' : 'Link Telegram'}
           </a>
           {telegramUnsaved ? <span className="pending">not yet saved, press Save to record it</span> : null}
         </li>
         <li>
           <span className="linked">Discord: {discordLabel ?? 'not linked'}</span>
-          <a className="link-button" href="/auth/discord">
+          <a className="link-button brand discord" href="/auth/discord">
+            <DiscordMark />
             {discordLabel ? 'Re-link Discord' : 'Link Discord'}
           </a>
           {discordUnsaved ? <span className="pending">not yet saved, press Save to record it</span> : null}

@@ -135,23 +135,46 @@ button,
   margin-right: 0.5rem;
 }
 
-/* The one call to action on the signed-out page: it has to read as the thing
-   to press, not as one link among the rest. */
-.link-button.primary {
+/* A branded action: solid service colour with its mark, so the thing to press
+   reads as pressable rather than as one more link. */
+.link-button.brand {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.85rem 1.5rem;
-  border-color: #1a7f37;
-  background: #1a7f37;
   color: #fff;
   font-size: 1.05rem;
   font-weight: 600;
 }
 
-.link-button.primary:hover {
+.link-button.github {
+  border-color: #1a7f37;
+  background: #1a7f37;
+}
+
+.link-button.github:hover {
   border-color: #14682c;
   background: #14682c;
+}
+
+.link-button.telegram {
+  border-color: #229ed9;
+  background: #229ed9;
+}
+
+.link-button.telegram:hover {
+  border-color: #1b83b4;
+  background: #1b83b4;
+}
+
+.link-button.discord {
+  border-color: #5865f2;
+  background: #5865f2;
+}
+
+.link-button.discord:hover {
+  border-color: #4451dd;
+  background: #4451dd;
 }
 
 /* One provider per row: its current state, then its button. */
