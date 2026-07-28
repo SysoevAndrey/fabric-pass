@@ -100,11 +100,15 @@ export function ContributorForm({
             answers, but a contributor from anywhere else must still be able to
             type their own — and unlike a select plus a conditional text field,
             this keeps working without JavaScript. */}
-        <div className="clearable">
+        <div className={company ? 'clearable filled' : 'clearable'}>
           <input
             id="company"
             name="company"
-            list="companies"
+            // The datalist is what makes the browser draw its own dropdown
+            // arrow, and no CSS hides that arrow across browsers. Dropping the
+            // attribute once the field holds a value removes it outright; the
+            // suggestions are there for an empty field, which is when they help.
+            list={company ? undefined : 'companies'}
             ref={companyRef}
             value={company}
             onChange={(e) => setCompany(e.target.value)}

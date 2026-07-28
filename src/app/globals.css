@@ -83,6 +83,19 @@ input {
   padding-right: 2.4rem;
 }
 
+/* Once the field holds a value the browser's datalist arrow sits right next to
+   the clear button, so it goes away — the suggestions still open while typing.
+   Chrome and Safari draw that arrow with different pseudo-elements, and a
+   browser drops a whole selector list over one pseudo-element it doesn't know,
+   so these have to stay two separate rules. */
+.clearable.filled input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.clearable.filled input::-webkit-list-button {
+  display: none;
+}
+
 .clear {
   position: absolute;
   top: 0;
