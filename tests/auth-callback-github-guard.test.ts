@@ -5,7 +5,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // providers[name].callback(). Neither is available in a unit test, so both
 // are replaced with in-memory doubles — this is the seam that makes the
 // username guard testable without a live request or a live GitHub call.
-const { fakeSession } = vi.hoisted(() => ({
+const { fakeSession, githubCallbackResult } = vi.hoisted(() => ({
   fakeSession: {
     oauth: undefined as
       | { provider: 'github' | 'discord' | 'telegram'; codeVerifier: string; state: string; variant?: 'phone' }
@@ -14,6 +14,10 @@ const { fakeSession } = vi.hoisted(() => ({
     pending: undefined as { telegram?: unknown; discord?: unknown } | undefined,
     save: async () => {},
   },
+  // Mutable so individual tests can make the mocked github callback return a
+  // full identity (for the identity-switch test) instead of the no-username
+  // shape the guard test needs — set back to the default in beforeEach.
+  githubCallbackResult: { current: { providerId: '583231' } as { providerId: string; username?: string } },
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -28,8 +32,7 @@ vi.mock('@/lib/providers', () => ({
       authRequest: async () => {
         throw new Error('not used in this test')
       },
-      // No username — the exact shape the guard must catch.
-      callback: async () => ({ providerId: '583231' }),
+      callback: async () => githubCallbackResult.current,
     },
     discord: {
       name: 'discord',
@@ -58,6 +61,9 @@ beforeEach(() => {
   fakeSession.oauth = { provider: 'github', codeVerifier: 'verifier', state: 'state-123' }
   fakeSession.github = undefined
   fakeSession.pending = undefined
+  // No username — the exact shape the "no username" guard test needs. The
+  // identity-switch test below overrides this to a full identity.
+  githubCallbackResult.current = { providerId: '583231' }
 })
 
 test('a github identity with no username is refused, not written to the session', async () => {
@@ -94,6 +100,34 @@ test('a callback with no stored transaction at all is refused as expired', async
   expect(fakeSession.pending).toBeUndefined()
   const location = response.headers.get('location')
   expect(location).toContain('notice=expired')
+})
+
+test('signing in as a different github identity clears a pending link from the previous one', async () => {
+  fakeSession.github = { id: 'old-id-111', login: 'old-login' }
+  fakeSession.pending = { telegram: { providerId: '999', username: 'stranger' } }
+  githubCallbackResult.current = { providerId: 'new-id-222', username: 'new-login' }
+
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  await GET(request, context)
+
+  expect(fakeSession.github).toEqual({ id: 'new-id-222', login: 'new-login' })
+  expect(fakeSession.pending).toBeUndefined()
+})
+
+test('signing back in as the same github identity leaves a pending link untouched', async () => {
+  fakeSession.github = { id: 'same-id-333', login: 'same-login' }
+  fakeSession.pending = { telegram: { providerId: '999', username: 'ada' } }
+  // Same providerId as session.github.id — not a switch.
+  githubCallbackResult.current = { providerId: 'same-id-333', username: 'same-login' }
+
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  await GET(request, context)
+
+  expect(fakeSession.pending).toEqual({ telegram: { providerId: '999', username: 'ada' } })
 })
 
 test('a stored transaction for a different provider is refused as expired', async () => {

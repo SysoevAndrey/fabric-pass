@@ -71,12 +71,29 @@ export async function findByGithubId(githubId: string): Promise<Contributor | nu
 
 /**
  * One statement, so concurrent submissions cannot race: there is no
- * read-modify-write cycle to interleave. The link columns (telegram_*,
- * discord_*) are COALESCEd against the existing row rather than overwritten,
- * because the caller no longer reads the row first — an omitted link field
- * means "not touched this save," not "clear it." There is deliberately no
- * way to unlink a provider at the SQL level; the caller already had no way
- * to express that either.
+ * read-modify-write cycle to interleave. The caller no longer reads the row
+ * first, so each provider's whole field group — telegram_id/username/phone
+ * together, discord_id/username together — is kept or replaced as a unit,
+ * keyed off whether *that provider's id* was supplied this save:
+ *
+ *   - a new telegram_id  -> all three telegram_* columns come from EXCLUDED,
+ *     including any NULLs, so a field left over from a *different* linked
+ *     account (e.g. an old phone number, once a new id brings a username)
+ *     cannot survive beside it.
+ *   - no telegram_id (omitted this save) -> all three are preserved as they
+ *     were, because nothing about that link changed.
+ *
+ * Per-column COALESCE alone breaks this: telegram_username and
+ * telegram_phone are mutually exclusive by construction (toIdentity returns
+ * one or the other, never both), so linking phone-first and later
+ * re-linking a different account that has a username would otherwise leave
+ * the old phone number stored beside the new username — a stale, no-longer-
+ * true fact the project has no basis to hold. Discord's username is grouped
+ * with its id the same way.
+ *
+ * There is still deliberately no way to unlink a provider entirely at the
+ * SQL level (no id at all clears nothing); the caller already had no way to
+ * express that either.
  */
 export async function upsert(input: ContributorInput): Promise<Contributor> {
   try {
@@ -88,10 +105,13 @@ export async function upsert(input: ContributorInput): Promise<Contributor> {
        ON CONFLICT (github_id) DO UPDATE SET
          github_login      = EXCLUDED.github_login,
          telegram_id       = COALESCE(EXCLUDED.telegram_id, contributors.telegram_id),
-         telegram_username = COALESCE(EXCLUDED.telegram_username, contributors.telegram_username),
-         telegram_phone    = COALESCE(EXCLUDED.telegram_phone, contributors.telegram_phone),
+         telegram_username = CASE WHEN EXCLUDED.telegram_id IS NOT NULL
+                                THEN EXCLUDED.telegram_username ELSE contributors.telegram_username END,
+         telegram_phone    = CASE WHEN EXCLUDED.telegram_id IS NOT NULL
+                                THEN EXCLUDED.telegram_phone ELSE contributors.telegram_phone END,
          discord_id        = COALESCE(EXCLUDED.discord_id, contributors.discord_id),
-         discord_username  = COALESCE(EXCLUDED.discord_username, contributors.discord_username),
+         discord_username  = CASE WHEN EXCLUDED.discord_id IS NOT NULL
+                                THEN EXCLUDED.discord_username ELSE contributors.discord_username END,
          first_name        = EXCLUDED.first_name,
          last_name         = EXCLUDED.last_name,
          email             = EXCLUDED.email,
