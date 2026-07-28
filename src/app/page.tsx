@@ -2,6 +2,7 @@ import { findByGithubId } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
 import { noticeMessage } from './auth/notice'
 import { ContributorForm } from './form'
+import { isUnsaved } from './pending-link'
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
@@ -43,7 +44,9 @@ export default async function Page({ searchParams }: PageProps) {
     <ContributorForm
       githubLogin={session.github.login}
       telegramLabel={telegram.username ? `@${telegram.username}` : (telegram.phone ?? null)}
+      telegramUnsaved={isUnsaved(session.pending?.telegram, existing?.telegramId)}
       discordLabel={discord.username ?? null}
+      discordUnsaved={isUnsaved(session.pending?.discord, existing?.discordId)}
       defaults={{
         firstName: existing?.firstName ?? '',
         lastName: existing?.lastName ?? '',

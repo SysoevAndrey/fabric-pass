@@ -10,18 +10,21 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   if (!isProviderName(name)) return new NextResponse('Unknown provider', { status: 404 })
 
   const session = await getSession()
-  const transaction = session.oauth
+  const transaction = session.oauth?.[name]
   const home = new URL('/', env.APP_URL)
 
-  // A callback with no matching transaction is a replay or a stale tab.
-  if (!transaction || transaction.provider !== name) {
-    session.oauth = undefined
-    await session.save()
+  // A callback with no matching transaction for *this* provider is a replay
+  // or a stale tab. Providers are keyed independently, so a transaction
+  // belonging to a different, still in-flight provider is simply absent here
+  // — it is left alone, not cleared, since it may yet complete.
+  if (!transaction) {
     return NextResponse.redirect(withNotice(home, 'expired'))
   }
 
   const redirectUri = `${env.APP_URL}/auth/${name}/callback`
-  session.oauth = undefined
+  // Consume only this provider's own transaction — a completed link for one
+  // provider must not wipe another provider's still in-flight one.
+  session.oauth = { ...session.oauth, [name]: undefined }
 
   let identity
   try {

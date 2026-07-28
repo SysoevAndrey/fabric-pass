@@ -8,7 +8,9 @@ import { beforeEach, expect, test, vi } from 'vitest'
 const { fakeSession, githubCallbackResult } = vi.hoisted(() => ({
   fakeSession: {
     oauth: undefined as
-      | { provider: 'github' | 'discord' | 'telegram'; codeVerifier: string; state: string; variant?: 'phone' }
+      | Partial<
+          Record<'github' | 'discord' | 'telegram', { codeVerifier: string; state: string; variant?: 'phone' }>
+        >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
     pending: undefined as { telegram?: unknown; discord?: unknown } | undefined,
@@ -58,7 +60,7 @@ vi.mock('@/lib/providers', () => ({
 const { GET } = await import('@/app/auth/[provider]/callback/route')
 
 beforeEach(() => {
-  fakeSession.oauth = { provider: 'github', codeVerifier: 'verifier', state: 'state-123' }
+  fakeSession.oauth = { github: { codeVerifier: 'verifier', state: 'state-123' } }
   fakeSession.github = undefined
   fakeSession.pending = undefined
   // No username — the exact shape the "no username" guard test needs. The
@@ -130,17 +132,19 @@ test('signing back in as the same github identity leaves a pending link untouche
   expect(fakeSession.pending).toEqual({ telegram: { providerId: '999', username: 'ada' } })
 })
 
-test('a stored transaction for a different provider is refused as expired', async () => {
-  // The URL asks to complete a github callback, but the stored transaction
-  // was for a discord authorization — provider must be checked, not just
-  // presence of a transaction.
-  fakeSession.oauth = { provider: 'discord', codeVerifier: 'verifier', state: 'state-123' }
+test('a callback for a provider with no transaction of its own is refused as expired, even while another provider has one in flight', async () => {
+  // The URL asks to complete a github callback, but only a discord
+  // authorization is stored — each provider's transaction is keyed
+  // separately, so github's own slot is simply absent here.
+  fakeSession.oauth = { discord: { codeVerifier: 'verifier', state: 'state-123' } }
   const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
   const context = { params: Promise.resolve({ provider: 'github' }) }
 
   const response = await GET(request, context)
 
-  expect(fakeSession.oauth).toBeUndefined()
+  // The in-flight discord transaction must survive an unrelated, refused
+  // github callback — refusing one provider must not clear another's slot.
+  expect(fakeSession.oauth).toEqual({ discord: { codeVerifier: 'verifier', state: 'state-123' } })
   expect(fakeSession.github).toBeUndefined()
   expect(fakeSession.pending).toBeUndefined()
   const location = response.headers.get('location')

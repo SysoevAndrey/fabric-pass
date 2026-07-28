@@ -58,6 +58,11 @@ button,
   color: var(--muted);
 }
 
+.pending {
+  color: #a15c00;
+  font-weight: 600;
+}
+
 .error {
   padding: 0.75rem;
   border: 1px solid #c33;

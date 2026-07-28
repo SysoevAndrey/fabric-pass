@@ -7,14 +7,26 @@ import type { SaveResult } from './form-schema'
 interface Props {
   githubLogin: string
   telegramLabel: string | null
+  /** True when the shown Telegram link exists only in this session, not yet in the saved row. */
+  telegramUnsaved: boolean
   discordLabel: string | null
+  /** True when the shown Discord link exists only in this session, not yet in the saved row. */
+  discordUnsaved: boolean
   defaults: { firstName: string; lastName: string; email: string; company: string }
   error?: string
 }
 
 const initial: SaveResult = { ok: false }
 
-export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defaults, error }: Props) {
+export function ContributorForm({
+  githubLogin,
+  telegramLabel,
+  telegramUnsaved,
+  discordLabel,
+  discordUnsaved,
+  defaults,
+  error,
+}: Props) {
   const [result, formAction, pending] = useActionState(save, initial)
 
   if (result.ok) {
@@ -47,12 +59,20 @@ export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defa
 
       <p>
         {telegramLabel ? (
-          <span className="linked">Telegram: {telegramLabel} · </span>
+          <span className="linked">
+            Telegram: {telegramLabel}
+            {telegramUnsaved ? <span className="pending"> — not yet saved, press Save to record it</span> : null} ·{' '}
+          </span>
         ) : null}
         <a className="link-button" href="/auth/telegram">
           {telegramLabel ? 'Re-link Telegram' : 'Link Telegram'}
         </a>
-        {discordLabel ? <span className="linked">Discord: {discordLabel} · </span> : null}
+        {discordLabel ? (
+          <span className="linked">
+            Discord: {discordLabel}
+            {discordUnsaved ? <span className="pending"> — not yet saved, press Save to record it</span> : null} ·{' '}
+          </span>
+        ) : null}
         <a className="link-button" href="/auth/discord">
           {discordLabel ? 'Re-link Discord' : 'Link Discord'}
         </a>

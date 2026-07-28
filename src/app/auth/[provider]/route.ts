@@ -14,7 +14,10 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   const { url, codeVerifier, state } = await provider.authRequest(redirectUri, variant)
 
   const session = await getSession()
-  session.oauth = { provider: name, codeVerifier, state, variant }
+  // Keyed by provider, so starting this flow leaves any other provider's
+  // in-flight transaction (e.g. Discord started before Telegram finished)
+  // untouched — only this provider's own slot is replaced.
+  session.oauth = { ...session.oauth, [name]: { codeVerifier, state, variant } }
   await session.save()
 
   return NextResponse.redirect(url)
