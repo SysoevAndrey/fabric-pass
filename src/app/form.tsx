@@ -46,7 +46,7 @@ export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defa
       {/* No submit button: every field autosaves on its own, so this isn't a
           form that gets submitted — it's grouped markup for its labels. */}
       <form onSubmit={(e) => e.preventDefault()}>
-        <AutosaveField id="name" field="name" label="Name" placeholder="e.g. John Dow" defaultValue={defaults.name} />
+        <AutosaveField id="name" field="name" label="Name" placeholder="e.g. John Doe" defaultValue={defaults.name} />
         <AutosaveField id="email" field="email" label="Email" type="email" defaultValue={defaults.email} />
         <CompanyField defaultValue={defaults.company} />
       </form>

@@ -12,6 +12,7 @@ const { fakeSession, persisted } = vi.hoisted(() => ({
   persisted: {
     calls: [] as { githubId: string; field: string; value: string | undefined }[],
     shouldThrow: false,
+    shouldThrowNotFound: false,
   },
 }))
 
@@ -24,6 +25,7 @@ vi.mock('@/lib/contributors', async () => {
   return {
     ...actual,
     saveField: async (githubId: string, field: string, value: string | undefined) => {
+      if (persisted.shouldThrowNotFound) throw new actual.ContributorNotFoundError(githubId)
       if (persisted.shouldThrow) throw new Error('connection refused')
       persisted.calls.push({ githubId, field, value })
     },
@@ -36,6 +38,7 @@ beforeEach(() => {
   fakeSession.github = { id: '1001', login: 'octocat' }
   persisted.calls = []
   persisted.shouldThrow = false
+  persisted.shouldThrowNotFound = false
 })
 
 test('refuses to save when nobody is signed in', async () => {
@@ -76,4 +79,27 @@ test('a database outage is reported without leaking the underlying error', async
 
   expect(result.ok).toBe(false)
   expect(result.message).toBe('Could not save right now. Please try again in a moment.')
+})
+
+// This action is a `'use server'` endpoint: `field` arrives as a plain
+// string over the wire, not the compile-time `DetailField` it's typed as on
+// the client. An arbitrary field name must be refused here, before it ever
+// reaches the query that persists it.
+test('a field name outside the closed set is refused and never reaches the database', async () => {
+  const result = await saveField('is_admin', 'true')
+
+  expect(result.ok).toBe(false)
+  expect(persisted.calls).toEqual([])
+})
+
+// A stale session cookie naming a contributor row that's since been deleted
+// can never be fixed by retrying the same save — only signing in again can —
+// so this must read differently from the generic "try again" message above.
+test('a session naming a contributor row that no longer exists is told to sign in again, not to retry', async () => {
+  persisted.shouldThrowNotFound = true
+
+  const result = await saveField('name', 'Ada Lovelace')
+
+  expect(result.ok).toBe(false)
+  expect(result.message).toMatch(/sign in/i)
 })

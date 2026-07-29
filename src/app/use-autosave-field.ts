@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { saveField } from '@/app/actions'
+import { SaveSequence } from '@/app/save-sequence'
 import type { DetailField } from '@/lib/contributors'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -23,14 +24,22 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
   const [message, setMessage] = useState<string>()
   const lastSaved = useRef(initialValue)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Two overlapping saves for this field can resolve in either order — a
+  // fast request issued second can land before a slow one issued first — so
+  // whether a response is still current is judged by issue order, not
+  // arrival order. Without this, "Saved" could label a value the database
+  // doesn't actually hold: the one feedback this no-button design has.
+  const sequence = useRef(new SaveSequence()).current
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
   function flush(next: string) {
     clearTimeout(timer.current)
     if (next === lastSaved.current) return
+    const seq = sequence.issue()
     setStatus('saving')
     saveField(field, next).then((result) => {
+      if (!sequence.isCurrent(seq)) return
       if (result.ok) {
         lastSaved.current = next
         setStatus('saved')

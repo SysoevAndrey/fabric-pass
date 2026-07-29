@@ -1,7 +1,7 @@
 import { inspect } from 'node:util'
 import { NextResponse } from 'next/server'
 import { env } from '@/lib/env'
-import { AccountAlreadyLinkedError, ensureContributor, linkProvider } from '@/lib/contributors'
+import { AccountAlreadyLinkedError, ContributorNotFoundError, ensureContributor, linkProvider } from '@/lib/contributors'
 import { isProviderName, providers } from '@/lib/providers'
 import { getSession } from '@/lib/session'
 import { withNotice } from '@/app/auth/notice'
@@ -21,6 +21,27 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   // — it is left alone, not cleared, since it may yet complete.
   if (!transaction) {
     return NextResponse.redirect(withNotice(home, 'expired'))
+  }
+
+  // Discord and Telegram links are only reachable from the signed-in state,
+  // and the transaction that started one records which GitHub identity was
+  // signed in at that moment (see session.ts). If the session's identity is
+  // no longer that one by the time this callback lands — e.g. someone signs
+  // in as a different GitHub account in the same browser before finishing
+  // this link — completing it would write the callback's identity into
+  // whichever row happens to be signed in *now*, not the one that started
+  // it. Refused before the token exchange even runs: a transaction that
+  // fails this check has nothing legitimate to exchange a code for either.
+  // A missing session.github is left to the existing check further down,
+  // which refuses it as `expired` rather than `identity-changed` — there is
+  // no "different identity" to name when there is no identity at all.
+  if (name !== 'github' && session.github && session.github.id !== transaction.githubId) {
+    console.warn(
+      `${name} callback: session identity changed mid-flow (started as ${transaction.githubId}, now ${session.github.id})`,
+    )
+    session.oauth = { ...session.oauth, [name]: undefined }
+    await session.save()
+    return NextResponse.redirect(withNotice(home, 'identity-changed', name))
   }
 
   const redirectUri = `${env.APP_URL}/auth/${name}/callback`
@@ -82,7 +103,9 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   // Telegram and Discord can only be reached from the signed-in state — the
   // page offers their link buttons only once session.github is set — so the
   // row this writes to already exists. A missing session.github here means
-  // the cookie was lost mid-flow; there is nothing to link to.
+  // the cookie was lost mid-flow, with nothing to link to; the identity-bound
+  // transaction check above has already ruled out the case where one *is*
+  // present but belongs to someone else.
   if (!session.github) {
     await session.save()
     return NextResponse.redirect(withNotice(home, 'expired'))
@@ -95,6 +118,9 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     } catch (error) {
       await session.save()
       if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
+      // The session cookie names a row that's gone — nothing about retrying
+      // this same link can ever succeed, only signing in again can.
+      if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(home, 'reauth-required'))
       console.error('discord callback: failed to save the link:', error)
       return NextResponse.redirect(withNotice(home, 'link-failed', name))
     }
@@ -117,6 +143,7 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   } catch (error) {
     await session.save()
     if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
+    if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(home, 'reauth-required'))
     console.error('telegram callback: failed to save the link:', error)
     return NextResponse.redirect(withNotice(home, 'link-failed', name))
   }

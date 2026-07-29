@@ -18,12 +18,37 @@ export interface Contributor {
 }
 
 /** The three fields a contributor types, saved one at a time as they autosave. */
-export type DetailField = 'name' | 'email' | 'company'
+export const DETAIL_FIELDS = ['name', 'email', 'company'] as const
+export type DetailField = (typeof DETAIL_FIELDS)[number]
+
+/**
+ * The real boundary check for `DetailField`: `saveField` (here and the
+ * `'use server'` action wrapping it in app/actions.ts) is reachable as a
+ * plain HTTP endpoint, where `DetailField` is erased to `string` before this
+ * function ever sees it. Compile-time typing alone would let an arbitrary
+ * field name through to the query below.
+ */
+export function isDetailField(value: string): value is DetailField {
+  return (DETAIL_FIELDS as readonly string[]).includes(value)
+}
 
 export class AccountAlreadyLinkedError extends Error {
   constructor(readonly provider: 'telegram' | 'discord') {
     super(`This ${provider} account is already linked to another contributor.`)
     this.name = 'AccountAlreadyLinkedError'
+  }
+}
+
+/**
+ * Thrown when a github id names no contributor row — distinct from a
+ * transient database error so callers can tell the two apart: a stale
+ * session cookie outliving its row can never be fixed by retrying, only by
+ * signing in again, while a connection blip is worth retrying as-is.
+ */
+export class ContributorNotFoundError extends Error {
+  constructor(readonly githubId: string) {
+    super(`no contributor row for github id ${githubId}`)
+    this.name = 'ContributorNotFoundError'
   }
 }
 
@@ -127,7 +152,7 @@ export async function linkProvider(
     if (violation.code === '23505') throw new AccountAlreadyLinkedError(provider)
     throw error
   }
-  if (result.rowCount === 0) throw new Error(`linkProvider: no contributor row for github id ${githubId}`)
+  if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
 }
 
 /**
@@ -138,10 +163,15 @@ export async function linkProvider(
  * never blocks a finished name from persisting.
  */
 export async function saveField(githubId: string, field: DetailField, value: string | undefined): Promise<void> {
+  // `field` is typed `DetailField` for every in-repo caller, but this is the
+  // one place the column name reaches a query string, so the closed set is
+  // re-checked here too rather than trusting the type alone (see
+  // isDetailField's doc comment).
+  if (!isDetailField(field)) throw new Error(`saveField: not a recognized field: ${field}`)
   const column = { name: 'name', email: 'email', company: 'company' }[field]
   const result = await pool.query(`UPDATE contributors SET ${column} = $2, updated_at = now() WHERE github_id = $1`, [
     githubId,
     value ?? null,
   ])
-  if (result.rowCount === 0) throw new Error(`saveField: no contributor row for github id ${githubId}`)
+  if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
 }

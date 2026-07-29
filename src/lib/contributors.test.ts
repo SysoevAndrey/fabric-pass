@@ -1,5 +1,12 @@
 import { afterAll, beforeEach, expect, test } from 'vitest'
-import { AccountAlreadyLinkedError, ensureContributor, findByGithubId, linkProvider, saveField } from './contributors.ts'
+import {
+  AccountAlreadyLinkedError,
+  ContributorNotFoundError,
+  ensureContributor,
+  findByGithubId,
+  linkProvider,
+  saveField,
+} from './contributors.ts'
 import { pool } from './db.ts'
 
 beforeEach(async () => {
@@ -89,6 +96,11 @@ test('linkProvider fails loud when the github id names no row', async () => {
   await expect(linkProvider('999999', 'discord', { providerId: '1', username: 'x' })).rejects.toThrow(
     /no contributor row/,
   )
+  // Distinct from a transient error: callers use this to tell a contributor
+  // to sign in again rather than to retry a save that can never succeed.
+  await expect(linkProvider('999999', 'discord', { providerId: '1', username: 'x' })).rejects.toBeInstanceOf(
+    ContributorNotFoundError,
+  )
 })
 
 test('saveField persists each typed field independently, including clearing it back to empty', async () => {
@@ -113,4 +125,16 @@ test('saveField persists each typed field independently, including clearing it b
 
 test('saveField fails loud when the github id names no row', async () => {
   await expect(saveField('999999', 'name', 'Ada')).rejects.toThrow(/no contributor row/)
+  await expect(saveField('999999', 'name', 'Ada')).rejects.toBeInstanceOf(ContributorNotFoundError)
+})
+
+// `field` is typed `DetailField` here, but that's compile-time only — this
+// is the query-building layer itself, so an unrecognized value is checked
+// explicitly rather than trusted to become a harmless column name.
+test('saveField rejects a field name outside the closed set rather than building a query around it', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  // @ts-expect-error — exercising the runtime guard for a value the type
+  // system would otherwise rule out.
+  await expect(saveField('1001', 'is_admin', 'true')).rejects.toThrow(/not a recognized field/)
 })

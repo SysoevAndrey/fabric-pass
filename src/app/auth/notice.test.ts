@@ -21,3 +21,19 @@ test('withNotice round-trips through noticeMessage', () => {
     'That discord account is already linked to another contributor.',
   )
 })
+
+test('an identity-changed notice names the provider that was being linked', () => {
+  expect(noticeMessage('identity-changed', 'discord')).toBe(
+    'You signed in as a different GitHub account while linking discord. Please start the discord link again.',
+  )
+})
+
+test('an identity-changed notice with no provider still reads sensibly', () => {
+  expect(noticeMessage('identity-changed', undefined)).toBe(
+    'You signed in as a different GitHub account partway through. Please try again.',
+  )
+})
+
+test('a reauth-required notice tells the person to sign in again, not to retry', () => {
+  expect(noticeMessage('reauth-required', undefined)).toMatch(/sign in/i)
+})

@@ -115,7 +115,40 @@ test('starting provider B while provider A is still in flight lets A still compl
 
   // Telegram's still in-flight transaction must have survived Discord's
   // callback consuming its own slot.
-  expect(fakeSession.oauth?.telegram).toEqual({ codeVerifier: 'telegram-verifier', state: 'telegram-state' })
+  expect(fakeSession.oauth?.telegram).toEqual({
+    codeVerifier: 'telegram-verifier',
+    state: 'telegram-state',
+    variant: undefined,
+    githubId: '1001',
+  })
+  expect(fakeSession.oauth?.discord).toBeUndefined()
+})
+
+// Reproduces the other failure mode a shared-slot session enables: sign in as
+// A, start a Discord link, then sign in as B in the same browser before
+// Discord's callback lands. Each provider's transaction survives the second
+// sign-in (it's keyed independently, same as above) — but it must not be
+// completable under B's identity just because B is who happens to be signed
+// in when the callback arrives.
+test('completing a link after a different github identity has signed in over it is refused, not linked to the new identity', async () => {
+  await startGET(new Request('http://localhost:3000/auth/discord'), {
+    params: Promise.resolve({ provider: 'discord' }),
+  })
+
+  // A different GitHub account signs in, in the same browser, before
+  // Discord's callback lands.
+  fakeSession.github = { id: '2002', login: 'someone-else' }
+
+  const response = await callbackGET(
+    new Request('http://localhost:3000/auth/discord/callback?code=abc&state=discord-state'),
+    { params: Promise.resolve({ provider: 'discord' }) },
+  )
+
+  const location = response.headers.get('location')
+  expect(location).toContain('notice=identity-changed')
+  expect(location).toContain('provider=discord')
+  expect(contributorsState.linkCalls).toEqual([])
+  // The stale transaction must not be left around for a further retry.
   expect(fakeSession.oauth?.discord).toBeUndefined()
 })
 

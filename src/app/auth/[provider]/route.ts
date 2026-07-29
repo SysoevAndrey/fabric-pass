@@ -16,8 +16,11 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   const session = await getSession()
   // Keyed by provider, so starting this flow leaves any other provider's
   // in-flight transaction (e.g. Discord started before Telegram finished)
-  // untouched — only this provider's own slot is replaced.
-  session.oauth = { ...session.oauth, [name]: { codeVerifier, state, variant } }
+  // untouched — only this provider's own slot is replaced. `githubId` records
+  // whoever is signed in right now, if anyone, so the callback can refuse to
+  // complete this transaction under a different identity later (see
+  // session.ts's OAuthTransaction and the callback route).
+  session.oauth = { ...session.oauth, [name]: { codeVerifier, state, variant, githubId: session.github?.id } }
   await session.save()
 
   return NextResponse.redirect(url)

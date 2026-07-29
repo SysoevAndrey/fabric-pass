@@ -8,6 +8,17 @@ export interface OAuthTransaction {
   codeVerifier: string
   state: string
   variant?: 'phone'
+  /**
+   * The GitHub identity that was signed in when this transaction started —
+   * absent for the github flow itself, which has none yet to record. Discord
+   * and Telegram links are reachable only from the signed-in state, so the
+   * callback binds each transaction to this id and refuses to complete it
+   * under a different one: without this, a link started as one contributor
+   * but completed after a different one signs in (same browser, mid-flow)
+   * would write into whichever row happens to be signed in when the
+   * provider's callback lands, not the one that started the link.
+   */
+  githubId?: string
 }
 
 export interface SessionData {

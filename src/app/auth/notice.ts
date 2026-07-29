@@ -11,11 +11,22 @@ import type { ProviderName } from '@/lib/providers/types'
  * The code is a fixed, closed set chosen only by callback/route.ts — never
  * free text — so nothing reaches page.tsx from the URL except a lookup key.
  */
-export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact' | 'already-linked'
+export type NoticeCode =
+  | 'expired'
+  | 'link-failed'
+  | 'telegram-no-contact'
+  | 'already-linked'
+  | 'identity-changed'
+  | 'reauth-required'
 
 function isNoticeCode(value: string): value is NoticeCode {
   return (
-    value === 'expired' || value === 'link-failed' || value === 'telegram-no-contact' || value === 'already-linked'
+    value === 'expired' ||
+    value === 'link-failed' ||
+    value === 'telegram-no-contact' ||
+    value === 'already-linked' ||
+    value === 'identity-changed' ||
+    value === 'reauth-required'
   )
 }
 
@@ -56,5 +67,18 @@ export function noticeMessage(
       return provider
         ? `That ${provider} account is already linked to another contributor.`
         : 'That account is already linked to another contributor.'
+    case 'identity-changed':
+      // Discord/Telegram transactions are bound to the GitHub identity that
+      // started them (see session.ts). A mismatch here means someone signed
+      // in as a different GitHub account in the same browser before this
+      // callback landed — retrying under the account that's signed in now
+      // works fine, it just has to be started over.
+      return provider
+        ? `You signed in as a different GitHub account while linking ${provider}. Please start the ${provider} link again.`
+        : 'You signed in as a different GitHub account partway through. Please try again.'
+    case 'reauth-required':
+      // The session cookie named a contributor row that no longer exists —
+      // retrying the same action can never succeed, only signing in again can.
+      return 'Your session no longer matches a saved contributor. Please sign in with GitHub again.'
   }
 }
