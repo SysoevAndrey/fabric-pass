@@ -19,7 +19,7 @@ interface PageProps {
 function SignInPrompt({ message }: { message?: string }) {
   return (
     <>
-      <h2>Contributor registry</h2>
+      <h2>Fabric Pass</h2>
       <SafetyNotice />
       <p>Sign in with GitHub to add or update your entry.</p>
       {message ? <p className="error">{message}</p> : null}

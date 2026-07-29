@@ -1,6 +1,6 @@
-# Contributor Registry
+# Fabric Pass
 
-A directory of an open-source project's contributors, collected through a single link. A contributor signs in with GitHub, which creates their one row immediately, keyed by GitHub account; from there, linking Telegram and/or Discord and filling in a short profile each autosave as they happen, with no separate save step. Returning and signing in again loads the existing row for correction.
+Part of [Constructor Fabric](https://constructorfabric.org). Fabric Pass is a directory of an open-source project's contributors, collected through a single link. A contributor signs in with GitHub, which creates their one row immediately, keyed by GitHub account; from there, linking Telegram and/or Discord and filling in a short profile each autosave as they happen, with no separate save step. Returning and signing in again loads the existing row for correction.
 
 The registry stores identity only: each linked provider's numeric ID (which never changes) and its current username — or, for a Telegram account with no username, a phone number given with consent. It stores no avatars, no provider-supplied names or emails, and no access or refresh tokens. There is no admin UI; the data is read directly from Postgres (see [Reading the data](#reading-the-data)).
 

@@ -16,7 +16,7 @@ interface Props {
 export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defaults, error }: Props) {
   return (
     <>
-      <h2>Contributor registry</h2>
+      <h2>Fabric Pass</h2>
       <SafetyNotice />
       <p>
         Signed in as <strong>@{githubLogin}</strong>

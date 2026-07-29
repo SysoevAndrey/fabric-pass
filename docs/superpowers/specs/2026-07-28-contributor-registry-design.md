@@ -1,4 +1,4 @@
-# Contributor Registry — Design
+# Fabric Pass — Design
 
 **Date:** 2026-07-28
 **Status:** Approved, ready for implementation planning

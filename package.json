@@ -1,5 +1,5 @@
 {
-  "name": "contributor-registry",
+  "name": "fabric-pass",
   "private": true,
   "type": "module",
   "scripts": {
