@@ -6,14 +6,14 @@ The registry stores identity only: each linked provider's numeric ID (which neve
 
 ## Data collected
 
-The `contributors` table (`migrations/001_contributors.sql`):
+The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`):
 
 | Column(s) | Notes |
 |---|---|
 | `github_id`, `github_login` | GitHub's numeric user ID (the record key, unique) and current login |
 | `telegram_id`, `telegram_username`, `telegram_phone` | Telegram's numeric ID (unique); current `@username`, or a phone number when the account has none |
 | `discord_id`, `discord_username` | Discord's snowflake ID (unique) and current username |
-| `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; `company` is optional |
+| `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; all three are optional — a blank value clears the column |
 | `created_at`, `updated_at` | Set automatically |
 
 ## Local setup

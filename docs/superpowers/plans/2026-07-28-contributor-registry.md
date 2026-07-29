@@ -1,5 +1,7 @@
 # Contributor Registry Implementation Plan
 
+> **Historical record.** This plan documents the original v1 build (first/last name fields, a single Save button, NOT NULL schema columns) as it was executed, task by task and commit by commit. It has not been updated for the later autosave rewrite and no longer describes current behavior — for that, see the [design spec](../specs/2026-07-28-contributor-registry-design.md) and the project [README](../../../README.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A web form where an open-source contributor signs in with GitHub, optionally links Telegram and Discord, and records their name, email, and company as one row in Postgres.
