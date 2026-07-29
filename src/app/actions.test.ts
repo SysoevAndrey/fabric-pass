@@ -79,6 +79,9 @@ test('a database outage is reported without leaking the underlying error', async
 
   expect(result.ok).toBe(false)
   expect(result.message).toBe('Could not save right now. Please try again in a moment.')
+  // reauthRequired is specific to a stale session naming a deleted row — a
+  // generic outage must not trigger the "sign in again" link.
+  expect(result.reauthRequired).toBeUndefined()
 })
 
 // This action is a `'use server'` endpoint: `field` arrives as a plain
@@ -102,4 +105,26 @@ test('a session naming a contributor row that no longer exists is told to sign i
 
   expect(result.ok).toBe(false)
   expect(result.message).toMatch(/sign in/i)
+  // The client's only way to act on this from inside the page — see
+  // README's "session outlives its row" — is this flag.
+  expect(result.reauthRequired).toBe(true)
+})
+
+// The defect this guards: "zatsepin.gmail.com" mid-typing showed the same
+// red error it would on blur. `phase` is threaded through from the client
+// (see use-autosave-field.ts) so the two read differently.
+test('an incomplete email is guidance while still typing, and never reaches the database', async () => {
+  const result = await saveField('email', 'zatsepin.gmail.com', 'typing')
+
+  expect(result.ok).toBe(false)
+  expect(result.guidance).toBe(true)
+  expect(persisted.calls).toEqual([])
+})
+
+test('the same incomplete email is a real error once the field has been left, defaulting to final', async () => {
+  const result = await saveField('email', 'zatsepin.gmail.com')
+
+  expect(result.ok).toBe(false)
+  expect(result.guidance).toBeUndefined()
+  expect(persisted.calls).toEqual([])
 })

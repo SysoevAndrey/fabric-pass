@@ -6,6 +6,13 @@ export interface FieldValidation {
   /** The value to persist. Absent (rather than an empty string) clears the column. */
   value?: string
   message?: string
+  /**
+   * Set when this rejection is informational rather than an error — an email
+   * that doesn't parse yet while the field still has focus. Never set
+   * together with `ok: true`; a guidance message still means "do not persist
+   * this value," same as any other rejection.
+   */
+  guidance?: boolean
 }
 
 /**
@@ -18,12 +25,17 @@ export interface FieldValidation {
  * Name and company accept anything, trimmed — blank means "not filled in
  * yet" rather than an error, since a half-filled row is an accepted state
  * now that there is no Save button to gate on. Email is the one field
- * checked for shape: saving a string that merely looks like it's mid-typing
- * is fine, but a value the contributor considers finished (on blur, or after
- * they pause) that doesn't look like an email is a typo worth catching
- * rather than silently keeping.
+ * checked for shape, and the only one `phase` affects: a string that doesn't
+ * parse yet is never persisted either way, but while the field still has
+ * focus ('typing' — a debounced autosave firing mid-entry, see
+ * use-autosave-field.ts) that is normal, expected progress, not a mistake —
+ * "zatsepin.gmail.com" while still typing shouldn't read as a scolding red
+ * error before the "@" has even been typed. Once focus leaves ('final' — on
+ * blur, or an explicit commit), the same non-parsing value is the contributor
+ * saying they're done, and a typo is worth catching rather than silently
+ * discarding.
  */
-export function validateField(field: string, raw: string): FieldValidation {
+export function validateField(field: string, raw: string, phase: 'typing' | 'final' = 'final'): FieldValidation {
   if (!isDetailField(field)) return { ok: false, message: 'Unknown field' }
 
   const trimmed = raw.trim()
@@ -31,6 +43,10 @@ export function validateField(field: string, raw: string): FieldValidation {
 
   if (trimmed === '') return { ok: true, value: undefined }
   const parsed = z.email().safeParse(trimmed)
-  if (!parsed.success) return { ok: false, message: 'That does not look like an email address' }
-  return { ok: true, value: parsed.data }
+  if (parsed.success) return { ok: true, value: parsed.data }
+
+  if (phase === 'typing') {
+    return { ok: false, guidance: true, message: 'You entered an incomplete email address, please continue typing…' }
+  }
+  return { ok: false, message: 'That does not look like an email address' }
 }

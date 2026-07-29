@@ -5,7 +5,7 @@ import { saveField } from '@/app/actions'
 import { SaveQueue } from '@/app/save-queue'
 import type { DetailField } from '@/lib/contributors'
 
-export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'guidance'
 
 /** Long enough to not fire on every keystroke, short enough that "as they are
  * filled in" still feels immediate. */
@@ -20,6 +20,7 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
   const [value, setValue] = useState(initialValue)
   const [status, setStatus] = useState<AutosaveStatus>('idle')
   const [message, setMessage] = useState<string>()
+  const [reauthRequired, setReauthRequired] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // One queue per field instance (each field gets its own hook call, so its
   // own queue) serializes this field's saves: only one is ever in flight at
@@ -28,19 +29,30 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
   // earlier one and the database ends up holding the earlier value while
   // "Saved" — the one feedback this no-button design has — claims otherwise.
   const queue = useRef(new SaveQueue(initialValue)).current
+  // Tracks which phase the *currently pending* value was requested under
+  // (see flush's `phase` param): when a save settles and hands the queue
+  // straight to a newer value (SaveQueue.settle's return), that chained send
+  // needs the phase of whichever flush call queued it, not the phase of the
+  // save that just finished. Every flush call — whether it sends right away
+  // or ends up queued as pending — updates this, so it always reflects the
+  // most recent one.
+  const phaseRef = useRef<'typing' | 'final'>('final')
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  function send(next: string) {
+  function send(next: string, phase: 'typing' | 'final') {
     setStatus('saving')
-    saveField(field, next).then((result) => {
+    saveField(field, next, phase).then((result) => {
       if (!result.ok) {
-        setStatus('error')
+        setStatus(result.guidance ? 'guidance' : 'error')
         setMessage(result.message)
+        setReauthRequired(Boolean(result.reauthRequired))
+      } else {
+        setReauthRequired(false)
       }
       const pending = queue.settle(next, result.ok)
       if (pending !== undefined) {
-        send(pending)
+        send(pending, phaseRef.current)
       } else if (result.ok) {
         setStatus('saved')
         setMessage(undefined)
@@ -48,26 +60,27 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
     })
   }
 
-  function flush(next: string) {
+  function flush(next: string, phase: 'typing' | 'final') {
     clearTimeout(timer.current)
-    if (queue.request(next)) send(next)
+    phaseRef.current = phase
+    if (queue.request(next)) send(next, phase)
   }
 
   function onChange(next: string) {
     setValue(next)
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => flush(next), DEBOUNCE_MS)
+    timer.current = setTimeout(() => flush(next, 'typing'), DEBOUNCE_MS)
   }
 
   function onBlur() {
-    flush(value)
+    flush(value, 'final')
   }
 
   /** Sets and saves immediately, bypassing the debounce. */
   function commit(next: string) {
     setValue(next)
-    flush(next)
+    flush(next, 'final')
   }
 
-  return { value, status, message, onChange, onBlur, commit }
+  return { value, status, message, reauthRequired, onChange, onBlur, commit }
 }

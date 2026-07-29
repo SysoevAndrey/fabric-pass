@@ -19,6 +19,16 @@ export type NoticeCode =
   | 'identity-changed'
   | 'reauth-required'
 
+/**
+ * The one message shown for a session that outlives its row — from the
+ * OAuth-callback notice below (`reauth-required`, hit when a Discord/Telegram
+ * link callback lands against an already-deleted row) and, identically, from
+ * `saveField` when an autosave hits the same condition mid-visit (see
+ * app/actions.ts). One underlying cause gets one copy of the wording, not two
+ * that could drift apart.
+ */
+export const REAUTH_REQUIRED_MESSAGE = 'Your session no longer matches a saved contributor. Please sign in with GitHub again.'
+
 function isNoticeCode(value: string): value is NoticeCode {
   return (
     value === 'expired' ||
@@ -79,6 +89,6 @@ export function noticeMessage(
     case 'reauth-required':
       // The session cookie named a contributor row that no longer exists —
       // retrying the same action can never succeed, only signing in again can.
-      return 'Your session no longer matches a saved contributor. Please sign in with GitHub again.'
+      return REAUTH_REQUIRED_MESSAGE
   }
 }

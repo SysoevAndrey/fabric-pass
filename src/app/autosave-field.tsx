@@ -6,12 +6,40 @@ import type { DetailField } from '@/lib/contributors'
 
 /** The only feedback a contributor gets that a keystroke was actually kept —
  * there is no Save button any more, so this is where "was that stored?" gets
- * answered. */
-function AutosaveStatusLabel({ status, message }: { status: AutosaveStatus; message?: string }) {
-  const text = status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? (message ?? 'Could not save') : ''
+ * answered. `guidance` reads the same greyed-out, unhurried style as 'idle'
+ * and 'saving' (never the red of 'error', never mistakable for 'saved') —
+ * it's mid-typing progress, not a mistake. `reauthRequired` adds a link
+ * straight back into GitHub sign-in right next to the error that caused it,
+ * rather than leaving the contributor on a page with no way out (see
+ * README's "session outlives its row"). */
+function AutosaveStatusLabel({
+  status,
+  message,
+  reauthRequired,
+}: {
+  status: AutosaveStatus
+  message?: string
+  reauthRequired?: boolean
+}) {
+  const text =
+    status === 'saving'
+      ? 'Saving…'
+      : status === 'saved'
+        ? 'Saved'
+        : status === 'guidance'
+          ? (message ?? '')
+          : status === 'error'
+            ? (message ?? 'Could not save')
+            : ''
   return (
     <span className={`autosave-status ${status}`} aria-live="polite">
       {text}
+      {reauthRequired ? (
+        <>
+          {' '}
+          <a href="/auth/github">Sign in again</a>
+        </>
+      ) : null}
     </span>
   )
 }
@@ -26,7 +54,7 @@ interface FieldProps {
 }
 
 export function AutosaveField({ id, field, label, type = 'text', placeholder, defaultValue }: FieldProps) {
-  const { value, status, message, onChange, onBlur } = useAutosaveField(field, defaultValue)
+  const { value, status, message, reauthRequired, onChange, onBlur } = useAutosaveField(field, defaultValue)
 
   return (
     <>
@@ -40,7 +68,7 @@ export function AutosaveField({ id, field, label, type = 'text', placeholder, de
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />
-      <AutosaveStatusLabel status={status} message={message} />
+      <AutosaveStatusLabel status={status} message={message} reauthRequired={reauthRequired} />
     </>
   )
 }
@@ -52,7 +80,7 @@ export function AutosaveField({ id, field, label, type = 'text', placeholder, de
  * changes how the value reaches the database, not this field's shape.
  */
 export function CompanyField({ defaultValue }: { defaultValue: string }) {
-  const { value, status, message, onChange, onBlur, commit } = useAutosaveField('company', defaultValue)
+  const { value, status, message, reauthRequired, onChange, onBlur, commit } = useAutosaveField('company', defaultValue)
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -91,7 +119,7 @@ export function CompanyField({ defaultValue }: { defaultValue: string }) {
         <option value="Acronis" />
         <option value="Virtuozzo" />
       </datalist>
-      <AutosaveStatusLabel status={status} message={message} />
+      <AutosaveStatusLabel status={status} message={message} reauthRequired={reauthRequired} />
     </>
   )
 }

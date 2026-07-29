@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { noticeMessage, withNotice } from './notice.ts'
+import { noticeMessage, REAUTH_REQUIRED_MESSAGE, withNotice } from './notice.ts'
 
 test('an already-linked notice names the provider that conflicted', () => {
   expect(noticeMessage('already-linked', 'telegram')).toBe(
@@ -36,4 +36,11 @@ test('an identity-changed notice with no provider still reads sensibly', () => {
 
 test('a reauth-required notice tells the person to sign in again, not to retry', () => {
   expect(noticeMessage('reauth-required', undefined)).toMatch(/sign in/i)
+})
+
+// app/actions.ts's saveField surfaces this exact same condition mid-visit
+// (a stale session naming a deleted row) — one message, shared, rather than
+// a second copy of the wording that could drift from this one.
+test('the reauth-required notice is the shared message constant', () => {
+  expect(noticeMessage('reauth-required', undefined)).toBe(REAUTH_REQUIRED_MESSAGE)
 })
