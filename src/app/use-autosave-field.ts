@@ -28,15 +28,10 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
   // order. Without this, a fast later request can land before a slow
   // earlier one and the database ends up holding the earlier value while
   // "Saved" — the one feedback this no-button design has — claims otherwise.
-  const queue = useRef(new SaveQueue(initialValue)).current
-  // Tracks which phase the *currently pending* value was requested under
-  // (see flush's `phase` param): when a save settles and hands the queue
-  // straight to a newer value (SaveQueue.settle's return), that chained send
-  // needs the phase of whichever flush call queued it, not the phase of the
-  // save that just finished. Every flush call — whether it sends right away
-  // or ends up queued as pending — updates this, so it always reflects the
-  // most recent one.
-  const phaseRef = useRef<'typing' | 'final'>('final')
+  // The queue carries each value's phase alongside it (SaveQueue.settle
+  // returns the pair together), so a chained send always re-sends with the
+  // phase its value was actually queued under.
+  const queue = useRef(new SaveQueue<'typing' | 'final'>(initialValue)).current
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
@@ -52,7 +47,7 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
       }
       const pending = queue.settle(next, result.ok)
       if (pending !== undefined) {
-        send(pending, phaseRef.current)
+        send(pending.value, pending.phase)
       } else if (result.ok) {
         setStatus('saved')
         setMessage(undefined)
@@ -62,8 +57,7 @@ export function useAutosaveField(field: DetailField, initialValue: string) {
 
   function flush(next: string, phase: 'typing' | 'final') {
     clearTimeout(timer.current)
-    phaseRef.current = phase
-    if (queue.request(next)) send(next, phase)
+    if (queue.request(next, phase)) send(next, phase)
   }
 
   function onChange(next: string) {
