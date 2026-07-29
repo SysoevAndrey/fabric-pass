@@ -1,6 +1,7 @@
 import { inspect } from 'node:util'
 import { NextResponse } from 'next/server'
 import { env } from '@/lib/env'
+import { AccountAlreadyLinkedError, ensureContributor, linkProvider } from '@/lib/contributors'
 import { isProviderName, providers } from '@/lib/providers'
 import { getSession } from '@/lib/session'
 import { withNotice } from '@/app/auth/notice'
@@ -62,22 +63,41 @@ export async function GET(request: Request, context: { params: Promise<{ provide
       await session.save()
       return NextResponse.redirect(withNotice(home, 'link-failed', name))
     }
-    // A pending Telegram/Discord link belongs to whichever GitHub identity
-    // was in the session when the link was made. Signing in as a *different*
-    // GitHub account in the same browser must not carry it over — or saving
-    // would write a stranger's link into this identity's row, and the
-    // telegram_id/discord_id unique constraint would then block the
-    // rightful owner from ever linking their own account.
-    if (session.github && session.github.id !== identity.providerId) {
-      session.pending = undefined
+
+    // Autosave starts here: the row exists from this moment, before the
+    // contributor has typed or linked anything else.
+    try {
+      await ensureContributor(identity.providerId, identity.username)
+    } catch (error) {
+      console.error('github callback: failed to create/update the contributor row:', error)
+      await session.save()
+      return NextResponse.redirect(withNotice(home, 'link-failed', name))
     }
+
     session.github = { id: identity.providerId, login: identity.username }
     await session.save()
     return NextResponse.redirect(home)
   }
 
+  // Telegram and Discord can only be reached from the signed-in state — the
+  // page offers their link buttons only once session.github is set — so the
+  // row this writes to already exists. A missing session.github here means
+  // the cookie was lost mid-flow; there is nothing to link to.
+  if (!session.github) {
+    await session.save()
+    return NextResponse.redirect(withNotice(home, 'expired'))
+  }
+  const githubId = session.github.id
+
   if (name === 'discord') {
-    session.pending = { ...session.pending, discord: identity }
+    try {
+      await linkProvider(githubId, 'discord', identity)
+    } catch (error) {
+      await session.save()
+      if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
+      console.error('discord callback: failed to save the link:', error)
+      return NextResponse.redirect(withNotice(home, 'link-failed', name))
+    }
     await session.save()
     return NextResponse.redirect(home)
   }
@@ -92,7 +112,14 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     return NextResponse.redirect(withNotice(home, 'telegram-no-contact'))
   }
 
-  session.pending = { ...session.pending, telegram: outcome.identity }
+  try {
+    await linkProvider(githubId, 'telegram', outcome.identity)
+  } catch (error) {
+    await session.save()
+    if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
+    console.error('telegram callback: failed to save the link:', error)
+    return NextResponse.redirect(withNotice(home, 'link-failed', name))
+  }
   await session.save()
   return NextResponse.redirect(home)
 }

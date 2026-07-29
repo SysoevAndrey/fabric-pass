@@ -4,8 +4,10 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // flow before finishing the first must not destroy the first's PKCE
 // transaction. This test drives both route handlers — the authorization
 // start route and the callback route — against one shared in-memory session,
-// the same seam the existing github-guard test uses for the callback alone.
-const { fakeSession, authRequestResult, callbackResult } = vi.hoisted(() => ({
+// the same seam the github-guard test uses for the callback alone. Discord's
+// link now writes straight to Postgres via @/lib/contributors's linkProvider
+// instead of the session's old `pending` field, so that call is a double too.
+const { fakeSession, authRequestResult, callbackResult, contributorsState } = vi.hoisted(() => ({
   fakeSession: {
     oauth: undefined as
       | Partial<
@@ -13,7 +15,6 @@ const { fakeSession, authRequestResult, callbackResult } = vi.hoisted(() => ({
         >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
-    pending: undefined as { telegram?: unknown; discord?: unknown } | undefined,
     save: async () => {},
   },
   // Each provider gets a distinguishable codeVerifier/state pair, so a test
@@ -26,11 +27,24 @@ const { fakeSession, authRequestResult, callbackResult } = vi.hoisted(() => ({
   callbackResult: {
     discord: { providerId: 'discord-id-1', username: 'discordfan' },
   },
+  contributorsState: {
+    linkCalls: [] as { githubId: string; provider: string; identity: unknown }[],
+  },
 }))
 
 vi.mock('@/lib/session', () => ({
   getSession: async () => fakeSession,
 }))
+
+vi.mock('@/lib/contributors', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/contributors')>('@/lib/contributors')
+  return {
+    ...actual,
+    linkProvider: async (githubId: string, provider: string, identity: unknown) => {
+      contributorsState.linkCalls.push({ githubId, provider, identity })
+    },
+  }
+})
 
 vi.mock('@/lib/providers', () => ({
   isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
@@ -64,8 +78,11 @@ const { GET: callbackGET } = await import('@/app/auth/[provider]/callback/route'
 
 beforeEach(() => {
   fakeSession.oauth = undefined
-  fakeSession.github = undefined
-  fakeSession.pending = undefined
+  // Discord and Telegram links are only reachable once signed in — the page
+  // only offers their buttons in the signed-in state — so this reproduction
+  // starts from an already-signed-in session, same as the real flow would.
+  fakeSession.github = { id: '1001', login: 'octocat' }
+  contributorsState.linkCalls = []
 })
 
 test('starting provider B while provider A is still in flight lets A still complete', async () => {
@@ -92,7 +109,9 @@ test('starting provider B while provider A is still in flight lets A still compl
 
   const location = response.headers.get('location')
   expect(location).not.toContain('notice=expired')
-  expect(fakeSession.pending).toEqual({ discord: { providerId: 'discord-id-1', username: 'discordfan' } })
+  expect(contributorsState.linkCalls).toEqual([
+    { githubId: '1001', provider: 'discord', identity: { providerId: 'discord-id-1', username: 'discordfan' } },
+  ])
 
   // Telegram's still in-flight transaction must have survived Discord's
   // callback consuming its own slot.
@@ -109,6 +128,5 @@ test('a callback naming a provider with no transaction at all is still refused a
 
   const location = response.headers.get('location')
   expect(location).toContain('notice=expired')
-  expect(fakeSession.github).toBeUndefined()
-  expect(fakeSession.pending).toBeUndefined()
+  expect(contributorsState.linkCalls).toEqual([])
 })

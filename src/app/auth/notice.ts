@@ -11,10 +11,12 @@ import type { ProviderName } from '@/lib/providers/types'
  * The code is a fixed, closed set chosen only by callback/route.ts — never
  * free text — so nothing reaches page.tsx from the URL except a lookup key.
  */
-export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact'
+export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact' | 'already-linked'
 
 function isNoticeCode(value: string): value is NoticeCode {
-  return value === 'expired' || value === 'link-failed' || value === 'telegram-no-contact'
+  return (
+    value === 'expired' || value === 'link-failed' || value === 'telegram-no-contact' || value === 'already-linked'
+  )
 }
 
 /** Builds the redirect target that carries a one-shot notice to `page.tsx`. */
@@ -46,5 +48,13 @@ export function noticeMessage(
       return provider ? `Linking ${provider} did not complete. Please try again.` : undefined
     case 'telegram-no-contact':
       return 'Your Telegram account has no username, and no phone number was shared, so it could not be linked.'
+    case 'already-linked':
+      // Links now persist the instant a callback returns, rather than at a
+      // form submit, so a unique-constraint conflict from lib/contributors's
+      // linkProvider has no form action to surface through — this is its
+      // only path to the contributor.
+      return provider
+        ? `That ${provider} account is already linked to another contributor.`
+        : 'That account is already linked to another contributor.'
   }
 }

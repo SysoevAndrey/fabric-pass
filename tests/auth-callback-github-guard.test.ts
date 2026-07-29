@@ -1,11 +1,13 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
 // The callback route is a Next.js GET handler: it reads cookies via
-// getSession() and calls out to a real provider over the network via
-// providers[name].callback(). Neither is available in a unit test, so both
-// are replaced with in-memory doubles — this is the seam that makes the
-// username guard testable without a live request or a live GitHub call.
-const { fakeSession, githubCallbackResult } = vi.hoisted(() => ({
+// getSession(), calls out to a real provider over the network via
+// providers[name].callback(), and now also writes straight to Postgres via
+// @/lib/contributors — the piece that makes sign-in create a row the same
+// instant it sets the session. All three are replaced with in-memory
+// doubles, the seam that makes these guards testable without a live request,
+// a live GitHub call, or a live database.
+const { fakeSession, githubCallbackResult, discordCallbackResult, contributorsState } = vi.hoisted(() => ({
   fakeSession: {
     oauth: undefined as
       | Partial<
@@ -13,18 +15,37 @@ const { fakeSession, githubCallbackResult } = vi.hoisted(() => ({
         >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
-    pending: undefined as { telegram?: unknown; discord?: unknown } | undefined,
     save: async () => {},
   },
   // Mutable so individual tests can make the mocked github callback return a
-  // full identity (for the identity-switch test) instead of the no-username
+  // full identity (for the row-creation tests) instead of the no-username
   // shape the guard test needs — set back to the default in beforeEach.
   githubCallbackResult: { current: { providerId: '583231' } as { providerId: string; username?: string } },
+  discordCallbackResult: { current: { providerId: 'discord-id-1', username: 'discordfan' } },
+  contributorsState: {
+    ensureCalls: [] as { githubId: string; githubLogin: string }[],
+    ensureShouldThrow: false,
+  },
 }))
 
 vi.mock('@/lib/session', () => ({
   getSession: async () => fakeSession,
 }))
+
+vi.mock('@/lib/contributors', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/contributors')>('@/lib/contributors')
+  return {
+    ...actual,
+    ensureContributor: async (githubId: string, githubLogin: string) => {
+      if (contributorsState.ensureShouldThrow) throw new Error('connection refused')
+      contributorsState.ensureCalls.push({ githubId, githubLogin })
+      return { id: '1', githubId, githubLogin, createdAt: new Date(), updatedAt: new Date() }
+    },
+    linkProvider: async () => {
+      throw new Error('not used in this test — no test here exercises a completed link')
+    },
+  }
+})
 
 vi.mock('@/lib/providers', () => ({
   isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
@@ -41,9 +62,7 @@ vi.mock('@/lib/providers', () => ({
       authRequest: async () => {
         throw new Error('not used in this test')
       },
-      callback: async () => {
-        throw new Error('not used in this test')
-      },
+      callback: async () => discordCallbackResult.current,
     },
     telegram: {
       name: 'telegram',
@@ -62,13 +81,15 @@ const { GET } = await import('@/app/auth/[provider]/callback/route')
 beforeEach(() => {
   fakeSession.oauth = { github: { codeVerifier: 'verifier', state: 'state-123' } }
   fakeSession.github = undefined
-  fakeSession.pending = undefined
   // No username — the exact shape the "no username" guard test needs. The
-  // identity-switch test below overrides this to a full identity.
+  // row-creation tests below override this to a full identity.
   githubCallbackResult.current = { providerId: '583231' }
+  discordCallbackResult.current = { providerId: 'discord-id-1', username: 'discordfan' }
+  contributorsState.ensureCalls = []
+  contributorsState.ensureShouldThrow = false
 })
 
-test('a github identity with no username is refused, not written to the session', async () => {
+test('a github identity with no username is refused, not written to the session, and no row is created', async () => {
   const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
   const context = { params: Promise.resolve({ provider: 'github' }) }
 
@@ -79,6 +100,7 @@ test('a github identity with no username is refused, not written to the session'
   // provider failure already is — not written into a `string`-typed field,
   // and surfaced as the same one-shot notice a provider callback error gets.
   expect(fakeSession.github).toBeUndefined()
+  expect(contributorsState.ensureCalls).toEqual([])
   const location = response.headers.get('location')
   expect(location).toContain('notice=link-failed')
   expect(location).toContain('provider=github')
@@ -88,7 +110,7 @@ test('a github identity with no username is refused, not written to the session'
 // no session.oauth (a stale tab, a replay) and a transaction that names a
 // different provider (an attacker or a mixed-up multi-tab flow) must both be
 // refused before the callback ever calls out to the provider or touches
-// session.github/session.pending.
+// session.github or the contributor row.
 
 test('a callback with no stored transaction at all is refused as expired', async () => {
   fakeSession.oauth = undefined
@@ -99,37 +121,9 @@ test('a callback with no stored transaction at all is refused as expired', async
 
   expect(fakeSession.oauth).toBeUndefined()
   expect(fakeSession.github).toBeUndefined()
-  expect(fakeSession.pending).toBeUndefined()
+  expect(contributorsState.ensureCalls).toEqual([])
   const location = response.headers.get('location')
   expect(location).toContain('notice=expired')
-})
-
-test('signing in as a different github identity clears a pending link from the previous one', async () => {
-  fakeSession.github = { id: 'old-id-111', login: 'old-login' }
-  fakeSession.pending = { telegram: { providerId: '999', username: 'stranger' } }
-  githubCallbackResult.current = { providerId: 'new-id-222', username: 'new-login' }
-
-  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
-  const context = { params: Promise.resolve({ provider: 'github' }) }
-
-  await GET(request, context)
-
-  expect(fakeSession.github).toEqual({ id: 'new-id-222', login: 'new-login' })
-  expect(fakeSession.pending).toBeUndefined()
-})
-
-test('signing back in as the same github identity leaves a pending link untouched', async () => {
-  fakeSession.github = { id: 'same-id-333', login: 'same-login' }
-  fakeSession.pending = { telegram: { providerId: '999', username: 'ada' } }
-  // Same providerId as session.github.id — not a switch.
-  githubCallbackResult.current = { providerId: 'same-id-333', username: 'same-login' }
-
-  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
-  const context = { params: Promise.resolve({ provider: 'github' }) }
-
-  await GET(request, context)
-
-  expect(fakeSession.pending).toEqual({ telegram: { providerId: '999', username: 'ada' } })
 })
 
 test('a callback for a provider with no transaction of its own is refused as expired, even while another provider has one in flight', async () => {
@@ -146,7 +140,52 @@ test('a callback for a provider with no transaction of its own is refused as exp
   // github callback — refusing one provider must not clear another's slot.
   expect(fakeSession.oauth).toEqual({ discord: { codeVerifier: 'verifier', state: 'state-123' } })
   expect(fakeSession.github).toBeUndefined()
-  expect(fakeSession.pending).toBeUndefined()
+  const location = response.headers.get('location')
+  expect(location).toContain('notice=expired')
+})
+
+// Autosave begins at GitHub sign-in: the row must exist from that instant,
+// not from a later save.
+
+test('a successful github sign-in creates the contributor row the same instant it sets the session', async () => {
+  githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  await GET(request, context)
+
+  expect(fakeSession.github).toEqual({ id: '583231', login: 'octocat' })
+  expect(contributorsState.ensureCalls).toEqual([{ githubId: '583231', githubLogin: 'octocat' }])
+})
+
+test('a failure creating the row is refused the same way a provider error is, and the session is left signed out', async () => {
+  githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
+  contributorsState.ensureShouldThrow = true
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  const response = await GET(request, context)
+
+  expect(fakeSession.github).toBeUndefined()
+  const location = response.headers.get('location')
+  expect(location).toContain('notice=link-failed')
+  expect(location).toContain('provider=github')
+})
+
+// Telegram and Discord links are only reachable from the signed-in state —
+// the page offers their buttons only once session.github is set — so a
+// callback that arrives with no github identity in the session has nothing
+// to link to. This must be refused before linkProvider is ever called,
+// rather than writing to some row guessed at another way.
+
+test('a discord callback with no signed-in github identity is refused as expired rather than attempting to link', async () => {
+  fakeSession.oauth = { discord: { codeVerifier: 'verifier', state: 'state-123' } }
+  fakeSession.github = undefined
+  const request = new Request('http://localhost:3000/auth/discord/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'discord' }) }
+
+  const response = await GET(request, context)
+
   const location = response.headers.get('location')
   expect(location).toContain('notice=expired')
 })
