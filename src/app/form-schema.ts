@@ -1,54 +1,28 @@
 import { z } from 'zod'
+import type { DetailField } from '@/lib/contributors'
 
-export interface SubmittedValues {
-  firstName: string
-  lastName: string
-  email: string
-  company: string
-}
-
-export interface SaveResult {
+export interface FieldValidation {
   ok: boolean
+  /** The value to persist. Absent (rather than an empty string) clears the column. */
+  value?: string
   message?: string
-  /** What the contributor typed, present on every failed save so the form can re-seed from it. */
-  values?: SubmittedValues
-}
-
-const formSchema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required'),
-  lastName: z.string().trim().min(1, 'Last name is required'),
-  email: z.email('That does not look like an email address'),
-  company: z
-    .string()
-    .trim()
-    .transform((value) => (value === '' ? undefined : value))
-    .optional(),
-})
-
-export function parseForm(form: FormData): z.infer<typeof formSchema> {
-  return formSchema.parse({
-    firstName: form.get('firstName') ?? '',
-    lastName: form.get('lastName') ?? '',
-    email: typeof form.get('email') === 'string' ? (form.get('email') as string).trim() : '',
-    company: form.get('company') ?? '',
-  })
 }
 
 /**
- * What the contributor typed, unvalidated and untrimmed. Used to re-seed the
- * form as its new `defaultValue` after any failed save — React resets
- * uncontrolled fields to their current `defaultValue` once the action
- * settles, whether or not it resolved with a business-level success.
+ * Validates one autosaved field. Name and company accept anything, trimmed
+ * — blank means "not filled in yet" rather than an error, since a
+ * half-filled row is an accepted state now that there is no Save button to
+ * gate on. Email is the one field checked for shape: saving a string that
+ * merely looks like it's mid-typing is fine, but a value the contributor
+ * considers finished (on blur, or after they pause) that doesn't look like
+ * an email is a typo worth catching rather than silently keeping.
  */
-export function submittedValues(form: FormData): SubmittedValues {
-  const value = (key: string) => {
-    const raw = form.get(key)
-    return typeof raw === 'string' ? raw : ''
-  }
-  return {
-    firstName: value('firstName'),
-    lastName: value('lastName'),
-    email: value('email'),
-    company: value('company'),
-  }
+export function validateField(field: DetailField, raw: string): FieldValidation {
+  const trimmed = raw.trim()
+  if (field !== 'email') return { ok: true, value: trimmed || undefined }
+
+  if (trimmed === '') return { ok: true, value: undefined }
+  const parsed = z.email().safeParse(trimmed)
+  if (!parsed.success) return { ok: false, message: 'That does not look like an email address' }
+  return { ok: true, value: parsed.data }
 }

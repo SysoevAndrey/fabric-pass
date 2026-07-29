@@ -1,27 +1,19 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
-// save() is a server action: it reads the session via getSession() and talks
-// to Postgres via upsert(). Neither is available in a unit test, so both are
-// replaced with in-memory doubles — the same seam used in
-// tests/auth-callback-github-guard.test.ts for the callback route. There is
-// no findByGithubId double here: the save action no longer reads the row
-// before writing it (contributors.ts's upsert carries existing link columns
-// forward itself, via COALESCE).
-const { fakeSession, contributorsState } = vi.hoisted(() => ({
+// saveField() is a server action: it reads the session via getSession() and
+// writes via @/lib/contributors's saveField. Neither is available in a unit
+// test, so both are replaced with in-memory doubles.
+const { fakeSession, persisted } = vi.hoisted(() => ({
   fakeSession: {
     github: { id: '1001', login: 'octocat' } as { id: string; login: string } | undefined,
-    pending: undefined as
-      | { telegram?: { providerId: string; username?: string; phone?: string }; discord?: { providerId: string; username?: string } }
-      | undefined,
     save: async () => {},
   },
-  contributorsState: {
-    // Controls what the mocked upsert() does on the next call.
-    upsertOutcome: 'resolve' as 'resolve' | 'conflict-telegram' | 'conflict-discord' | 'db-error',
+  // Records every call the mocked DB layer receives, and can be told to throw.
+  persisted: {
+    calls: [] as { githubId: string; field: string; value: string | undefined }[],
+    shouldThrow: false,
   },
 }))
-
-vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
 vi.mock('@/lib/session', () => ({
   getSession: async () => fakeSession,
@@ -31,106 +23,57 @@ vi.mock('@/lib/contributors', async () => {
   const actual = await vi.importActual<typeof import('@/lib/contributors')>('@/lib/contributors')
   return {
     ...actual,
-    upsert: async () => {
-      if (contributorsState.upsertOutcome === 'conflict-telegram') throw new actual.AccountAlreadyLinkedError('telegram')
-      if (contributorsState.upsertOutcome === 'conflict-discord') throw new actual.AccountAlreadyLinkedError('discord')
-      if (contributorsState.upsertOutcome === 'db-error') throw new Error('connection refused')
-      return {
-        id: '1',
-        githubId: '1001',
-        githubLogin: 'octocat',
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        email: 'ada@example.com',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
+    saveField: async (githubId: string, field: string, value: string | undefined) => {
+      if (persisted.shouldThrow) throw new Error('connection refused')
+      persisted.calls.push({ githubId, field, value })
     },
   }
 })
 
-const { save } = await import('./actions.ts')
-
-function form(fields: Record<string, string>): FormData {
-  const data = new FormData()
-  for (const [key, value] of Object.entries(fields)) data.set(key, value)
-  return data
-}
+const { saveField } = await import('./actions.ts')
 
 beforeEach(() => {
   fakeSession.github = { id: '1001', login: 'octocat' }
-  fakeSession.pending = undefined
-  contributorsState.upsertOutcome = 'resolve'
+  persisted.calls = []
+  persisted.shouldThrow = false
 })
 
-// Finding 1: a failed save must hand back what the contributor typed, for
-// every failure kind, so the form can re-seed its (uncontrolled) fields
-// before React's post-action form reset lands on stale/blank defaults.
+test('refuses to save when nobody is signed in', async () => {
+  fakeSession.github = undefined
 
-test('a validation failure returns the submitted values', async () => {
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'not-an-email', company: 'Ada Co' })
+  const result = await saveField('name', 'Ada Lovelace')
 
-  const result = await save({ ok: false }, data)
+  expect(result).toEqual({ ok: false, message: 'Please sign in with GitHub first.' })
+  expect(persisted.calls).toEqual([])
+})
+
+test('a valid name is persisted for the signed-in contributor', async () => {
+  const result = await saveField('name', '  Ada Lovelace  ')
+
+  expect(result).toEqual({ ok: true })
+  expect(persisted.calls).toEqual([{ githubId: '1001', field: 'name', value: 'Ada Lovelace' }])
+})
+
+test('a malformed email is refused and never reaches the database', async () => {
+  const result = await saveField('email', 'not-an-email')
 
   expect(result.ok).toBe(false)
-  expect(result.values).toEqual({ firstName: 'Ada', lastName: 'Lovelace', email: 'not-an-email', company: 'Ada Co' })
+  expect(result.message).toMatch(/email/i)
+  expect(persisted.calls).toEqual([])
 })
 
-test('an already-linked conflict returns the submitted values', async () => {
-  contributorsState.upsertOutcome = 'conflict-telegram'
-  fakeSession.pending = { telegram: { providerId: '999', username: 'stranger' } }
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' })
+test('clearing a field to blank persists it as cleared', async () => {
+  const result = await saveField('company', '   ')
 
-  const result = await save({ ok: false }, data)
+  expect(result).toEqual({ ok: true })
+  expect(persisted.calls).toEqual([{ githubId: '1001', field: 'company', value: undefined }])
+})
+
+test('a database outage is reported without leaking the underlying error', async () => {
+  persisted.shouldThrow = true
+
+  const result = await saveField('name', 'Ada Lovelace')
 
   expect(result.ok).toBe(false)
-  expect(result.values).toEqual({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', company: '' })
-})
-
-test('a database outage returns the submitted values', async () => {
-  contributorsState.upsertOutcome = 'db-error'
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', company: 'Analytical Engines' })
-
-  const result = await save({ ok: false }, data)
-
-  expect(result.ok).toBe(false)
-  expect(result.values).toEqual({
-    firstName: 'Ada',
-    lastName: 'Lovelace',
-    email: 'ada@example.com',
-    company: 'Analytical Engines',
-  })
-})
-
-// Finding 2: an already-linked-elsewhere conflict must only clear the
-// provider that actually conflicted — any other pending link is untouched,
-// so the contributor doesn't lose an unrelated, valid link and isn't stuck
-// resubmitting a stranger's identity forever.
-
-test('a telegram conflict clears only telegram from pending, leaving discord untouched', async () => {
-  contributorsState.upsertOutcome = 'conflict-telegram'
-  fakeSession.pending = {
-    telegram: { providerId: '999', username: 'stranger' },
-    discord: { providerId: '555', username: 'ada-discord' },
-  }
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' })
-
-  await save({ ok: false }, data)
-
-  expect(fakeSession.pending?.telegram).toBeUndefined()
-  expect(fakeSession.pending?.discord).toEqual({ providerId: '555', username: 'ada-discord' })
-})
-
-test('a discord conflict clears only discord from pending, leaving telegram untouched', async () => {
-  contributorsState.upsertOutcome = 'conflict-discord'
-  fakeSession.pending = {
-    telegram: { providerId: '111', username: 'ada-telegram' },
-    discord: { providerId: '999', username: 'stranger' },
-  }
-  const data = form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' })
-
-  await save({ ok: false }, data)
-
-  expect(fakeSession.pending?.discord).toBeUndefined()
-  expect(fakeSession.pending?.telegram).toEqual({ providerId: '111', username: 'ada-telegram' })
+  expect(result.message).toBe('Could not save right now. Please try again in a moment.')
 })

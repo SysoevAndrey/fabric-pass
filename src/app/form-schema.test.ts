@@ -1,39 +1,32 @@
 import { expect, test } from 'vitest'
-import { parseForm } from './form-schema.ts'
+import { validateField } from './form-schema.ts'
 
-function form(fields: Record<string, string>): FormData {
-  const data = new FormData()
-  for (const [key, value] of Object.entries(fields)) data.set(key, value)
-  return data
-}
-
-test('accepts a complete form', () => {
-  const parsed = parseForm(
-    form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', company: 'Analytical Engines' }),
-  )
-  expect(parsed).toEqual({
-    firstName: 'Ada',
-    lastName: 'Lovelace',
-    email: 'ada@example.com',
-    company: 'Analytical Engines',
-  })
+test('a name is trimmed and accepted as-is', () => {
+  expect(validateField('name', '  Ada Lovelace  ')).toEqual({ ok: true, value: 'Ada Lovelace' })
 })
 
-test('treats a blank company as absent', () => {
-  const parsed = parseForm(form({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', company: '  ' }))
-  expect(parsed.company).toBeUndefined()
+test('a blank name clears the field rather than failing', () => {
+  expect(validateField('name', '   ')).toEqual({ ok: true, value: undefined })
 })
 
-test('rejects a malformed email', () => {
-  expect(() => parseForm(form({ firstName: 'Ada', lastName: 'Lovelace', email: 'not-an-email' }))).toThrow()
+test('a company is trimmed and accepted as-is', () => {
+  expect(validateField('company', '  Analytical Engines  ')).toEqual({ ok: true, value: 'Analytical Engines' })
 })
 
-test('rejects a missing first name', () => {
-  expect(() => parseForm(form({ lastName: 'Lovelace', email: 'ada@example.com' }))).toThrow()
+test('a blank company clears the field rather than failing', () => {
+  expect(validateField('company', '')).toEqual({ ok: true, value: undefined })
 })
 
-test('trims surrounding whitespace', () => {
-  const parsed = parseForm(form({ firstName: ' Ada ', lastName: ' Lovelace ', email: ' ada@example.com ' }))
-  expect(parsed.firstName).toBe('Ada')
-  expect(parsed.email).toBe('ada@example.com')
+test('a valid email is trimmed and accepted', () => {
+  expect(validateField('email', '  ada@example.com  ')).toEqual({ ok: true, value: 'ada@example.com' })
+})
+
+test('a blank email clears the field rather than failing', () => {
+  expect(validateField('email', '  ')).toEqual({ ok: true, value: undefined })
+})
+
+test('a malformed email is rejected rather than saved as typed', () => {
+  const result = validateField('email', 'not-an-email')
+  expect(result.ok).toBe(false)
+  expect(result.message).toMatch(/email/i)
 })

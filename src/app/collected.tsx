@@ -1,7 +1,31 @@
+/** A checkmark, not text, is the first thing a visitor sees in this section —
+ * "read as safe at a glance" means the shape of it has to say so before the
+ * words do. */
+function Tick() {
+  return (
+    <svg className="tick" viewBox="0 0 20 20" width={16} height={16} fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="currentColor" opacity="0.15" />
+      <path d="M5.5 10.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function Collected() {
   return (
     <section className="collected">
       <h3>What this records</h3>
+
+      <ul className="assurances">
+        <li>
+          <Tick /> No access, refresh, or ID tokens are ever stored
+        </li>
+        <li>
+          <Tick /> No avatars, and no names or email addresses read from a provider
+        </li>
+        <li>
+          <Tick /> GitHub is asked for no permissions at all — just the public profile any visitor can already see
+        </li>
+      </ul>
 
       <table>
         <thead>
@@ -17,9 +41,7 @@ export function Collected() {
               GitHub <span className="req">required</span>
             </td>
             <td>No scope at all — only your public profile, which any visitor can already read</td>
-            <td>
-              Your username and your numeric account id
-            </td>
+            <td>Your username and your numeric account id</td>
           </tr>
           <tr>
             <td>Telegram</td>
@@ -38,16 +60,14 @@ export function Collected() {
           <tr>
             <td>This form</td>
             <td>Nothing — you type it</td>
-            <td>First name, last name, email, and company if you give one</td>
+            <td>Name, email, and company if you give one</td>
           </tr>
         </tbody>
       </table>
 
       <p className="collected-never">
-        <strong>Nothing else is kept.</strong> No access tokens, no refresh tokens, no ID tokens, no avatars, and none of
-        the names or email addresses a provider offers alongside them — those are read and discarded. The numeric ids
-        are stored because usernames can be changed at any time, and without them a renamed account cannot be
-        recognised later.
+        The numeric ids above are stored because usernames can be changed at any time; without one, a renamed account
+        could not be recognised later.
       </p>
     </section>
   )
