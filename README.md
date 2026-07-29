@@ -6,15 +6,24 @@ The registry stores identity only: each linked provider's numeric ID (which neve
 
 ## Data collected
 
-The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`):
+The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql` and `migrations/003_telegram_id_as_text.sql`):
 
 | Column(s) | Notes |
 |---|---|
 | `github_id`, `github_login` | GitHub's numeric user ID (the record key, unique) and current login |
-| `telegram_id`, `telegram_username`, `telegram_phone` | Telegram's numeric ID (unique); current `@username`, or a phone number when the account has none |
+| `telegram_id`, `telegram_username`, `telegram_phone` | Telegram's ID (unique) — stored as text, since it isn't bounded to 64 bits the way a `bigint` is (`discord_id` below was already text for the same reason); current `@username`, or a phone number when the account has none |
 | `discord_id`, `discord_username` | Discord's snowflake ID (unique) and current username |
 | `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; all three are optional — a blank value clears the column |
 | `created_at`, `updated_at` | Set automatically |
+
+## Session outlives its row
+
+A signed-in session's cookie can name a `github_id` no longer in the table, if the row is gone by the time a page load or an autosave reaches it. Signing in with GitHub again is always the fix, since that recreates the row. Two places surface this:
+
+- Loading the page in that state shows the same signed-out view as someone who's never signed in, rather than a form with nothing behind it.
+- The row disappearing while the form is already open surfaces on the next autosave: the field shows a "Sign in again" link alongside the save's error, since retrying the same save can never succeed once the row is gone.
+
+Both read the same message, `REAUTH_REQUIRED_MESSAGE` in `src/app/auth/notice.ts`.
 
 ## Local setup
 

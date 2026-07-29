@@ -79,7 +79,7 @@ A single table, `contributors`:
 | `id` | uuid primary key | |
 | `github_id` | bigint unique not null | record key |
 | `github_login` | text not null | |
-| `telegram_id` | bigint unique | |
+| `telegram_id` | text unique | not bounded to 64 bits (unlike a `bigint`) — see `migrations/003_telegram_id_as_text.sql` |
 | `telegram_username` | text | |
 | `telegram_phone` | text | fallback when no username exists |
 | `discord_id` | text unique | snowflake, hence text |
