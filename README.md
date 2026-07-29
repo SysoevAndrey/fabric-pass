@@ -1,6 +1,6 @@
 # Contributor Registry
 
-A directory of an open-source project's contributors, collected through a single link. A contributor signs in with GitHub, optionally links Telegram and/or Discord, fills in a short profile, and saves — creating or updating their one row, keyed by GitHub account. Returning and signing in again loads the existing row for correction.
+A directory of an open-source project's contributors, collected through a single link. A contributor signs in with GitHub, which creates their one row immediately, keyed by GitHub account; from there, linking Telegram and/or Discord and filling in a short profile each autosave as they happen, with no separate save step. Returning and signing in again loads the existing row for correction.
 
 The registry stores identity only: each linked provider's numeric ID (which never changes) and its current username — or, for a Telegram account with no username, a phone number given with consent. It stores no avatars, no provider-supplied names or emails, and no access or refresh tokens. There is no admin UI; the data is read directly from Postgres (see [Reading the data](#reading-the-data)).
 
@@ -13,7 +13,7 @@ The `contributors` table (`migrations/001_contributors.sql`):
 | `github_id`, `github_login` | GitHub's numeric user ID (the record key, unique) and current login |
 | `telegram_id`, `telegram_username`, `telegram_phone` | Telegram's numeric ID (unique); current `@username`, or a phone number when the account has none |
 | `discord_id`, `discord_username` | Discord's snowflake ID (unique) and current username |
-| `first_name`, `last_name`, `email`, `company` | Entered directly in the form; `company` is optional |
+| `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; `company` is optional |
 | `created_at`, `updated_at` | Set automatically |
 
 ## Local setup
@@ -113,8 +113,10 @@ There is no admin UI. Query Postgres directly:
 
 ```bash
 psql "$DATABASE_URL" \
-  -c "SELECT github_login, telegram_username, telegram_phone, discord_username, email, company FROM contributors"
+  -c "SELECT github_login, name, telegram_username, telegram_phone, discord_username, email, company FROM contributors"
 ```
+
+A row exists from the moment someone signs in with GitHub, before they've typed anything, so `name` and `email` being null doesn't mean the row is broken — it means that contributor hasn't filled the form in yet, or signed in once and never came back. There's no column to tell those two cases apart directly; the reading convention is that **an entry counts as filled in when `name IS NOT NULL`**.
 
 ## Deployment
 

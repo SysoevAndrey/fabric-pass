@@ -7,9 +7,9 @@
 
 Collect a directory of the open-source project's contributors: who they are, and how to reach them across the three places the project lives — GitHub, Telegram, and Discord.
 
-A contributor opens a link, signs in with GitHub, optionally links Telegram and Discord, and fills in their name, email, and company. The result is one row per contributor:
+A contributor opens a link and signs in with GitHub, which creates their row immediately. From there they optionally link Telegram and Discord and fill in their name, email, and company — each one saving the instant it's done, with no separate submit step. The result is one row per contributor:
 
-`first_name`, `last_name`, `github`, `telegram`, `discord`, `email`, `company`
+`name`, `github`, `telegram`, `discord`, `email`, `company`
 
 ## Scope
 
@@ -60,15 +60,15 @@ Inside a provider file lives its `openid-client` configuration and the knowledge
 
 ### `lib/session.ts`
 
-A signed cookie holding the GitHub identity and any *pending* Telegram/Discord links. Nothing reaches the database until the form is submitted, so abandoned sign-ins leave no rows behind.
+A signed cookie holding the signed-in GitHub identity and any in-flight OAuth transaction. A GitHub sign-in creates the contributor's row immediately, and every provider link or typed field writes straight into that row the instant it resolves — so an abandoned sign-in still leaves a row behind, just an unfilled one. Each transaction records the GitHub identity that was signed in when it started, so a Telegram or Discord callback can refuse to complete under a different identity than the one that began it.
 
 ### `lib/contributors.ts`
 
-The only module containing SQL: one read, one upsert.
+The only module containing SQL: one read (`findByGithubId`), and three writes — `ensureContributor` (creates or touches the row at GitHub sign-in), `linkProvider` (writes one provider's identity as a unit at OAuth callback), and `saveField` (writes one typed field at a time).
 
 ### UI
 
-One page, three states — signed out (GitHub button), signed in (the form), submitted (confirmation with a way back to edit).
+One page, two states — signed out (GitHub button) and signed in (the autosaving form). Every field and link saves on its own the moment it resolves, so there is nothing to submit.
 
 ## Data model
 
@@ -84,9 +84,8 @@ A single table, `contributors`:
 | `telegram_phone` | text | fallback when no username exists |
 | `discord_id` | text unique | snowflake, hence text |
 | `discord_username` | text | |
-| `first_name` | text not null | from the form |
-| `last_name` | text not null | from the form |
-| `email` | text not null | from the form |
+| `name` | text | from the form |
+| `email` | text | from the form |
 | `company` | text | from the form |
 | `created_at` | timestamptz not null | |
 | `updated_at` | timestamptz not null | |
@@ -95,19 +94,21 @@ Both the numeric provider ID and the username are stored. Usernames on all three
 
 Unique constraints on `telegram_id` and `discord_id` prevent two contributors from claiming the same account.
 
+`name` and `email` are nullable: the row is created at GitHub sign-in, before either has been typed, so neither can be required at the database level. A contributor who never returns to fill the form in leaves a row with both null, indistinguishable at the schema level from one who's still mid-visit — see [Reading the data](../../../README.md#reading-the-data) for the convention that tells the two apart.
+
 ## Concurrency
 
-Writes are a single `INSERT ... ON CONFLICT (github_id) DO UPDATE`. There is no read-modify-write cycle, so concurrent submissions cannot race regardless of how many arrive at once. No transactions or locks are needed.
+Every write is a single statement targeting one row by `github_id` — `ensureContributor`'s `INSERT ... ON CONFLICT DO UPDATE` at sign-in, `linkProvider`'s `UPDATE` of one provider's whole identity at OAuth callback, `saveField`'s `UPDATE` of one column per autosaved field. None of them has a read-modify-write cycle, so concurrent writes cannot race regardless of how many arrive at once; the same row column ends up holding whichever write's statement lands last. No transactions or locks are needed.
 
 ## Flows
 
 ### First visit
 
-GitHub sign-in establishes the session. The form is empty; the Telegram and Discord link buttons are active. Links accumulate in the session cookie. Saving writes one row.
+GitHub sign-in creates the row and establishes the session. The form is empty; the Telegram and Discord link buttons are active. Each provider link writes into the row the instant its OAuth callback returns; each typed field autosaves into it as it's entered.
 
 ### Return visit
 
-GitHub sign-in finds the record by `github_id`. The form is pre-filled and linked accounts are shown, each re-linkable.
+GitHub sign-in finds the record by `github_id` and refreshes its `github_login`. The form is pre-filled and linked accounts are shown, each re-linkable.
 
 ### Telegram without a username
 
@@ -120,10 +121,12 @@ The first authorization requests `openid profile`. If no `preferred_username` co
 3. **Neither username nor phone consent** — the link is not recorded, and the reason is shown.
 4. **Account already linked to another contributor** — a clear refusal, not a 500.
 5. **Database unavailable** — 503, with form data preserved client-side.
+6. **GitHub identity changes mid-link** — a Telegram or Discord authorization started under one signed-in GitHub account is refused if a different account is signed in by the time its callback returns; the contributor restarts that provider's link under whichever account is signed in now.
+7. **Session outlives its row** — the session cookie names a `github_id` no longer in the table; the save is refused and the contributor is asked to sign in again.
 
 ## Testing
 
-- **Unit** — the upsert, cookie signing and verification, and the username-or-phone resolution.
+- **Unit** — the contributor writes, cookie signing and verification, and the username-or-phone resolution.
 - **Integration** — provider callbacks against a local fake authorization server.
 - **End-to-end** — one happy path with stubbed providers.
 
