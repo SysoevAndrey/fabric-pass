@@ -65,8 +65,11 @@ test('the name backfill combines first and last name, and leaves both-blank as N
        (4, 'both-blank', '', '', 'blank@example.com')`,
   )
 
+  // 003 (telegram_id -> text) is also pending from this pre-002 starting
+  // point and applies right behind 002 — irrelevant to what this test
+  // checks, but `migrate` returns every file it applied.
   const applied = await migrate(url)
-  expect(applied).toEqual(['002_contributor_name_and_nullable_fields.sql'])
+  expect(applied).toEqual(['002_contributor_name_and_nullable_fields.sql', '003_telegram_id_as_text.sql'])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
   const nameByLogin = Object.fromEntries(rows.map((r) => [r.github_login, r.name]))
@@ -74,4 +77,49 @@ test('the name backfill combines first and last name, and leaves both-blank as N
   expect(nameByLogin['first-only']).toBe('Grace')
   expect(nameByLogin['last-only']).toBe('Hopper')
   expect(nameByLogin['both-blank']).toBeNull()
+})
+
+// 003 is the fix for a real production failure: a Telegram id of
+// "12183332595470058690" (20 digits) was rejected as "out of range for type
+// bigint" on a callback that had already succeeded with Telegram. This
+// applies 001 and 002 by hand to get a pre-003 table with telegram_id still
+// bigint, seeds a value the way that schema required, then lets `migrate`
+// apply 003 on top and checks both that the existing value carried across and
+// that the column can now hold an id past bigint's range.
+test('the telegram_id migration carries an existing value across to text and accepts an id past bigint range', async () => {
+  const sql001 = await readFile(join(here, '001_contributors.sql'), 'utf8')
+  const sql002 = await readFile(join(here, '002_contributor_name_and_nullable_fields.sql'), 'utf8')
+  await pool.query(sql001)
+  await pool.query(sql002)
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+       filename   text PRIMARY KEY,
+       applied_at timestamptz NOT NULL DEFAULT now()
+     )`,
+  )
+  await pool.query(
+    `INSERT INTO schema_migrations (filename) VALUES
+       ('001_contributors.sql'), ('002_contributor_name_and_nullable_fields.sql')`,
+  )
+  await pool.query(`INSERT INTO contributors (github_id, github_login, telegram_id) VALUES (1, 'has-telegram', 555)`)
+
+  const applied = await migrate(url)
+  expect(applied).toEqual(['003_telegram_id_as_text.sql'])
+
+  const { rows: columnRows } = await pool.query(
+    `SELECT data_type FROM information_schema.columns WHERE table_name = 'contributors' AND column_name = 'telegram_id'`,
+  )
+  expect(columnRows[0].data_type).toBe('text')
+
+  const { rows: carriedRows } = await pool.query(
+    `SELECT telegram_id FROM contributors WHERE github_login = 'has-telegram'`,
+  )
+  expect(carriedRows[0].telegram_id).toBe('555')
+
+  const oversized = '12183332595470058690' // past bigint's ~9.2e18 max — the exact shape of id that overflowed in production
+  await pool.query(`UPDATE contributors SET telegram_id = $1 WHERE github_login = 'has-telegram'`, [oversized])
+  const { rows: oversizedRows } = await pool.query(
+    `SELECT telegram_id FROM contributors WHERE github_login = 'has-telegram'`,
+  )
+  expect(oversizedRows[0].telegram_id).toBe(oversized)
 })

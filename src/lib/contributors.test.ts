@@ -72,6 +72,21 @@ test('re-linking telegram to a username-bearing account clears a previously stor
   expect(found?.telegramPhone).toBeUndefined()
 })
 
+// The exact defect this exists to catch: Telegram's OIDC `sub` is a string,
+// not bounded by 64 bits, and production saw a real id 20 digits long — past
+// bigint's ~9.2e18 max — rejected as "out of range for type bigint" on a
+// callback that had already succeeded with Telegram (migrations/003 is the
+// fix; this exercises the app path on top of it).
+test('a telegram id larger than bigint can hold still links and reads back exactly', async () => {
+  await ensureContributor('1001', 'octocat')
+  const oversizedId = '12183332595470058690'
+
+  await linkProvider('1001', 'telegram', { providerId: oversizedId, username: 'ada-tg' })
+
+  const found = await findByGithubId('1001')
+  expect(found?.telegramId).toBe(oversizedId)
+})
+
 test('refuses a telegram account already linked to someone else', async () => {
   await ensureContributor('1001', 'octocat')
   await linkProvider('1001', 'telegram', { providerId: '555', username: 'ada' })
