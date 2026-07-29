@@ -18,14 +18,14 @@ test('the cookie is not marked secure over http, and httpOnly is on', () => {
 test('a session round-trips through sealing intact', async () => {
   const data: SessionData = {
     github: { id: '1001', login: 'octocat' },
-    pending: { telegram: { providerId: '555', username: 'ada' } },
+    oauth: { telegram: { codeVerifier: 'verifier-123', state: 'state-456' } },
   }
 
   const sealed = await sealData(data, { password: sessionOptions.password })
   const opened = await unsealData<SessionData>(sealed, { password: sessionOptions.password })
 
   expect(opened.github?.login).toBe('octocat')
-  expect(opened.pending?.telegram?.username).toBe('ada')
+  expect(opened.oauth?.telegram?.state).toBe('state-456')
 })
 
 test('the cookie leaks nothing without the password', async () => {

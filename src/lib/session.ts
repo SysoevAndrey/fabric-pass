@@ -1,7 +1,7 @@
 import { getIronSession, type IronSession, type SessionOptions } from 'iron-session'
 import { cookies } from 'next/headers'
 import { env } from '@/lib/env'
-import type { Identity, ProviderName } from '@/lib/providers/types'
+import type { ProviderName } from '@/lib/providers/types'
 
 /** One provider's in-flight authorization request. */
 export interface OAuthTransaction {
@@ -12,8 +12,6 @@ export interface OAuthTransaction {
 
 export interface SessionData {
   github?: { id: string; login: string }
-  /** Links made in this session, held here until the form is submitted. */
-  pending?: { telegram?: Identity; discord?: Identity }
   /**
    * In-flight authorization requests, keyed by provider. Each provider gets
    * its own slot so starting a second provider's flow (e.g. Discord while
