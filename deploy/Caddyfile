@@ -1,0 +1,9 @@
+pass.cfabric.org {
+	handle /deploy-hook* {
+		reverse_proxy webhook:9000
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
+}

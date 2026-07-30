@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: contributor_registry
+      POSTGRES_USER: fabric_pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Tuned down from Postgres's defaults, which assume a dedicated host —
+    # this droplet has 1GB RAM shared with the app, Caddy, and the webhook
+    # receiver, and the table this app writes is small by design.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=20
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    # Never publish this with `ports:` — Docker's own iptables rules can
+    # bypass ufw, so the only thing keeping Postgres off the public internet
+    # is that it's reachable exclusively over the compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fabric_pass -d contributor_registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/constructorfabric/fabric-pass:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://fabric_pass:${POSTGRES_PASSWORD}@postgres:5432/contributor_registry
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - webhook
+
+  webhook:
+    build: ./webhook
+    restart: unless-stopped
+    environment:
+      DEPLOY_WEBHOOK_SECRET: ${DEPLOY_WEBHOOK_SECRET}
+    # Docker-outside-of-Docker: this container drives the *host's* Docker
+    # daemon over the mounted socket, which is root-equivalent host access.
+    # That's what lets `pull`+`up -d` on the `app` service work from in here
+    # — it's also why DEPLOY_WEBHOOK_SECRET must never leak; anyone who can
+    # trigger this endpoint successfully can run arbitrary containers on the
+    # host.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-compose.yml:/deploy/docker-compose.yml:ro
+      - ./.env:/deploy/.env:ro
+    expose:
+      - "9000"
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
