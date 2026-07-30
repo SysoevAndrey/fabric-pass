@@ -162,7 +162,7 @@ main {
   overflow-wrap: break-word;
 }
 
-.user-menu-signout {
+.user-menu-item {
   display: block;
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
@@ -170,7 +170,7 @@ main {
   text-decoration: none;
 }
 
-.user-menu-signout:hover {
+.user-menu-item:hover {
   background: var(--panel);
 }
 
@@ -304,6 +304,15 @@ button,
   background: #4451dd;
 }
 
+/* Same compact treatment as .link-button.telegram/.discord, but with no
+   brand color of its own — there's no service this button represents,
+   just a plain action inside the email field's own .provider-field row. */
+.email-confirmation .link-button {
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+}
+
 /* Telegram/Discord's field: same border, radius, and full width as `input`
    above, so the two read as one consistent list of fields — the current
    value sits where typed text would, the action button where a clear
@@ -405,6 +414,6 @@ button,
   color: #1a7f37;
 }
 
-.email-status a {
-  color: inherit;
+.email-confirmation {
+  margin: 0.25rem 0 0.75rem;
 }

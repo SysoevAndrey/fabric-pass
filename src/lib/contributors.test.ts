@@ -358,7 +358,7 @@ test('a returning sign-in never re-confirms an email the contributor has since t
   expect((await findByGithubId('1001'))?.email).toBe('ada@example.com')
 })
 
-test('saving a typed email starts a pending confirmation, cleared from any previous one', async () => {
+test('saving a typed email clears any previous confirmation, without sending anything', async () => {
   await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com') // confirmed via github
 
   await saveField('1001', 'email', 'ada@example.com')
@@ -366,13 +366,14 @@ test('saving a typed email starts a pending confirmation, cleared from any previ
   const found = await findByGithubId('1001')
   expect(found?.email).toBe('ada@example.com')
   expect(found?.emailConfirmedAt).toBeUndefined()
-  expect(found?.emailConfirmationSentAt).toBeInstanceOf(Date)
-  expect(await confirmationToken('1001')).not.toBeNull()
+  expect(found?.emailConfirmationSentAt).toBeUndefined()
+  expect(await confirmationToken('1001')).toBeNull()
 })
 
-test('saving the same email again is a no-op — no fresh token, no re-triggered confirmation', async () => {
+test('saving the same email again is a no-op — an existing confirmation survives', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'email', 'ada@example.com')
+  await resendConfirmationEmail('1001')
   const tokenBefore = await confirmationToken('1001')
 
   await saveField('1001', 'email', 'ada@example.com')
@@ -396,6 +397,7 @@ test('clearing an email back to empty clears every confirmation field with it', 
 test('confirmEmail marks the email confirmed and consumes the token', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'email', 'ada@example.com')
+  await resendConfirmationEmail('1001')
   const token = await confirmationToken('1001')
 
   expect(await confirmEmail(token!)).toBe('confirmed')
@@ -412,6 +414,7 @@ test('confirmEmail reports an unrecognized token as invalid', async () => {
 test('confirmEmail reports an expired token as expired, and still consumes it', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'email', 'ada@example.com')
+  await resendConfirmationEmail('1001')
   const token = await confirmationToken('1001')
   // Backdate the send past the 24h TTL — the only way to exercise
   // expiration without waiting a real day.
@@ -425,6 +428,7 @@ test('confirmEmail reports an expired token as expired, and still consumes it', 
 test('resendConfirmationEmail issues a fresh token for a still-unconfirmed email', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'email', 'ada@example.com')
+  await resendConfirmationEmail('1001')
   const originalToken = await confirmationToken('1001')
 
   await resendConfirmationEmail('1001')

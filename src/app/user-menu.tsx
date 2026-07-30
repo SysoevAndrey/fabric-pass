@@ -44,7 +44,10 @@ export function UserMenu({ login, name }: { login: string; name: string | null }
           <p className="user-menu-name" role="menuitem">
             {displayName}
           </p>
-          <a className="user-menu-signout" href="/auth/sign-out" role="menuitem">
+          <a className="user-menu-item" href="/" role="menuitem">
+            Profile
+          </a>
+          <a className="user-menu-item" href="/auth/sign-out" role="menuitem">
             Sign Out
           </a>
         </div>

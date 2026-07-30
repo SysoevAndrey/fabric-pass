@@ -306,13 +306,16 @@ function randomConfirmationToken(): string {
 
 /**
  * `email` is the one typed field with side effects beyond its own column —
- * every save that actually changes the value starts (or clears) the
- * confirmation flow, since a contributor can type any address at all here,
- * unlike GitHub's own prefill (see ensureContributor), which the provider
- * has already verified. A save that repeats the address already on file is
- * a no-op on the confirmation fields — re-focusing and blurring the field
- * without changing it must not re-send an email or reset an already-earned
- * confirmation.
+ * every save that actually changes the value clears the confirmation flow,
+ * since a contributor can type any address at all here, unlike GitHub's own
+ * prefill (see ensureContributor), which the provider has already verified.
+ * A save that repeats the address already on file is a no-op on the
+ * confirmation fields — re-focusing and blurring the field without changing
+ * it must not reset an already-earned confirmation. Sending itself is a
+ * separate, deliberate action (see resendConfirmationEmail) triggered by the
+ * Send/Resend button — this never sends anything on its own, so a still-
+ * unconfirmed address left over from before a save just stays unsent until
+ * the contributor asks for it.
  */
 async function saveEmail(githubId: string, value: string | undefined): Promise<void> {
   const normalized = value || null
@@ -322,28 +325,14 @@ async function saveEmail(githubId: string, value: string | undefined): Promise<v
   if (current.rows.length === 0) throw new ContributorNotFoundError(githubId)
   if (current.rows[0].email === normalized) return
 
-  if (!normalized) {
-    const result = await pool.query(
-      `UPDATE contributors
-          SET email = NULL, email_confirmed_at = NULL, email_confirmation_token = NULL, email_confirmation_sent_at = NULL,
-              updated_at = now()
-        WHERE github_id = $1`,
-      [githubId],
-    )
-    if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
-    return
-  }
-
-  const token = randomConfirmationToken()
   const result = await pool.query(
     `UPDATE contributors
-        SET email = $2, email_confirmed_at = NULL, email_confirmation_token = $3, email_confirmation_sent_at = now(),
+        SET email = $2, email_confirmed_at = NULL, email_confirmation_token = NULL, email_confirmation_sent_at = NULL,
             updated_at = now()
       WHERE github_id = $1`,
-    [githubId, normalized, token],
+    [githubId, normalized],
   )
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
-  await sendConfirmationEmail(normalized, token)
 }
 
 /**
@@ -402,11 +391,14 @@ export async function confirmEmail(token: string): Promise<EmailConfirmationResu
 }
 
 /**
- * A fresh token and timestamp, and a fresh email — for an address that's
- * already confirmed, or for a contributor with no email on file at all,
- * this is a deliberate no-op: there's nothing to resend for either case,
- * and resending would otherwise let a stale "pending confirmation" UI state
- * silently re-arm an already-settled address.
+ * A fresh token and timestamp — the first send for an address that's never
+ * had one, or a resend for one already pending/expired; the two cases need
+ * no separate code path since generating a token and sending only ever
+ * depends on the current row, not on whether this has run before. For an
+ * address that's already confirmed, or for a contributor with no email on
+ * file at all, this is a deliberate no-op: there's nothing to send for
+ * either case, and sending would otherwise let a stale "pending
+ * confirmation" UI state silently re-arm an already-settled address.
  */
 export async function resendConfirmationEmail(githubId: string): Promise<void> {
   const contributor = await findByGithubId(githubId)

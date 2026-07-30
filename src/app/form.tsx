@@ -20,8 +20,12 @@ const EMAIL_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000
 /**
  * There's nothing this app's own UI can click to confirm an email — that has
  * to happen from the link sent to the address itself, since that's the
- * whole point of proving the contributor can read mail sent there. This is
- * only ever a status readout plus a way to ask for a fresh link.
+ * whole point of proving the contributor can read mail sent there. Sending
+ * is a deliberate click too, not automatic (see contributors.ts's
+ * saveEmail): this is a status readout plus a button — "Send" for an
+ * address that's never had one go out, "Resend" once it has — mirroring the
+ * Link/Re-link buttons below for Telegram and Discord. Hidden entirely once
+ * confirmed, since there's nothing left to do.
  */
 function EmailConfirmationStatus({
   email,
@@ -35,14 +39,20 @@ function EmailConfirmationStatus({
   if (!email) return null
   if (confirmedAt) return <p className="email-status confirmed">✓ Confirmed</p>
 
-  const expired = !sentAt || Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS
+  const expired = sentAt ? Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS : false
+  const statusText = !sentAt
+    ? 'Not confirmed yet.'
+    : expired
+      ? 'That confirmation link has expired.'
+      : `Check your inbox at ${email} and click the confirmation link we sent.`
+
   return (
-    <p className="email-status pending">
-      {expired
-        ? 'That confirmation link has expired.'
-        : `Check your inbox at ${email} and click the confirmation link we sent.`}{' '}
-      <a href="/auth/resend-confirmation">Resend confirmation email</a>
-    </p>
+    <div className="provider-field email-confirmation">
+      <span className="provider-value muted">{statusText}</span>
+      <a className="link-button" href="/auth/resend-confirmation">
+        {sentAt ? 'Resend confirmation email' : 'Send confirmation email'}
+      </a>
+    </div>
   )
 }
 
