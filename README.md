@@ -166,7 +166,7 @@ A contributor can type any email address at all into the form — unlike GitHub'
 
 Sending goes through [Resend](https://resend.com)'s HTTPS API (`src/lib/email.ts`), not SMTP — DigitalOcean blocks all outbound SMTP-family ports (25, 465, 587, and even the commonly-unblocked 2525) on this droplet, confirmed by direct connectivity testing, while HTTPS is unrestricted. Set `RESEND_API_KEY` and optionally `RESEND_FROM_ADDRESS` (see [Environment variables](#environment-variables)); with `RESEND_API_KEY` unset, a confirmation email is logged instead of sent, so the app still runs with no Resend key configured at all — this matters because these two are the only *optional* variables in the whole app (everything else fails the build if unset).
 
-Sending `from: no-reply@send.cfabric.org` uses a dedicated sending subdomain, `send.cfabric.org`, carrying Resend's own MX/SPF records — kept separate from the root domain's existing mail setup so neither conflicts with the other. DKIM lives at `resend._domainkey.cfabric.org`. All three were configured directly in Resend's dashboard against the domain already managed in Cloudflare.
+Sending `from: no-reply@cfabric.org` — the root domain, not a subdomain — since that's the domain actually verified in Resend's dashboard. A dedicated sending subdomain (`send.cfabric.org`) was tried first, but Resend rejects a send from any domain it hasn't verified, and only `cfabric.org` itself is currently set up there.
 
 ## Deployment
 

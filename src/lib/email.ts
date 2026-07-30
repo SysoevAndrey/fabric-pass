@@ -3,9 +3,10 @@ import { env } from '@/lib/env'
 // DigitalOcean blocks all outbound SMTP-family ports on this droplet (25,
 // 465, 587, and even the commonly-unblocked 2525), confirmed by direct
 // connectivity tests — so this sends over Resend's HTTPS API instead of SMTP.
-// `send.cfabric.org` is Resend's dedicated sending subdomain (its own
-// MX/SPF), kept separate from the root domain's existing mail setup.
-const FROM_ADDRESS = env.RESEND_FROM_ADDRESS ?? 'no-reply@send.cfabric.org'
+// Sends from the root domain, not a dedicated subdomain — Resend rejects a
+// send from a domain it hasn't verified, and only cfabric.org itself is
+// verified there currently.
+const FROM_ADDRESS = env.RESEND_FROM_ADDRESS ?? 'no-reply@cfabric.org'
 
 export const EMAIL_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000
 
