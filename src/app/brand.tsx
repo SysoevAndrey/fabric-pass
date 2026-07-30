@@ -12,15 +12,8 @@ export function Brand() {
         height={96}
       />
       <div className="brand-text">
-        <h1>Constructor Fabric</h1>
-        <p className="brand-tagline">
-          A unified fabric that automates the entire XaaS software development lifecycle from planning to building to
-          running services in prod
-        </p>
-        <p className="brand-links">
-          <a href="https://constructorfabric.org">constructorfabric.org</a>
-          <a href="mailto:contact@constructorfabric.org">contact@constructorfabric.org</a>
-        </p>
+        <h1>Constructor Fabric Pass</h1>
+        <p className="brand-tagline">Welcome to the Constructor Fabric contributors community.</p>
       </div>
     </header>
   )
