@@ -435,6 +435,14 @@ button,
   color: var(--muted);
 }
 
-.email-status.confirmed {
+/* Sits where the Confirm/Re-confirm button was, inside the same
+   .provider-field box — same padding/size so it lands in the same spot,
+   but plain text rather than a button, since confirming isn't an action
+   the contributor can take from here. */
+.email-confirmed-status {
+  padding: 0.4rem 0.85rem;
   color: #1a7f37;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }

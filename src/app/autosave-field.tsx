@@ -82,12 +82,13 @@ export function AutosaveField({ id, field, label, type = 'text', placeholder, de
  * bordered box as the input itself — the same field shape as the Telegram
  * and Discord links below (see globals.css's `.provider-field`), just with
  * an editable input on the left instead of a static value. Sending is a
- * deliberate click (see contributors.ts's saveEmail), never automatic, and
- * the button disappears once confirmed since there's nothing left to send.
+ * deliberate click (see contributors.ts's saveEmail), never automatic. Once
+ * confirmed, that same spot shows a plain "Confirmed" status instead — text,
+ * not a button, since there's nothing left to click.
  * `confirmedAt`/`sentAt` come from the server and don't update until the
- * page reloads — a save that changes the address won't flip this button's
- * label or the pending message below until then, consistent with the rest
- * of this page's confirmation status.
+ * page reloads — a save that changes the address won't flip this status or
+ * the pending message below until then, consistent with the rest of this
+ * page's confirmation status.
  */
 export function EmailField({
   id,
@@ -102,7 +103,6 @@ export function EmailField({
 }) {
   const { value, status, message, reauthRequired, onChange, onBlur } = useAutosaveField('email', defaultValue)
 
-  const showButton = Boolean(value) && !confirmedAt
   const expired = sentAt ? Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS : false
   const showPending = Boolean(sentAt) && !confirmedAt
 
@@ -111,7 +111,9 @@ export function EmailField({
       <label htmlFor={id}>Email</label>
       <div className="provider-field">
         <input id={id} name="email" type="email" value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
-        {showButton ? (
+        {confirmedAt ? (
+          <span className="email-confirmed-status">✓ Confirmed</span>
+        ) : value ? (
           <a className="link-button brand email" href="/auth/resend-confirmation">
             <EmailMark size={16} />
             {sentAt ? 'Re-confirm' : 'Confirm'}
@@ -126,7 +128,6 @@ export function EmailField({
             : `Check your inbox at ${value} and click the confirmation link we sent.`}
         </p>
       ) : null}
-      {confirmedAt ? <p className="email-status confirmed">✓ Confirmed</p> : null}
     </>
   )
 }

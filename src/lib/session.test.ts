@@ -15,6 +15,10 @@ test('the cookie is not marked secure over http, and httpOnly is on', () => {
   expect(sessionOptions.cookieOptions?.httpOnly).toBe(true)
 })
 
+test('the session expires in 5 days, not iron-session\'s 14-day default', () => {
+  expect(sessionOptions.ttl).toBe(5 * 24 * 60 * 60)
+})
+
 test('a session round-trips through sealing intact', async () => {
   const data: SessionData = {
     github: { id: '1001', login: 'octocat' },

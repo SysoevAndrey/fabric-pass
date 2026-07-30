@@ -33,9 +33,19 @@ export interface SessionData {
   oauth?: Partial<Record<ProviderName, OAuthTransaction>>
 }
 
+// Five days: long enough that an active contributor filling in their
+// profile over a few sessions doesn't get logged out mid-visit, short
+// enough to bound how long a stolen cookie stays useful. iron-session's own
+// default is 14 days, which reads as too long for a cookie that grants
+// write access to someone's contributor row with no second factor behind
+// it; this also sets the cookie's own max-age, since cookieOptions below
+// doesn't set one explicitly.
+const SESSION_TTL_SECONDS = 5 * 24 * 60 * 60
+
 export const sessionOptions: SessionOptions = {
   password: env.SESSION_PASSWORD,
   cookieName: 'contributor_registry_session',
+  ttl: SESSION_TTL_SECONDS,
   cookieOptions: {
     secure: env.APP_URL.startsWith('https://'),
     httpOnly: true,
