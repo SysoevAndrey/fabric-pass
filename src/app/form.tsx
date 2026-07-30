@@ -19,6 +19,7 @@ export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defa
       <p>
         Signed in as <strong>@{githubLogin}</strong>
       </p>
+      <p className="subtitle">Please share your contact details below so other community members can reach you.</p>
 
       {error ? <p className="error">{error}</p> : null}
 

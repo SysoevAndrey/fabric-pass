@@ -200,9 +200,14 @@ button,
 }
 
 /* The shared button rule adds top spacing meant for controls further down the
-   page; inside a row here it would push this button off the label's baseline. */
+   page; inside a row here it would push this button off the label's baseline.
+   A fixed width — wide enough for the longest label, "Re-link Telegram" —
+   keeps Link/Re-link and Telegram/Discord all the same size instead of each
+   hugging its own text. */
 .links .link-button {
   margin: 0;
+  width: 13rem;
+  justify-content: center;
 }
 
 .linked {
