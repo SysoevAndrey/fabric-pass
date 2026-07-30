@@ -1,8 +1,11 @@
 'use client'
 
 import { useRef } from 'react'
+import { EmailMark } from '@/app/marks'
 import { useAutosaveField, type AutosaveStatus } from '@/app/use-autosave-field'
 import type { DetailField } from '@/lib/contributors'
+
+const EMAIL_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000
 
 /** The only feedback a contributor gets that a keystroke was actually kept —
  * there is no Save button any more, so this is where "was that stored?" gets
@@ -69,6 +72,61 @@ export function AutosaveField({ id, field, label, type = 'text', placeholder, de
         onBlur={onBlur}
       />
       <AutosaveStatusLabel status={status} message={message} reauthRequired={reauthRequired} />
+    </>
+  )
+}
+
+/**
+ * Email autosaves like any other typed field, but also carries the
+ * confirmation flow: a Confirm/Re-confirm button lives inside the same
+ * bordered box as the input itself — the same field shape as the Telegram
+ * and Discord links below (see globals.css's `.provider-field`), just with
+ * an editable input on the left instead of a static value. Sending is a
+ * deliberate click (see contributors.ts's saveEmail), never automatic, and
+ * the button disappears once confirmed since there's nothing left to send.
+ * `confirmedAt`/`sentAt` come from the server and don't update until the
+ * page reloads — a save that changes the address won't flip this button's
+ * label or the pending message below until then, consistent with the rest
+ * of this page's confirmation status.
+ */
+export function EmailField({
+  id,
+  defaultValue,
+  confirmedAt,
+  sentAt,
+}: {
+  id: string
+  defaultValue: string
+  confirmedAt: Date | null
+  sentAt: Date | null
+}) {
+  const { value, status, message, reauthRequired, onChange, onBlur } = useAutosaveField('email', defaultValue)
+
+  const showButton = Boolean(value) && !confirmedAt
+  const expired = sentAt ? Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS : false
+  const showPending = Boolean(sentAt) && !confirmedAt
+
+  return (
+    <>
+      <label htmlFor={id}>Email</label>
+      <div className="provider-field">
+        <input id={id} name="email" type="email" value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
+        {showButton ? (
+          <a className="link-button brand email" href="/auth/resend-confirmation">
+            <EmailMark size={16} />
+            {sentAt ? 'Re-confirm' : 'Confirm'}
+          </a>
+        ) : null}
+      </div>
+      <AutosaveStatusLabel status={status} message={message} reauthRequired={reauthRequired} />
+      {showPending ? (
+        <p className="email-status">
+          {expired
+            ? 'That confirmation link has expired.'
+            : `Check your inbox at ${value} and click the confirmation link we sent.`}
+        </p>
+      ) : null}
+      {confirmedAt ? <p className="email-status confirmed">✓ Confirmed</p> : null}
     </>
   )
 }

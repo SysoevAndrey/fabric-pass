@@ -278,7 +278,8 @@ button,
    lives inside a field the same height as the text inputs below it, not
    standing alone on its own line. */
 .link-button.telegram,
-.link-button.discord {
+.link-button.discord,
+.link-button.email {
   margin: 0;
   padding: 0.4rem 0.85rem;
   font-size: 0.9rem;
@@ -304,19 +305,22 @@ button,
   background: #4451dd;
 }
 
-/* Same compact treatment as .link-button.telegram/.discord, but with no
-   brand color of its own — there's no service this button represents,
-   just a plain action inside the email field's own .provider-field row. */
-.email-confirmation .link-button {
-  margin: 0;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.9rem;
+.link-button.email {
+  border-color: #d97706;
+  background: #d97706;
+}
+
+.link-button.email:hover {
+  border-color: #b45309;
+  background: #b45309;
 }
 
 /* Telegram/Discord's field: same border, radius, and full width as `input`
    above, so the two read as one consistent list of fields — the current
    value sits where typed text would, the action button where a clear
-   button might. */
+   button might. Email reuses the same box, but with a real, editable
+   <input> on the left instead of a static value (see the rule below that
+   strips the input's own border so only the field's outer box draws one). */
 .provider-field {
   display: flex;
   align-items: center;
@@ -331,6 +335,27 @@ button,
 
 .provider-value.muted {
   color: var(--muted);
+}
+
+/* Email's input sits inside the same box as Telegram/Discord's static value
+   — this strips the input's own border/background so only the outer
+   `.provider-field` box draws one, and moves the focus ring there too so
+   the whole field highlights, not just the text underneath the button. */
+.provider-field input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+}
+
+.provider-field input:focus {
+  outline: none;
+}
+
+.provider-field:focus-within {
+  border-color: var(--ink);
 }
 
 /* The only feedback that a keystroke was kept, now that there is no Save
@@ -412,8 +437,4 @@ button,
 
 .email-status.confirmed {
   color: #1a7f37;
-}
-
-.email-confirmation {
-  margin: 0.25rem 0 0.75rem;
 }
