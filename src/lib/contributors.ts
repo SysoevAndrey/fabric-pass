@@ -57,13 +57,6 @@ export function isDetailField(value: string): value is DetailField {
   return (DETAIL_FIELDS as readonly string[]).includes(value)
 }
 
-export class AccountAlreadyLinkedError extends Error {
-  constructor(readonly provider: 'telegram' | 'discord') {
-    super(`This ${provider} account is already linked to another contributor.`)
-    this.name = 'AccountAlreadyLinkedError'
-  }
-}
-
 /**
  * Thrown when a github id names no contributor row — distinct from a
  * transient database error so callers can tell the two apart: a stale
@@ -177,6 +170,17 @@ export async function ensureContributor(
  * the project has no basis to hold a number that no longer belongs to the
  * linked account.
  *
+ * A provider account that's already linked to a *different* contributor row
+ * is not refused. Successfully completing that provider's OAuth flow is the
+ * strongest proof this app ever gets that two rows are the same real person
+ * — only that person could have authenticated as that Telegram/Discord
+ * account — so this records the row attempting to link as an alias of
+ * whichever one already holds the identity (see
+ * recordAliasFromSharedIdentity) instead of erroring. The identity itself is
+ * never duplicated onto the new row: the unique constraint on
+ * telegram_id/discord_id stays intact, and resolveProviderLabels is what
+ * makes an alias's inherited link visible on its own profile page.
+ *
  * Throws if `githubId` names no row — every caller reaches this only after
  * `ensureContributor`, so a miss here means that invariant broke rather than
  * something worth silently ignoring.
@@ -205,10 +209,68 @@ export async function linkProvider(
     result = await pool.query(sql, params)
   } catch (error) {
     const violation = error as { code?: string; constraint?: string }
-    if (violation.code === '23505') throw new AccountAlreadyLinkedError(provider)
+    if (violation.code === '23505') {
+      await recordAliasFromSharedIdentity(githubId, provider, identity.providerId)
+      return
+    }
     throw error
   }
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+}
+
+/**
+ * Only sets the alias when this row doesn't already point somewhere else —
+ * an existing alias (admin-set, or proven by an earlier shared identity) is
+ * left alone rather than silently overwritten by a conflicting new claim; an
+ * admin can sort out a genuine conflict by hand, via the registry file. The
+ * calling OAuth flow still reads as a success to the contributor either way
+ * — there was never anything wrong with the login itself.
+ */
+async function recordAliasFromSharedIdentity(
+  githubId: string,
+  provider: Exclude<ProviderName, 'github'>,
+  providerId: string,
+): Promise<void> {
+  const column = provider === 'telegram' ? 'telegram_id' : 'discord_id'
+  const { rows } = await pool.query<{ github_id: string }>(`SELECT github_id FROM contributors WHERE ${column} = $1`, [
+    providerId,
+  ])
+  const ownerGithubId = rows[0]?.github_id
+  if (!ownerGithubId || ownerGithubId === githubId) return
+
+  await pool.query(
+    'UPDATE contributors SET alias_of_github_id = $2, updated_at = now() WHERE github_id = $1 AND alias_of_github_id IS NULL',
+    [githubId, ownerGithubId],
+  )
+}
+
+/**
+ * The label to show for a contributor's Telegram/Discord link on their own
+ * profile page. A contributor with no direct link of their own, but who is
+ * an alias of another row that does have one, inherits that link for
+ * display — set by recordAliasFromSharedIdentity precisely because a
+ * successful OAuth login proved the two rows share the same linked account.
+ */
+export async function resolveProviderLabels(
+  contributor: Contributor,
+): Promise<{ telegramLabel: string | null; discordLabel: string | null }> {
+  const hasOwnTelegram = Boolean(contributor.telegramUsername || contributor.telegramPhone)
+  const hasOwnDiscord = Boolean(contributor.discordUsername)
+
+  const aliasTarget =
+    contributor.aliasOfGithubId && (!hasOwnTelegram || !hasOwnDiscord)
+      ? await findByGithubId(contributor.aliasOfGithubId)
+      : null
+
+  const telegramSource = hasOwnTelegram ? contributor : (aliasTarget ?? contributor)
+  const discordSource = hasOwnDiscord ? contributor : (aliasTarget ?? contributor)
+
+  return {
+    telegramLabel: telegramSource.telegramUsername
+      ? `@${telegramSource.telegramUsername}`
+      : (telegramSource.telegramPhone ?? null),
+    discordLabel: discordSource.discordUsername ?? null,
+  }
 }
 
 /**

@@ -1,12 +1,15 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
 // Covers the callback route's handling of what `linkProvider` (lib/contributors)
-// can do once a provider's identity has been exchanged: an already-linked
-// conflict, a generic failure, and — the one success path with no route-level
-// coverage before this file — a completed Telegram link. Session, providers,
-// and the contributors module are replaced with in-memory doubles, the same
-// seam tests/auth-oauth-concurrent-transactions.test.ts and
-// tests/auth-callback-github-guard.test.ts use.
+// can do once a provider's identity has been exchanged: a generic failure, a
+// stale/deleted contributor row, and — the one success path with no
+// route-level coverage before this file — a completed Telegram link. (An
+// already-linked provider account no longer errors at all — see
+// lib/contributors.ts's linkProvider and contributors.test.ts — so there's
+// nothing left for the route layer to handle for that case.) Session,
+// providers, and the contributors module are replaced with in-memory
+// doubles, the same seam tests/auth-oauth-concurrent-transactions.test.ts
+// and tests/auth-callback-github-guard.test.ts use.
 const { fakeSession, discordCallbackResult, telegramCallbackResult, contributorsState } = vi.hoisted(() => ({
   fakeSession: {
     oauth: undefined as
@@ -28,7 +31,7 @@ const { fakeSession, discordCallbackResult, telegramCallbackResult, contributors
   } },
   contributorsState: {
     linkCalls: [] as { githubId: string; provider: string; identity: unknown }[],
-    linkShouldThrow: undefined as 'already-linked' | 'generic' | 'not-found' | undefined,
+    linkShouldThrow: undefined as 'generic' | 'not-found' | undefined,
   },
 }))
 
@@ -41,9 +44,6 @@ vi.mock('@/lib/contributors', async () => {
   return {
     ...actual,
     linkProvider: async (githubId: string, provider: string, identity: unknown) => {
-      if (contributorsState.linkShouldThrow === 'already-linked') {
-        throw new actual.AccountAlreadyLinkedError(provider as 'telegram' | 'discord')
-      }
       if (contributorsState.linkShouldThrow === 'generic') {
         throw new Error('connection refused')
       }
@@ -102,17 +102,6 @@ beforeEach(() => {
   contributorsState.linkShouldThrow = undefined
 })
 
-test('a discord callback that hits an already-linked account is refused with the already-linked notice', async () => {
-  contributorsState.linkShouldThrow = 'already-linked'
-  const request = new Request('http://localhost:3000/auth/discord/callback?code=abc&state=discord-state')
-
-  const response = await GET(request, { params: Promise.resolve({ provider: 'discord' }) })
-
-  const location = response.headers.get('location')
-  expect(location).toContain('notice=already-linked')
-  expect(location).toContain('provider=discord')
-})
-
 test('a discord callback that fails generically is refused with the link-failed notice', async () => {
   contributorsState.linkShouldThrow = 'generic'
   const request = new Request('http://localhost:3000/auth/discord/callback?code=abc&state=discord-state')
@@ -150,15 +139,4 @@ test('a discord callback whose contributor row is gone is refused with the reaut
   const location = response.headers.get('location')
   expect(location).toContain('notice=reauth-required')
   expect(location).not.toContain('notice=link-failed')
-})
-
-test('a telegram callback that hits an already-linked account is refused with the already-linked notice', async () => {
-  contributorsState.linkShouldThrow = 'already-linked'
-  const request = new Request('http://localhost:3000/auth/telegram/callback?code=abc&state=telegram-state')
-
-  const response = await GET(request, { params: Promise.resolve({ provider: 'telegram' }) })
-
-  const location = response.headers.get('location')
-  expect(location).toContain('notice=already-linked')
-  expect(location).toContain('provider=telegram')
 })

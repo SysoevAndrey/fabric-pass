@@ -1,12 +1,12 @@
 import { afterAll, beforeEach, expect, test } from 'vitest'
 import {
-  AccountAlreadyLinkedError,
   type AdminFieldsUpdate,
   ContributorNotFoundError,
   ensureContributor,
   findByGithubId,
   linkProvider,
   listContributorsForRegistry,
+  resolveProviderLabels,
   saveField,
   syncContributorAdminFields,
 } from './contributors.ts'
@@ -137,24 +137,48 @@ test('a telegram id larger than bigint can hold still links and reads back exact
   expect(found?.telegramId).toBe(oversizedId)
 })
 
-test('refuses a telegram account already linked to someone else', async () => {
+// Completing a provider's OAuth flow is the strongest proof this app ever
+// gets that two rows are the same real person, so a telegram_id/discord_id
+// unique-constraint hit is not refused — see linkProvider's own doc comment.
+test('linking a telegram account already linked elsewhere succeeds and records the newer row as an alias', async () => {
   await ensureContributor('1001', 'octocat')
   await linkProvider('1001', 'telegram', { providerId: '555', username: 'ada' })
   await ensureContributor('1002', 'grace')
 
-  await expect(linkProvider('1002', 'telegram', { providerId: '555', username: 'ada' })).rejects.toBeInstanceOf(
-    AccountAlreadyLinkedError,
-  )
+  await expect(linkProvider('1002', 'telegram', { providerId: '555', username: 'ada' })).resolves.toBeUndefined()
+
+  const newer = await findByGithubId('1002')
+  expect(newer?.aliasOfGithubId).toBe('1001')
+  // The identity itself is never duplicated — it stays only on the row that
+  // already held it, keeping the unique constraint intact in storage.
+  expect(newer?.telegramId).toBeUndefined()
+  expect((await findByGithubId('1001'))?.telegramId).toBe('555')
 })
 
-test('refuses a discord account already linked to someone else', async () => {
+test('linking a discord account already linked elsewhere succeeds and records the newer row as an alias', async () => {
   await ensureContributor('1001', 'octocat')
   await linkProvider('1001', 'discord', { providerId: '888', username: 'ada' })
   await ensureContributor('1002', 'grace')
 
-  await expect(linkProvider('1002', 'discord', { providerId: '888', username: 'ada' })).rejects.toBeInstanceOf(
-    AccountAlreadyLinkedError,
-  )
+  await expect(linkProvider('1002', 'discord', { providerId: '888', username: 'ada' })).resolves.toBeUndefined()
+
+  expect((await findByGithubId('1002'))?.aliasOfGithubId).toBe('1001')
+})
+
+test('a shared-identity alias never overwrites an alias already set to someone else', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'discord', { providerId: '888', username: 'ada' })
+  await ensureContributor('1002', 'grace')
+  await ensureContributor('1003', 'ada-third')
+  // 1002 is already declared (e.g. by an admin) as an alias of 1003, not 1001.
+  await syncContributorAdminFields([adminUpdate({ githubId: '1002', status: 'draft', aliasOfGithubId: '1003' })])
+
+  // Still succeeds — the OAuth login itself is never refused — but the
+  // existing, conflicting alias claim is left for an admin to sort out
+  // rather than silently overwritten.
+  await expect(linkProvider('1002', 'discord', { providerId: '888', username: 'ada' })).resolves.toBeUndefined()
+
+  expect((await findByGithubId('1002'))?.aliasOfGithubId).toBe('1003')
 })
 
 test('linkProvider fails loud when the github id names no row', async () => {
@@ -263,4 +287,36 @@ test('listContributorsForRegistry returns every contributor, ordered by github l
   const registry = await listContributorsForRegistry()
 
   expect(registry.map((c) => c.githubLogin)).toEqual(['ada', 'grace'])
+})
+
+test('resolveProviderLabels shows a contributor their own direct link when they have one', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'telegram', { providerId: '555', username: 'ada' })
+
+  const labels = await resolveProviderLabels((await findByGithubId('1001'))!)
+
+  expect(labels.telegramLabel).toBe('@ada')
+  expect(labels.discordLabel).toBeNull()
+})
+
+test('resolveProviderLabels inherits an alias target\'s link when the row has none of its own', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'telegram', { providerId: '555', username: 'ada' })
+  await ensureContributor('1002', 'grace')
+  await linkProvider('1002', 'telegram', { providerId: '555', username: 'ada' }) // sets 1002's alias to 1001
+
+  const labels = await resolveProviderLabels((await findByGithubId('1002'))!)
+
+  expect(labels.telegramLabel).toBe('@ada')
+})
+
+test('resolveProviderLabels never inherits when the row already has its own link', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'discord', { providerId: '888', username: 'ada' })
+  await ensureContributor('1002', 'grace')
+  await linkProvider('1002', 'discord', { providerId: '999', username: 'grace-discord' })
+
+  const labels = await resolveProviderLabels((await findByGithubId('1002'))!)
+
+  expect(labels.discordLabel).toBe('grace-discord')
 })

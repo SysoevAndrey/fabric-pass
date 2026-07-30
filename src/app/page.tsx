@@ -1,4 +1,4 @@
-import { findByGithubId } from '@/lib/contributors'
+import { findByGithubId, resolveProviderLabels } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
 import { noticeMessage, REAUTH_REQUIRED_MESSAGE } from './auth/notice'
 import { ContributorForm } from './form'
@@ -56,10 +56,12 @@ export default async function Page({ searchParams }: PageProps) {
     return <SignInPrompt message={REAUTH_REQUIRED_MESSAGE} />
   }
 
+  const { telegramLabel, discordLabel } = await resolveProviderLabels(existing)
+
   return (
     <ContributorForm
-      telegramLabel={existing.telegramUsername ? `@${existing.telegramUsername}` : (existing.telegramPhone ?? null)}
-      discordLabel={existing.discordUsername ?? null}
+      telegramLabel={telegramLabel}
+      discordLabel={discordLabel}
       defaults={{
         name: existing.name ?? '',
         email: existing.email ?? '',

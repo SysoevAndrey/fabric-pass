@@ -11,13 +11,7 @@ import type { ProviderName } from '@/lib/providers/types'
  * The code is a fixed, closed set chosen only by callback/route.ts — never
  * free text — so nothing reaches page.tsx from the URL except a lookup key.
  */
-export type NoticeCode =
-  | 'expired'
-  | 'link-failed'
-  | 'telegram-no-contact'
-  | 'already-linked'
-  | 'identity-changed'
-  | 'reauth-required'
+export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact' | 'identity-changed' | 'reauth-required'
 
 /**
  * The one message shown for a session that outlives its row — from the
@@ -34,7 +28,6 @@ function isNoticeCode(value: string): value is NoticeCode {
     value === 'expired' ||
     value === 'link-failed' ||
     value === 'telegram-no-contact' ||
-    value === 'already-linked' ||
     value === 'identity-changed' ||
     value === 'reauth-required'
   )
@@ -69,14 +62,6 @@ export function noticeMessage(
       return provider ? `Linking ${provider} did not complete. Please try again.` : undefined
     case 'telegram-no-contact':
       return 'Your Telegram account has no username, and no phone number was shared, so it could not be linked.'
-    case 'already-linked':
-      // Links now persist the instant a callback returns, rather than at a
-      // form submit, so a unique-constraint conflict from lib/contributors's
-      // linkProvider has no form action to surface through — this is its
-      // only path to the contributor.
-      return provider
-        ? `That ${provider} account is already linked to another contributor.`
-        : 'That account is already linked to another contributor.'
     case 'identity-changed':
       // Discord/Telegram transactions are bound to the GitHub identity that
       // started them (see session.ts). A mismatch here means someone signed

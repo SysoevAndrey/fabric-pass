@@ -1,7 +1,7 @@
 import { inspect } from 'node:util'
 import { NextResponse } from 'next/server'
 import { env } from '@/lib/env'
-import { AccountAlreadyLinkedError, ContributorNotFoundError, ensureContributor, linkProvider } from '@/lib/contributors'
+import { ContributorNotFoundError, ensureContributor, linkProvider } from '@/lib/contributors'
 import { isProviderName, providers } from '@/lib/providers'
 import { getSession } from '@/lib/session'
 import { withNotice } from '@/app/auth/notice'
@@ -117,7 +117,6 @@ export async function GET(request: Request, context: { params: Promise<{ provide
       await linkProvider(githubId, 'discord', identity)
     } catch (error) {
       await session.save()
-      if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
       // The session cookie names a row that's gone — nothing about retrying
       // this same link can ever succeed, only signing in again can.
       if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(home, 'reauth-required'))
@@ -142,7 +141,6 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     await linkProvider(githubId, 'telegram', outcome.identity)
   } catch (error) {
     await session.save()
-    if (error instanceof AccountAlreadyLinkedError) return NextResponse.redirect(withNotice(home, 'already-linked', name))
     if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(home, 'reauth-required'))
     console.error('telegram callback: failed to save the link:', error)
     return NextResponse.redirect(withNotice(home, 'link-failed', name))
