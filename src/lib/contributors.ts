@@ -1,6 +1,19 @@
 import { pool } from '@/lib/db'
 import type { Identity, ProviderName } from '@/lib/providers/types'
 
+/**
+ * Owned by cf-internal's pass/contributors.yaml, not by this app — see
+ * migrations/005_contributor_status.sql. A contributor reaches 'draft' on
+ * their own, the moment they sign in with GitHub; only an admin editing the
+ * registry file can promote one to 'confirmed', via /internal/contributors/sync.
+ */
+export const CONTRIBUTOR_STATUSES = ['draft', 'confirmed'] as const
+export type ContributorStatus = (typeof CONTRIBUTOR_STATUSES)[number]
+
+export function isContributorStatus(value: string): value is ContributorStatus {
+  return (CONTRIBUTOR_STATUSES as readonly string[]).includes(value)
+}
+
 export interface Contributor {
   id: string
   githubId: string
@@ -17,6 +30,7 @@ export interface Contributor {
   name?: string
   email?: string
   company?: string
+  status: ContributorStatus
   createdAt: Date
   updatedAt: Date
 }
@@ -72,6 +86,7 @@ interface Row {
   name: string | null
   email: string | null
   company: string | null
+  status: ContributorStatus
   created_at: Date
   updated_at: Date
 }
@@ -94,6 +109,7 @@ function toContributor(row: Row): Contributor {
     name: row.name ?? undefined,
     email: row.email ?? undefined,
     company: row.company ?? undefined,
+    status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -203,4 +219,39 @@ export async function saveField(githubId: string, field: DetailField, value: str
     value ?? null,
   ])
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+}
+
+/** Every field the cf-internal registry export is willing to publish — see
+ * contributors-registry.ts's toRegistryYaml. */
+export async function listContributorsForRegistry(): Promise<Contributor[]> {
+  const { rows } = await pool.query<Row>('SELECT * FROM contributors ORDER BY github_login')
+  return rows.map(toContributor)
+}
+
+export interface StatusUpdate {
+  githubId: string
+  status: ContributorStatus
+}
+
+/**
+ * Applies the registry file's status column, one row at a time — this app's
+ * whole contributor set fits comfortably in a loop, and a plain per-row
+ * UPDATE is far easier to reason about than a bulk statement for something
+ * this infrequent (an hourly sync at most). A `github_id` with no matching
+ * row is reported back rather than silently dropped: the registry file can
+ * describe a contributor this app doesn't know about (a typo, a stale
+ * entry), and the caller decides what to log.
+ */
+export async function syncContributorStatuses(updates: StatusUpdate[]): Promise<{ updated: string[]; notFound: string[] }> {
+  const updated: string[] = []
+  const notFound: string[] = []
+  for (const { githubId, status } of updates) {
+    const result = await pool.query('UPDATE contributors SET status = $2, updated_at = now() WHERE github_id = $1', [
+      githubId,
+      status,
+    ])
+    if (result.rowCount) updated.push(githubId)
+    else notFound.push(githubId)
+  }
+  return { updated, notFound }
 }

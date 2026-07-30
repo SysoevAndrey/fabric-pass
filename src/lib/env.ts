@@ -10,6 +10,8 @@ const schema = z.object({
   DISCORD_CLIENT_SECRET: z.string().min(1),
   TELEGRAM_CLIENT_ID: z.string().min(1),
   TELEGRAM_CLIENT_SECRET: z.string().min(1),
+  CONTRIBUTORS_EXPORT_SECRET: z.string().min(1),
+  CONTRIBUTORS_SYNC_SECRET: z.string().min(1),
 })
 
 export const env = schema.parse(process.env)

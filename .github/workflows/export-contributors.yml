@@ -1,0 +1,38 @@
+name: Export contributors registry
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cf-internal
+        uses: actions/checkout@v4
+        with:
+          repository: constructorfabric/cf-internal
+          token: ${{ secrets.CF_INTERNAL_PAT }}
+          path: cf-internal
+
+      - name: Fetch the current registry from Fabric Pass
+        run: |
+          mkdir -p cf-internal/pass
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${{ secrets.CONTRIBUTORS_EXPORT_SECRET }}" \
+            https://pass.cfabric.org/internal/contributors/export \
+            -o cf-internal/pass/contributors.yaml
+
+      - name: Commit and push if changed
+        working-directory: cf-internal
+        run: |
+          git config user.name "fabric-pass-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- pass/contributors.yaml; then
+            echo "No changes"
+            exit 0
+          fi
+          git add pass/contributors.yaml
+          git commit -m "Update contributors registry"
+          git push

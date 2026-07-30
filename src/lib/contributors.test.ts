@@ -5,7 +5,9 @@ import {
   ensureContributor,
   findByGithubId,
   linkProvider,
+  listContributorsForRegistry,
   saveField,
+  syncContributorStatuses,
 } from './contributors.ts'
 import { pool } from './db.ts'
 
@@ -25,6 +27,9 @@ test('signing in with GitHub creates a row with no other field filled in yet', a
   expect(found?.name).toBeUndefined()
   expect(found?.email).toBeUndefined()
   expect(found?.telegramUsername).toBeUndefined()
+  // Only an admin editing the cf-internal registry can promote this — see
+  // migrations/005_contributor_status.sql.
+  expect(found?.status).toBe('draft')
 })
 
 test('returns null for an unknown github id', async () => {
@@ -189,4 +194,29 @@ test('saveField rejects a field name outside the closed set rather than building
   // @ts-expect-error — exercising the runtime guard for a value the type
   // system would otherwise rule out.
   await expect(saveField('1001', 'is_admin', 'true')).rejects.toThrow(/not a recognized field/)
+})
+
+test('syncContributorStatuses applies the registry file status and reports an unmatched github_id back', async () => {
+  await ensureContributor('1001', 'octocat')
+  await ensureContributor('2002', 'grace')
+
+  const { updated, notFound } = await syncContributorStatuses([
+    { githubId: '1001', status: 'confirmed' },
+    { githubId: '999999', status: 'confirmed' },
+  ])
+
+  expect(updated).toEqual(['1001'])
+  expect(notFound).toEqual(['999999'])
+  expect((await findByGithubId('1001'))?.status).toBe('confirmed')
+  // Untouched by the sync — still its default.
+  expect((await findByGithubId('2002'))?.status).toBe('draft')
+})
+
+test('listContributorsForRegistry returns every contributor, ordered by github login', async () => {
+  await ensureContributor('2002', 'grace')
+  await ensureContributor('1001', 'ada')
+
+  const registry = await listContributorsForRegistry()
+
+  expect(registry.map((c) => c.githubLogin)).toEqual(['ada', 'grace'])
 })

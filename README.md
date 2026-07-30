@@ -6,7 +6,7 @@ The registry stores identity only: each linked provider's numeric ID (which neve
 
 ## Data collected
 
-The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`, `migrations/003_telegram_id_as_text.sql`, and `migrations/004_provider_profile_fields.sql`):
+The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`, `migrations/003_telegram_id_as_text.sql`, `migrations/004_provider_profile_fields.sql`, and `migrations/005_contributor_status.sql`):
 
 | Column(s) | Notes |
 |---|---|
@@ -15,6 +15,7 @@ The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrat
 | `telegram_id`, `telegram_username`, `telegram_phone`, `telegram_name` | Telegram's ID (unique) — stored as text, since it isn't bounded to 64 bits the way a `bigint` is (`discord_id` below was already text for the same reason); current `@username`, or a phone number when the account has none; `telegram_name` from the account's own profile |
 | `discord_id`, `discord_username`, `discord_name` | Discord's snowflake ID (unique), current username, and current display name (`global_name`) |
 | `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; all three are optional — a blank value clears the column |
+| `status` | `'draft'` or `'confirmed'` — owned by [the cf-internal registry sync](#contributors-registry-sync) below, not by this app; every contributor starts as `'draft'` |
 | `created_at`, `updated_at` | Set automatically |
 
 None of `github_name`/`github_email`/`discord_name`/`telegram_name` need any OAuth scope beyond what's already requested (see [Registering the OAuth applications](#registering-the-oauth-applications)) — they're already part of each provider's public-profile response. No provider here exposes a phone number outside Telegram's existing no-username path, and Discord/Telegram have no email in their public profile at all.
@@ -89,8 +90,9 @@ The test suite runs against `contributor_registry_test`, using the credentials a
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | From the GitHub OAuth App |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | From the Discord application |
 | `TELEGRAM_CLIENT_ID`, `TELEGRAM_CLIENT_SECRET` | From the Telegram bot |
+| `CONTRIBUTORS_EXPORT_SECRET`, `CONTRIBUTORS_SYNC_SECRET` | Shared secrets guarding the two `/internal/contributors/*` routes used by the cf-internal registry sync (see below); at least 32 characters each (`openssl rand -hex 32`) |
 
-All nine are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider.
+All eleven are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider.
 
 ## Registering the OAuth applications
 
@@ -129,6 +131,15 @@ psql "$DATABASE_URL" \
 ```
 
 A row exists from the moment someone signs in with GitHub, before they've typed anything, so `name` and `email` being null doesn't mean the row is broken — it means that contributor hasn't filled the form in yet, or signed in once and never came back. There's no column to tell those two cases apart directly; the reading convention is that **an entry counts as filled in when `name IS NOT NULL`**.
+
+## Contributors registry sync
+
+`status` is mirrored to and from a YAML file — `pass/contributors.yaml` in the private [constructorfabric/cf-internal](https://github.com/constructorfabric/cf-internal) repo — which is the actual source of truth for that one column. Every other field flows one way only, DB → file; `status` flows only file → DB. Nothing else is shared in either direction, so there's never a conflict over which side owns a given field:
+
+- **Export** (DB → file, hourly): `.github/workflows/export-contributors.yml` in *this* repo calls `GET /internal/contributors/export` (bearer-protected by `CONTRIBUTORS_EXPORT_SECRET`), which renders every contributor's contact fields plus their current `status` as YAML, and commits the result into cf-internal if it changed. Uses a fine-grained PAT (`CF_INTERNAL_PAT`, scoped to just that repo, `Contents: Read and write`) stored as a secret on *this* repo — the droplet itself never holds a GitHub write credential.
+- **Import** (file → DB, on push): a small shim workflow living in cf-internal (`on: push: paths: ['pass/contributors.yaml']`) posts the file's content to `POST /internal/contributors/sync` (bearer-protected by `CONTRIBUTORS_SYNC_SECRET`), which updates `status` for each `github_id` it finds a matching row for. This is how an admin's manual status edit in GitHub reaches the app — and also fires harmlessly after the export's own commit, since re-applying an already-current status is a no-op.
+
+An admin promotes a contributor by editing their `status` in `pass/contributors.yaml` directly (e.g. `draft` → `confirmed`) and merging that change — no other field in the file should be hand-edited, since the next hourly export overwrites everything except `status` from the database.
 
 ## Deployment
 
