@@ -204,6 +204,14 @@ Full design and rationale live in [README.md's "Contributors registry sync"](REA
 
 Both directions of the sync are now live and confirmed working through their real triggers (a real scheduled/dispatched export, a real admin-style file edit), not just unit tests.
 
+## Step 9 — full field export, plus `alias_of_github_id`/`is_agent` (done)
+
+`migrations/006_alias_and_agent_fields.sql` adds two more registry-file-owned columns alongside `status`: `alias_of_github_id` (a same-real-person link to another contributor's `github_id`) and `is_agent` (bot/agent flag). The export was also missing several columns entirely — `id`, `telegram_id`, `discord_id`, `github_name`/`github_email`, `discord_name`, `telegram_name`, `created_at`, `updated_at` — it now sends the full row.
+
+- **Bug caught before it reached production:** the migration originally declared `alias_of_github_id text REFERENCES contributors (github_id)`, assuming `github_id` had been converted to `text` the same way `telegram_id` was (migrations/003) — it hadn't; `github_id` is still `bigint` (GitHub's own ids are nowhere near that ceiling). The FK failed at migration time with a type-mismatch error, caught locally against a throwaway Postgres before ever touching the droplet. Fixed by matching the column type.
+- Verified live, against real production data before deploying and again after: correct field export, an alias+agent assignment applying correctly, and — deliberately — a self-reference and an unknown-target alias both rejected (`{"updated":0,"skipped":2}`) without corrupting the rows' existing state or crashing the rest of the batch.
+- Pushed (`a516eab`), redeployed cleanly (`Applied: 006_alias_and_agent_fields.sql`, `https://pass.cfabric.org/` → `200` throughout), then re-ran the export workflow manually to refresh `cf-internal`'s file with the new fields. Confirmed the refreshed file kept `vzhuman`'s `status: confirmed` from Step 8 intact — the new fields didn't disturb the existing sync state — and now also shows real `telegram_id`/`discord_id` snowflakes for the two contributors who'd linked those providers, previously invisible in the file.
+
 ## Not yet done
 
 - Nightly `pg_dump` backup timer — the droplet has no backups yet, only Postgres's own on-disk state
