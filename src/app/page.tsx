@@ -58,7 +58,6 @@ export default async function Page({ searchParams }: PageProps) {
 
   return (
     <ContributorForm
-      githubLogin={session.github.login}
       telegramLabel={existing.telegramUsername ? `@${existing.telegramUsername}` : (existing.telegramPhone ?? null)}
       discordLabel={existing.discordUsername ?? null}
       defaults={{

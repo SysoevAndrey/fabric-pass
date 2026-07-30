@@ -4,66 +4,97 @@
   --muted: #666;
   --line: #ddd;
   --ground: #fff;
+  --panel: #f7f7f8;
+  --content-width: 34rem;
 }
 
 body {
   margin: 0;
-  padding: 3rem 1.5rem;
   background: var(--ground);
   color: var(--ink);
   font: 16px/1.6 system-ui, -apple-system, sans-serif;
 }
 
 main {
-  max-width: 34rem;
+  max-width: var(--content-width);
   margin: 0 auto;
-  position: relative;
+  padding: 2rem 1.5rem;
+  box-sizing: border-box;
 }
 
-/* Anchored to `main`, not the viewport — "top right corner of the page"
-   within this centered column, alongside Brand's logo/title row rather than
-   pinned to the browser window itself. */
-.user-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
+/* Both bars span the full page width, but their content lines up with
+   `main`'s column via a matching max-width inner wrapper — "aligned" at any
+   viewport, from a phone up to an ultrawide monitor, rather than either
+   stretching edge to edge or sitting off-center from the content below it. */
+.site-header,
+.site-footer {
+  width: 100%;
+  background: var(--panel);
+  box-sizing: border-box;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  box-sizing: border-box;
+}
+
+.site-header-inner {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.brand {
+.site-header-brand {
   display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-  margin-bottom: 2.5rem;
+  align-items: center;
+  gap: 0.85rem;
+  /* Lets the title/tagline shrink and wrap instead of pushing the user menu
+     out past the edge of the bar on a narrow screen. */
+  min-width: 0;
 }
 
 .brand-logo {
   flex: none;
-  width: 96px;
-  height: 96px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.brand-text {
+  min-width: 0;
 }
 
 .brand-text h1 {
-  margin: 0 0 0.4rem;
-  font-size: 1.6rem;
-  line-height: 1.2;
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.25;
 }
 
 .brand-tagline {
   margin: 0;
   color: var(--muted);
-  max-width: 46rem;
+  font-size: 0.85rem;
+  line-height: 1.3;
 }
 
-.site-footer {
-  margin-top: 3rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
 }
 
 .footer-links {
@@ -71,7 +102,7 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
-  margin: 0 0 0.75rem;
+  margin: 0;
   padding: 0;
   font-size: 0.9rem;
 }
@@ -84,6 +115,63 @@ main {
   margin: 0;
   color: var(--muted);
   font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* The trigger is the round initials tile; the rest only exists while open. */
+.user-menu {
+  position: relative;
+  flex: none;
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ground);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1;
+  min-width: 12rem;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ground);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.user-menu-name {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.user-menu-signout {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.user-menu-signout:hover {
+  background: var(--panel);
 }
 
 label {
