@@ -4,7 +4,12 @@ import { toIdentity } from './discord.ts'
 
 test('takes the snowflake id and username', () => {
   const identity = toIdentity({ id: '80351110224678912', username: 'nelly', global_name: 'Nelly' })
-  expect(identity).toEqual({ providerId: '80351110224678912', username: 'nelly' })
+  expect(identity).toEqual({ providerId: '80351110224678912', username: 'nelly', name: 'Nelly' })
+})
+
+test('leaves name out entirely when the account has none set', () => {
+  const identity = toIdentity({ id: '80351110224678912', username: 'nelly', global_name: null })
+  expect(identity.name).toBeUndefined()
 })
 
 test('rejects a profile with no username', () => {

@@ -88,7 +88,7 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     // Autosave starts here: the row exists from this moment, before the
     // contributor has typed or linked anything else.
     try {
-      await ensureContributor(identity.providerId, identity.username)
+      await ensureContributor(identity.providerId, identity.username, identity.name, identity.email)
     } catch (error) {
       console.error('github callback: failed to create/update the contributor row:', error)
       await session.save()

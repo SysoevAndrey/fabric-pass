@@ -5,11 +5,15 @@ export interface Contributor {
   id: string
   githubId: string
   githubLogin: string
+  githubName?: string
+  githubEmail?: string
   telegramId?: string
   telegramUsername?: string
   telegramPhone?: string
+  telegramName?: string
   discordId?: string
   discordUsername?: string
+  discordName?: string
   name?: string
   email?: string
   company?: string
@@ -56,11 +60,15 @@ interface Row {
   id: string
   github_id: string
   github_login: string
+  github_name: string | null
+  github_email: string | null
   telegram_id: string | null
   telegram_username: string | null
   telegram_phone: string | null
+  telegram_name: string | null
   discord_id: string | null
   discord_username: string | null
+  discord_name: string | null
   name: string | null
   email: string | null
   company: string | null
@@ -74,11 +82,15 @@ function toContributor(row: Row): Contributor {
     id: row.id,
     githubId: row.github_id,
     githubLogin: row.github_login,
+    githubName: row.github_name ?? undefined,
+    githubEmail: row.github_email ?? undefined,
     telegramId: row.telegram_id ?? undefined,
     telegramUsername: row.telegram_username ?? undefined,
     telegramPhone: row.telegram_phone ?? undefined,
+    telegramName: row.telegram_name ?? undefined,
     discordId: row.discord_id ?? undefined,
     discordUsername: row.discord_username ?? undefined,
+    discordName: row.discord_name ?? undefined,
     name: row.name ?? undefined,
     email: row.email ?? undefined,
     company: row.company ?? undefined,
@@ -100,13 +112,22 @@ export async function findByGithubId(githubId: string): Promise<Contributor | nu
  * already created: the page only offers a link button or a typed field once
  * signed in, so by the time either fires this insert has already happened.
  */
-export async function ensureContributor(githubId: string, githubLogin: string): Promise<Contributor> {
+export async function ensureContributor(
+  githubId: string,
+  githubLogin: string,
+  githubName?: string,
+  githubEmail?: string,
+): Promise<Contributor> {
   const { rows } = await pool.query<Row>(
-    `INSERT INTO contributors (github_id, github_login)
-          VALUES ($1, $2)
-     ON CONFLICT (github_id) DO UPDATE SET github_login = EXCLUDED.github_login, updated_at = now()
+    `INSERT INTO contributors (github_id, github_login, github_name, github_email)
+          VALUES ($1, $2, $3, $4)
+     ON CONFLICT (github_id) DO UPDATE
+       SET github_login = EXCLUDED.github_login,
+           github_name = EXCLUDED.github_name,
+           github_email = EXCLUDED.github_email,
+           updated_at = now()
        RETURNING *`,
-    [githubId, githubLogin],
+    [githubId, githubLogin, githubName ?? null, githubEmail ?? null],
   )
   return toContributor(rows[0])
 }
@@ -133,16 +154,16 @@ export async function linkProvider(
   const sql =
     provider === 'telegram'
       ? `UPDATE contributors
-            SET telegram_id = $2, telegram_username = $3, telegram_phone = $4, updated_at = now()
+            SET telegram_id = $2, telegram_username = $3, telegram_phone = $4, telegram_name = $5, updated_at = now()
           WHERE github_id = $1`
       : `UPDATE contributors
-            SET discord_id = $2, discord_username = $3, updated_at = now()
+            SET discord_id = $2, discord_username = $3, discord_name = $4, updated_at = now()
           WHERE github_id = $1`
 
   const params =
     provider === 'telegram'
-      ? [githubId, identity.providerId, identity.username ?? null, identity.phone ?? null]
-      : [githubId, identity.providerId, identity.username ?? null]
+      ? [githubId, identity.providerId, identity.username ?? null, identity.phone ?? null, identity.name ?? null]
+      : [githubId, identity.providerId, identity.username ?? null, identity.name ?? null]
 
   let result
   try {

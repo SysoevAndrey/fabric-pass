@@ -3,14 +3,25 @@ import { z } from 'zod'
 import { env } from '@/lib/env'
 import type { AuthRequest, Identity, Provider } from '@/lib/providers/types'
 
+// `name` and `email` are both already part of GitHub's public profile
+// response with no scope requested at all — `email` specifically mirrors
+// whichever address (if any) the account holder has chosen to make public,
+// not their verified/private one, which would need the `user:email` scope.
 const profileSchema = z.object({
   id: z.number(),
   login: z.string().min(1),
+  name: z.string().min(1).nullish(),
+  email: z.string().min(1).nullish(),
 })
 
 export function toIdentity(profile: unknown): Identity {
   const parsed = profileSchema.parse(profile)
-  return { providerId: String(parsed.id), username: parsed.login }
+  return {
+    providerId: String(parsed.id),
+    username: parsed.login,
+    ...(parsed.name ? { name: parsed.name } : {}),
+    ...(parsed.email ? { email: parsed.email } : {}),
+  }
 }
 
 /**

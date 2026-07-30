@@ -14,6 +14,9 @@ const claimsSchema = z.object({
   sub: z.string().min(1),
   preferred_username: z.string().transform(emptyToUndefined).optional(),
   phone_number: z.string().transform(emptyToUndefined).optional(),
+  // Part of the `profile` scope already requested on every Telegram
+  // sign-in — not gated behind the `phone` scope the way phone_number is.
+  name: z.string().transform(emptyToUndefined).optional(),
 })
 
 /**
@@ -23,13 +26,14 @@ const claimsSchema = z.object({
  */
 export function toIdentity(claims: unknown): Identity {
   const parsed = claimsSchema.parse(claims)
+  const name = parsed.name ? { name: parsed.name } : {}
   if (parsed.preferred_username) {
-    return { providerId: parsed.sub, username: parsed.preferred_username }
+    return { providerId: parsed.sub, username: parsed.preferred_username, ...name }
   }
   if (parsed.phone_number) {
-    return { providerId: parsed.sub, phone: parsed.phone_number }
+    return { providerId: parsed.sub, phone: parsed.phone_number, ...name }
   }
-  return { providerId: parsed.sub }
+  return { providerId: parsed.sub, ...name }
 }
 
 /**
@@ -88,7 +92,9 @@ export const telegram: Provider = {
 
     const url = client.buildAuthorizationUrl(config, {
       redirect_uri: redirectUri,
-      scope: variant === 'phone' ? 'openid phone' : 'openid profile',
+      // `profile` stays in the retry too — dropping it here would silently
+      // discard `name` for exactly the accounts this second pass exists for.
+      scope: variant === 'phone' ? 'openid profile phone' : 'openid profile',
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',

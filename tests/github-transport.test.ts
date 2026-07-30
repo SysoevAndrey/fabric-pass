@@ -50,9 +50,11 @@ test('exchanges the code and returns identity only', async () => {
     request.state,
   )
 
-  expect(identity).toEqual({ providerId: '583231', username: 'octocat' })
-  // The profile carried an email and an avatar; neither survives the mapping.
-  expect(Object.keys(identity).sort()).toEqual(['providerId', 'username'])
+  expect(identity).toEqual({ providerId: '583231', username: 'octocat', email: 'secret@example.com' })
+  // The profile carried an avatar; it doesn't survive the mapping. Email
+  // does — GitHub's `/user` already returns it, public-profile visibility
+  // permitting, with no extra scope requested (see providers/github.ts).
+  expect(Object.keys(identity).sort()).toEqual(['email', 'providerId', 'username'])
   expect(calls.some((c) => c.startsWith('https://github.com/login/oauth/access_token'))).toBe(true)
 
   vi.unstubAllGlobals()

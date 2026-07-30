@@ -6,15 +6,18 @@ The registry stores identity only: each linked provider's numeric ID (which neve
 
 ## Data collected
 
-The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql` and `migrations/003_telegram_id_as_text.sql`):
+The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`, `migrations/003_telegram_id_as_text.sql`, and `migrations/004_provider_profile_fields.sql`):
 
 | Column(s) | Notes |
 |---|---|
 | `github_id`, `github_login` | GitHub's numeric user ID (the record key, unique) and current login |
-| `telegram_id`, `telegram_username`, `telegram_phone` | Telegram's ID (unique) — stored as text, since it isn't bounded to 64 bits the way a `bigint` is (`discord_id` below was already text for the same reason); current `@username`, or a phone number when the account has none |
-| `discord_id`, `discord_username` | Discord's snowflake ID (unique) and current username |
+| `github_name`, `github_email` | From GitHub's own public profile, refreshed on every sign-in — not what's typed into the form below. `github_email` is specifically whichever address (if any) the account holder has chosen to make public; GitHub exposes nothing more without asking for an additional scope, so this is often null |
+| `telegram_id`, `telegram_username`, `telegram_phone`, `telegram_name` | Telegram's ID (unique) — stored as text, since it isn't bounded to 64 bits the way a `bigint` is (`discord_id` below was already text for the same reason); current `@username`, or a phone number when the account has none; `telegram_name` from the account's own profile |
+| `discord_id`, `discord_username`, `discord_name` | Discord's snowflake ID (unique), current username, and current display name (`global_name`) |
 | `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; all three are optional — a blank value clears the column |
 | `created_at`, `updated_at` | Set automatically |
+
+None of `github_name`/`github_email`/`discord_name`/`telegram_name` need any OAuth scope beyond what's already requested (see [Registering the OAuth applications](#registering-the-oauth-applications)) — they're already part of each provider's public-profile response. No provider here exposes a phone number outside Telegram's existing no-username path, and Discord/Telegram have no email in their public profile at all.
 
 ## Session outlives its row
 

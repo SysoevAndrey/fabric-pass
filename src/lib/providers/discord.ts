@@ -3,15 +3,21 @@ import { z } from 'zod'
 import { env } from '@/lib/env'
 import type { AuthRequest, Identity, Provider } from '@/lib/providers/types'
 
-/** Discord ids are snowflakes and already arrive as strings. */
+/**
+ * Discord ids are snowflakes and already arrive as strings. `global_name` —
+ * the display name shown across Discord's UI, distinct from `username` — is
+ * already part of the `identify` scope's response; email is deliberately
+ * left unparsed, since reading it would need the separate `email` scope.
+ */
 const profileSchema = z.object({
   id: z.string().min(1),
   username: z.string().min(1),
+  global_name: z.string().min(1).nullish(),
 })
 
 export function toIdentity(profile: unknown): Identity {
   const parsed = profileSchema.parse(profile)
-  return { providerId: parsed.id, username: parsed.username }
+  return { providerId: parsed.id, username: parsed.username, ...(parsed.global_name ? { name: parsed.global_name } : {}) }
 }
 
 /**

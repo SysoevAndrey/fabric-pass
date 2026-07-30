@@ -228,7 +228,7 @@ button,
   color: #c33;
 }
 
-.safety-notice {
+.subtitle {
   margin: 0 0 1rem;
   color: var(--muted);
 }
@@ -264,54 +264,6 @@ button,
   flex: none;
   margin-top: 0.15rem;
   color: #1a7f37;
-}
-
-/* The table is the widest thing on the page, so it scrolls inside itself
-   rather than making the whole page scroll sideways on a phone. */
-.collected table {
-  display: block;
-  overflow-x: auto;
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.collected th,
-.collected td {
-  padding: 0.5rem 0.75rem 0.5rem 0;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid var(--line);
-}
-
-.collected th {
-  color: var(--muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.collected code {
-  padding: 0.1rem 0.3rem;
-  background: #f3f3f3;
-  border-radius: 4px;
-  font-size: 0.85em;
-}
-
-.req {
-  display: inline-block;
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-  background: #eceff4;
-  color: #33415c;
-}
-
-.collected-never {
-  margin: 1rem 0 0;
-  color: var(--muted);
-  max-width: 46rem;
 }
 
 .error {

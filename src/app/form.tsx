@@ -3,7 +3,6 @@
 import { AutosaveField, CompanyField } from './autosave-field'
 import { Collected } from './collected'
 import { DiscordMark, TelegramMark } from './marks'
-import { SafetyNotice } from './safety-notice'
 
 interface Props {
   githubLogin: string
@@ -16,8 +15,7 @@ interface Props {
 export function ContributorForm({ githubLogin, telegramLabel, discordLabel, defaults, error }: Props) {
   return (
     <>
-      <h2>Fabric Pass</h2>
-      <SafetyNotice />
+      <h2>Constructor Fabric Pass</h2>
       <p>
         Signed in as <strong>@{githubLogin}</strong>
       </p>

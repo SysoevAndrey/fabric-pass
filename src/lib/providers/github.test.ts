@@ -4,7 +4,18 @@ import { toIdentity } from './github.ts'
 
 test('takes the numeric id and login from a github profile', () => {
   const identity = toIdentity({ id: 583231, login: 'octocat', name: 'The Octocat' })
-  expect(identity).toEqual({ providerId: '583231', username: 'octocat' })
+  expect(identity).toEqual({ providerId: '583231', username: 'octocat', name: 'The Octocat' })
+})
+
+test('takes the public email when the profile has one', () => {
+  const identity = toIdentity({ id: 583231, login: 'octocat', email: 'octocat@github.com' })
+  expect(identity.email).toBe('octocat@github.com')
+})
+
+test('leaves name and email out entirely when the profile has neither public', () => {
+  const identity = toIdentity({ id: 583231, login: 'octocat', name: null, email: null })
+  expect(identity.name).toBeUndefined()
+  expect(identity.email).toBeUndefined()
 })
 
 test('stringifies an id beyond Number.MAX_SAFE_INTEGER with no further precision loss', () => {

@@ -4,7 +4,6 @@ import { noticeMessage, REAUTH_REQUIRED_MESSAGE } from './auth/notice'
 import { Collected } from './collected'
 import { ContributorForm } from './form'
 import { GitHubMark } from './marks'
-import { SafetyNotice } from './safety-notice'
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
@@ -19,9 +18,10 @@ interface PageProps {
 function SignInPrompt({ message }: { message?: string }) {
   return (
     <>
-      <h2>Fabric Pass</h2>
-      <SafetyNotice />
-      <p>Sign in with GitHub to add or update your entry.</p>
+      <h2>Constructor Fabric Pass</h2>
+      <p className="subtitle">
+        Welcome to the Constructor Fabric contributors community. Sign in with GitHub to add or update your profile.
+      </p>
       {message ? <p className="error">{message}</p> : null}
       <a className="link-button brand github" href="/auth/github">
         <GitHubMark />

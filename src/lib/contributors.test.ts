@@ -40,19 +40,36 @@ test('a returning contributor updates the same row rather than adding one', asyn
   expect((await findByGithubId('1001'))?.githubLogin).toBe('octocat-renamed')
 })
 
+test('stores the github name and public email, and keeps them fresh on a returning sign-in', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+
+  let found = await findByGithubId('1001')
+  expect(found?.githubName).toBe('The Octocat')
+  expect(found?.githubEmail).toBe('octocat@github.com')
+
+  await ensureContributor('1001', 'octocat', 'Octo Cat', undefined)
+
+  found = await findByGithubId('1001')
+  expect(found?.githubName).toBe('Octo Cat')
+  // A since-removed public email must not survive as a stale value.
+  expect(found?.githubEmail).toBeUndefined()
+})
+
 test('linking a provider does not disturb the other provider or the typed fields', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'name', 'Ada Lovelace')
-  await linkProvider('1001', 'discord', { providerId: '555', username: 'ada-discord' })
+  await linkProvider('1001', 'discord', { providerId: '555', username: 'ada-discord', name: 'Ada' })
 
-  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg' })
+  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg', name: 'Ada Lovelace TG' })
 
   const found = await findByGithubId('1001')
   expect(found?.name).toBe('Ada Lovelace')
   expect(found?.discordId).toBe('555')
   expect(found?.discordUsername).toBe('ada-discord')
+  expect(found?.discordName).toBe('Ada')
   expect(found?.telegramId).toBe('777')
   expect(found?.telegramUsername).toBe('ada-tg')
+  expect(found?.telegramName).toBe('Ada Lovelace TG')
 })
 
 // A provider's fields move together as a unit, the same invariant the old

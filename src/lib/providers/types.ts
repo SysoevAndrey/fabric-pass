@@ -5,6 +5,10 @@ export interface Identity {
   providerId: string
   username?: string
   phone?: string
+  /** From the provider's own public profile — never what the contributor typed into this form. */
+  name?: string
+  /** GitHub only: the contributor's own publicly-visible email, if they've set one. */
+  email?: string
 }
 
 export interface AuthRequest {
