@@ -181,7 +181,18 @@ Verified: recreated both `webhook` and `caddy` (`docker compose up -d --force-re
 
 All four services (`postgres`, `app`, `caddy`, `webhook`) are up and healthy, and the redeploy path that broke twice is now verified working through its actual trigger (a real webhook call), not just a manual workaround. The full pipeline — push to `main` → GitHub Actions builds & publishes to GHCR → webhook pulls & redeploys `app` — is live. The site is reachable at `https://pass.cfabric.org`.
 
+## Step 8 — cf-internal contributors registry sync (implemented, one manual step pending)
+
+Full design and rationale live in [README.md's "Contributors registry sync"](README.md#contributors-registry-sync) — this is the deployment side.
+
+- `migrations/005_contributor_status.sql`, the two `/internal/contributors/*` endpoints, and `.github/workflows/export-contributors.yml` are implemented, tested (119/119 passing, including a live curl smoke test against a throwaway local Postgres — export → sync → re-export all verified end-to-end), and committed locally on `fabric-pass` — not yet pushed.
+- `constructorfabric/cf-internal` got `pass/contributors.yaml` (seeded with `contributors: []` so the export workflow's `git diff` has a tracked baseline to compare against from its very first run) and a minimal, credential-free shim workflow (`notify-fabric-pass.yml`) that forwards the file to fabric-pass's sync endpoint on every push — committed locally in a throwaway clone, not yet pushed.
+- Found in passing: `cf-internal` already has an unrelated, much larger `contributors.md` at its root (166 identities, multiple emails/aliases per person, workshop-attendance dates) — a different, pre-existing effort, untouched by this work. `pass/contributors.yaml` is new and doesn't conflict with it.
+- Both `CONTRIBUTORS_EXPORT_SECRET` (on `fabric-pass`) and `CONTRIBUTORS_SYNC_SECRET` (on `cf-internal`) are set as repo secrets, and both are also in `/opt/fabric-pass/.env` on the droplet already.
+- **Blocked on one manual step:** `CF_INTERNAL_PAT` — a fine-grained PAT scoped to just `cf-internal` with `Contents: Read and write` — has to be minted by a human via GitHub's web UI (no API for fine-grained PAT creation) and set as a `fabric-pass` repo secret. Until that exists, the export workflow can check out `cf-internal` but can't push to it.
+
 ## Not yet done
 
 - Nightly `pg_dump` backup timer — the droplet has no backups yet, only Postgres's own on-disk state
 - Actually signing in through all three providers hasn't been exercised yet (only that the page loads) — worth a real end-to-end sign-in test
+- Push the pending `fabric-pass` and `cf-internal` commits, once the PAT exists
