@@ -157,6 +157,16 @@ button,
   background: #14682c;
 }
 
+/* Compact, unlike .link-button.github's full-size sign-in CTA — this one
+   lives inside a field the same height as the text inputs below it, not
+   standing alone on its own line. */
+.link-button.telegram,
+.link-button.discord {
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+}
+
 .link-button.telegram {
   border-color: #229ed9;
   background: #229ed9;
@@ -177,40 +187,23 @@ button,
   background: #4451dd;
 }
 
-/* One provider per row: its current state, then its button. */
-.links {
-  list-style: none;
-  margin: 1rem 0;
-  padding: 0;
-}
-
-.links li {
+/* Telegram/Discord's field: same border, radius, and full width as `input`
+   above, so the two read as one consistent list of fields — the current
+   value sits where typed text would, the action button where a clear
+   button might. */
+.provider-field {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  margin: 0.5rem 0;
+  width: 100%;
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-sizing: border-box;
 }
 
-/* A shared minimum width on the label is what lines the buttons up with each
-   other; the labels themselves differ in length. It gives way on narrow
-   screens, where flex-wrap drops the button to its own line instead. */
-.links .linked {
-  min-width: 14rem;
-}
-
-/* The shared button rule adds top spacing meant for controls further down the
-   page; inside a row here it would push this button off the label's baseline.
-   A fixed width — wide enough for the longest label, "Re-link Telegram" —
-   keeps Link/Re-link and Telegram/Discord all the same size instead of each
-   hugging its own text. */
-.links .link-button {
-  margin: 0;
-  width: 13rem;
-  justify-content: center;
-}
-
-.linked {
+.provider-value.muted {
   color: var(--muted);
 }
 
