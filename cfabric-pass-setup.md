@@ -155,14 +155,21 @@ Added to the repo, under [deploy/](deploy/):
   - `POST /deploy-hook` with a wrong secret → `401`.
   - `POST /deploy-hook` with the correct secret → `202`, and the webhook's own logs show it correctly attempted `docker compose pull app` (which fails only because no image has been pushed to GHCR yet — expected at this point).
 
+## Step 6 — OAuth registrations and first live deploy (done)
+
+- Created a **new, dedicated GitHub OAuth App** (`Fabric Pass`) under the `constructorfabric` org, rather than reusing the org's existing app — GitHub OAuth Apps support exactly one callback URL each, and the existing app is used elsewhere.
+- Created a dedicated **Discord application** and a dedicated **Telegram bot** (via BotFather's Web Login settings), each with its callback pointed at `https://pass.cfabric.org/auth/<provider>/callback`.
+- All six credential values were written into `/opt/fabric-pass/.env` by the user directly over SSH (a `read -p`/`read -sp` one-liner), so the values never passed through this chat.
+- Pushed the branch to `main` — the Actions workflow ran successfully, built and published `ghcr.io/constructorfabric/fabric-pass:latest` and `:<sha>`, and called the deploy webhook automatically.
+- The GHCR package defaulted to **private**; there's no REST/CLI endpoint that can change a container package's visibility (a long-standing GitHub API gap) — `gh api -X PATCH .../packages/container/fabric-pass` 404s. Flipped to public manually via **Package → Settings → Danger Zone → Change visibility** in the GitHub UI. `gh auth refresh -s read:packages -s write:packages` was used separately to let `gh api` at least *read* package metadata for verification.
+- **Bug hit and fixed:** the first `up -d app` was triggered by the webhook while `.env` still had gaps (the user's manual fill-in and the webhook's auto-trigger raced), so the first `app` container baked in empty `DISCORD_CLIENT_SECRET`/`TELEGRAM_CLIENT_ID`/`TELEGRAM_CLIENT_SECRET` and 500'd on every request. `.env` itself was already correct by the time this was noticed — the container just hadn't picked up the fix. `docker compose up -d --force-recreate app` on a correct `.env` resolved it. Worth knowing: Compose doesn't always recreate a container just because a mounted `env_file`'s *content* changed — `--force-recreate` is the reliable fix if a deploy ever looks like it's ignoring a fresh `.env`.
+- Verified live: `https://pass.cfabric.org/` → `200`, serving the real sign-in page; `docker compose logs app` shows all three migrations already applied and `next start` ready.
+
 ## Current state
 
-Postgres, the webhook receiver, and Caddy are live on the droplet. `app` is intentionally not running yet. The GitHub Actions workflow exists but hasn't run — nothing has been pushed to `main` yet.
+All four services (`postgres`, `app`, `caddy`, `webhook`) are up and healthy. The full pipeline — push to `main` → GitHub Actions builds & publishes to GHCR → webhook pulls & redeploys `app` — is live and verified end to end. The site is reachable at `https://pass.cfabric.org`.
 
 ## Not yet done
 
-- Commit and push `deploy/`, `.github/workflows/deploy.yml`, and this file to `main` — first push triggers the first GHCR build and, via the webhook, the first attempt to start `app`
-- Make the GHCR package public after that first build (so the droplet's `docker compose pull` needs no registry auth)
-- GitHub OAuth App, Discord application, Telegram bot registrations against `https://pass.cfabric.org/...` — required before `app` can start at all (blocks the first successful deploy of `app` specifically, not the infrastructure around it)
-- Fill in the three provider credential pairs in `/opt/fabric-pass/.env` once the above exist, then start `app`
-- Nightly `pg_dump` backup timer
+- Nightly `pg_dump` backup timer — the droplet has no backups yet, only Postgres's own on-disk state
+- Actually signing in through all three providers hasn't been exercised yet (only that the page loads) — worth a real end-to-end sign-in test
