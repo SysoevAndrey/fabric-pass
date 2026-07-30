@@ -55,6 +55,26 @@ test('stores the github name and public email, and keeps them fresh on a returni
   expect(found?.githubEmail).toBeUndefined()
 })
 
+test('prefills the typed name/email from github only while the field is still empty', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+
+  let found = await findByGithubId('1001')
+  expect(found?.name).toBe('The Octocat')
+  expect(found?.email).toBe('octocat@github.com')
+
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await saveField('1001', 'email', undefined) // clearing is deliberate — see saveField's own doc comment
+
+  // A later sign-in with a changed github name/email must not clobber the
+  // name the contributor has since typed, prefilled or not — but the email,
+  // deliberately cleared back to empty, is fair game again.
+  await ensureContributor('1001', 'octocat', 'Something Else', 'something-else@github.com')
+
+  found = await findByGithubId('1001')
+  expect(found?.name).toBe('Ada Lovelace')
+  expect(found?.email).toBe('something-else@github.com')
+})
+
 test('linking a provider does not disturb the other provider or the typed fields', async () => {
   await ensureContributor('1001', 'octocat')
   await saveField('1001', 'name', 'Ada Lovelace')

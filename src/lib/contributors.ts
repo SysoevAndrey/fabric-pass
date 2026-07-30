@@ -111,6 +111,12 @@ export async function findByGithubId(githubId: string): Promise<Contributor | nu
  * this module (linkProvider, saveField) targets a row this function has
  * already created: the page only offers a link button or a typed field once
  * signed in, so by the time either fires this insert has already happened.
+ *
+ * `name`/`email` — the contributor's own typed fields — get GitHub's values
+ * as a starting point exactly once, on the insert that creates the row (or
+ * whenever the typed field is still empty on a later sign-in); a value the
+ * contributor has since typed is never overwritten by a freshly-changed
+ * GitHub name or email.
  */
 export async function ensureContributor(
   githubId: string,
@@ -119,12 +125,14 @@ export async function ensureContributor(
   githubEmail?: string,
 ): Promise<Contributor> {
   const { rows } = await pool.query<Row>(
-    `INSERT INTO contributors (github_id, github_login, github_name, github_email)
-          VALUES ($1, $2, $3, $4)
+    `INSERT INTO contributors (github_id, github_login, github_name, github_email, name, email)
+          VALUES ($1, $2, $3, $4, $3, $4)
      ON CONFLICT (github_id) DO UPDATE
        SET github_login = EXCLUDED.github_login,
            github_name = EXCLUDED.github_name,
            github_email = EXCLUDED.github_email,
+           name = COALESCE(contributors.name, EXCLUDED.name),
+           email = COALESCE(contributors.email, EXCLUDED.email),
            updated_at = now()
        RETURNING *`,
     [githubId, githubLogin, githubName ?? null, githubEmail ?? null],
