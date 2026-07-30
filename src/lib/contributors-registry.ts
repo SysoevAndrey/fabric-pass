@@ -1,48 +1,73 @@
 import { parse, stringify } from 'yaml'
 import { z } from 'zod'
-import { isContributorStatus, type Contributor, type StatusUpdate } from '@/lib/contributors'
+import { isContributorStatus, type AdminFieldsUpdate, type Contributor } from '@/lib/contributors'
 
 /**
- * The shape written to and read from cf-internal's pass/contributors.yaml.
- * Every field except `status` is owned by this app and overwritten on each
- * export — see the module doc below. `github_id` is quoted on the way out
- * (an explicit string, not a bare YAML int) for the same reason it's `text`
- * in Postgres: a real production id has already overflowed a 64-bit integer
- * once (see migrations/003_telegram_id_as_text.sql's telegram_id, the same
- * shape of bug).
+ * The full shape written to and read from cf-internal's pass/contributors.yaml
+ * — every column of the `contributors` table. Three fields are owned by the
+ * file (`status`, `alias_of_github_id`, `is_agent` — an admin's judgment
+ * call, not something a contributor sets about themselves); everything else
+ * is owned by this app and overwritten on each export. See the module doc
+ * below for exactly which fields flow which way. `github_id` and
+ * `alias_of_github_id` are quoted on the way out (explicit strings, not bare
+ * YAML ints) for the same reason both are `text` in Postgres: a real
+ * production id has already overflowed a 64-bit integer once (see
+ * migrations/003_telegram_id_as_text.sql's telegram_id, the same shape of
+ * bug).
  */
 interface RegistryRow {
+  id: string
   github_id: string
   github_login: string
+  github_name: string | null
+  github_email: string | null
+  telegram_id: string | null
+  telegram_username: string | null
+  telegram_phone: string | null
+  telegram_name: string | null
+  discord_id: string | null
+  discord_username: string | null
+  discord_name: string | null
   name: string | null
   email: string | null
   company: string | null
-  telegram_username: string | null
-  telegram_phone: string | null
-  discord_username: string | null
   status: string
+  alias_of_github_id: string | null
+  is_agent: boolean
+  created_at: string
+  updated_at: string
 }
 
 /**
- * DB → YAML. Every contact field is written fresh from the database on
- * every export — this app is their only writer, so there's nothing to
- * preserve from the previous file content. `status` is the one field NOT
- * owned here: it's read from the DB only because the DB is itself already a
- * synced mirror of the file's own last `status` (see
- * contributors.ts#syncContributorStatuses), not because this export is
- * where status originates.
+ * DB → YAML. Every field is written fresh from the database on every
+ * export. That includes `status`/`alias_of_github_id`/`is_agent` — they're
+ * read from the DB only because the DB is itself already a synced mirror of
+ * the file's own last values for those three (see
+ * contributors.ts#syncContributorAdminFields), not because this export is
+ * where they originate.
  */
 export function toRegistryYaml(contributors: Contributor[]): string {
   const rows: RegistryRow[] = contributors.map((contributor) => ({
+    id: contributor.id,
     github_id: contributor.githubId,
     github_login: contributor.githubLogin,
+    github_name: contributor.githubName ?? null,
+    github_email: contributor.githubEmail ?? null,
+    telegram_id: contributor.telegramId ?? null,
+    telegram_username: contributor.telegramUsername ?? null,
+    telegram_phone: contributor.telegramPhone ?? null,
+    telegram_name: contributor.telegramName ?? null,
+    discord_id: contributor.discordId ?? null,
+    discord_username: contributor.discordUsername ?? null,
+    discord_name: contributor.discordName ?? null,
     name: contributor.name ?? null,
     email: contributor.email ?? null,
     company: contributor.company ?? null,
-    telegram_username: contributor.telegramUsername ?? null,
-    telegram_phone: contributor.telegramPhone ?? null,
-    discord_username: contributor.discordUsername ?? null,
     status: contributor.status,
+    alias_of_github_id: contributor.aliasOfGithubId ?? null,
+    is_agent: contributor.isAgent,
+    created_at: contributor.createdAt.toISOString(),
+    updated_at: contributor.updatedAt.toISOString(),
   }))
   return stringify({ contributors: rows })
 }
@@ -53,6 +78,13 @@ const registryRowSchema = z.object({
   // either shape to a string before it ever reaches a query parameter.
   github_id: z.union([z.string(), z.number()]).transform(String),
   status: z.string(),
+  // Both optional: an admin adding a brand-new row, or hand-trimming the
+  // file, isn't required to spell these out. Absent means "not an alias"
+  // and "not an agent" respectively — the same values a fresh row gets from
+  // the database's own column defaults, so there's nothing to preserve by
+  // treating "missing" differently from "explicitly the default".
+  alias_of_github_id: z.union([z.string(), z.number()]).transform(String).nullish(),
+  is_agent: z.boolean().nullish(),
 })
 
 const registryFileSchema = z.object({
@@ -60,17 +92,20 @@ const registryFileSchema = z.object({
 })
 
 /**
- * YAML → status updates. Only `github_id` and `status` are read — every
- * other column in the file is this app's own last export, round-tripped by
- * whatever wrote the file, and not a value this app should ever adopt back
- * in (see the module doc above). A row failing validation (missing
- * `github_id`, or a `status` outside CONTRIBUTOR_STATUSES) is dropped, not
- * thrown on: one malformed hand-edit shouldn't block every other row's
- * status from syncing.
+ * YAML → admin field updates. Only `github_id`, `status`, `alias_of_github_id`,
+ * and `is_agent` are read — every other column in the file is this app's own
+ * last export, round-tripped by whatever wrote the file, and not a value
+ * this app should ever adopt back in (see the module doc above). A row
+ * failing validation (missing `github_id`, or a `status` outside
+ * CONTRIBUTOR_STATUSES) is dropped, not thrown on: one malformed hand-edit
+ * shouldn't block every other row's fields from syncing. A row whose
+ * `alias_of_github_id` doesn't survive the database's own FK/CHECK
+ * constraints is caught later, in contributors.ts#syncContributorAdminFields
+ * — this function has no database connection to validate against.
  */
-export function parseRegistryYaml(content: string): { updates: StatusUpdate[]; invalidRowCount: number } {
+export function parseRegistryYaml(content: string): { updates: AdminFieldsUpdate[]; invalidRowCount: number } {
   const parsed = registryFileSchema.parse(parse(content) ?? {})
-  const updates: StatusUpdate[] = []
+  const updates: AdminFieldsUpdate[] = []
   let invalidRowCount = 0
 
   for (const raw of parsed.contributors) {
@@ -79,7 +114,12 @@ export function parseRegistryYaml(content: string): { updates: StatusUpdate[]; i
       invalidRowCount += 1
       continue
     }
-    updates.push({ githubId: row.data.github_id, status: row.data.status })
+    updates.push({
+      githubId: row.data.github_id,
+      status: row.data.status,
+      aliasOfGithubId: row.data.alias_of_github_id ?? null,
+      isAgent: row.data.is_agent ?? false,
+    })
   }
 
   return { updates, invalidRowCount }

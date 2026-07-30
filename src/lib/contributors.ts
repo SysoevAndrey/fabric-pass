@@ -31,6 +31,13 @@ export interface Contributor {
   email?: string
   company?: string
   status: ContributorStatus
+  /** Another contributor's `githubId` — this row is the same real person,
+   * registered a second time. Empty means this is a primary contributor,
+   * not an alias of anyone. Owned by the registry file, same as `status`. */
+  aliasOfGithubId?: string
+  /** A bot/agent account rather than a human. Owned by the registry file,
+   * same as `status`. */
+  isAgent: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -87,6 +94,8 @@ interface Row {
   email: string | null
   company: string | null
   status: ContributorStatus
+  alias_of_github_id: string | null
+  is_agent: boolean
   created_at: Date
   updated_at: Date
 }
@@ -110,6 +119,8 @@ function toContributor(row: Row): Contributor {
     email: row.email ?? undefined,
     company: row.company ?? undefined,
     status: row.status,
+    aliasOfGithubId: row.alias_of_github_id ?? undefined,
+    isAgent: row.is_agent,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -228,30 +239,60 @@ export async function listContributorsForRegistry(): Promise<Contributor[]> {
   return rows.map(toContributor)
 }
 
-export interface StatusUpdate {
+export interface AdminFieldsUpdate {
   githubId: string
   status: ContributorStatus
+  aliasOfGithubId: string | null
+  isAgent: boolean
+}
+
+export interface SyncResult {
+  updated: string[]
+  notFound: string[]
+  /** Applied to no row because `aliasOfGithubId` failed a DB constraint —
+   * pointed at a `github_id` this app has never seen, or at the row's own
+   * `github_id`. Distinct from `notFound`: here the *update's own subject*
+   * exists, but the value it tried to write does not. */
+  rejected: string[]
 }
 
 /**
- * Applies the registry file's status column, one row at a time — this app's
- * whole contributor set fits comfortably in a loop, and a plain per-row
- * UPDATE is far easier to reason about than a bulk statement for something
- * this infrequent (an hourly sync at most). A `github_id` with no matching
- * row is reported back rather than silently dropped: the registry file can
+ * Applies the registry file's three admin-owned columns (status,
+ * aliasOfGithubId, isAgent), one row at a time — this app's whole
+ * contributor set fits comfortably in a loop, and a plain per-row UPDATE is
+ * far easier to reason about than a bulk statement for something this
+ * infrequent (an hourly sync at most). A `github_id` with no matching row is
+ * reported back rather than silently dropped: the registry file can
  * describe a contributor this app doesn't know about (a typo, a stale
- * entry), and the caller decides what to log.
+ * entry), and the caller decides what to log. Likewise a row whose
+ * `aliasOfGithubId` violates the FK or the not-self CHECK (see
+ * migrations/006_alias_and_agent_fields.sql) is reported rather than
+ * aborting every other row's update.
  */
-export async function syncContributorStatuses(updates: StatusUpdate[]): Promise<{ updated: string[]; notFound: string[] }> {
+export async function syncContributorAdminFields(updates: AdminFieldsUpdate[]): Promise<SyncResult> {
   const updated: string[] = []
   const notFound: string[] = []
-  for (const { githubId, status } of updates) {
-    const result = await pool.query('UPDATE contributors SET status = $2, updated_at = now() WHERE github_id = $1', [
-      githubId,
-      status,
-    ])
+  const rejected: string[] = []
+
+  for (const { githubId, status, aliasOfGithubId, isAgent } of updates) {
+    let result
+    try {
+      result = await pool.query(
+        'UPDATE contributors SET status = $2, alias_of_github_id = $3, is_agent = $4, updated_at = now() WHERE github_id = $1',
+        [githubId, status, aliasOfGithubId, isAgent],
+      )
+    } catch (error) {
+      const violation = error as { code?: string }
+      // 23503 foreign_key_violation, 23514 check_violation (alias_of_not_self).
+      if (violation.code === '23503' || violation.code === '23514') {
+        rejected.push(githubId)
+        continue
+      }
+      throw error
+    }
     if (result.rowCount) updated.push(githubId)
     else notFound.push(githubId)
   }
-  return { updated, notFound }
+
+  return { updated, notFound, rejected }
 }

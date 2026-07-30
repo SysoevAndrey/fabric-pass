@@ -1,15 +1,23 @@
 import { afterAll, beforeEach, expect, test } from 'vitest'
 import {
   AccountAlreadyLinkedError,
+  type AdminFieldsUpdate,
   ContributorNotFoundError,
   ensureContributor,
   findByGithubId,
   linkProvider,
   listContributorsForRegistry,
   saveField,
-  syncContributorStatuses,
+  syncContributorAdminFields,
 } from './contributors.ts'
 import { pool } from './db.ts'
+
+/** `status` is the only field every caller of syncContributorAdminFields
+ * actually varies test to test; the other two default the same way an
+ * absent registry-file value does (see contributors-registry.ts). */
+function adminUpdate(overrides: Partial<AdminFieldsUpdate> & { githubId: string }): AdminFieldsUpdate {
+  return { status: 'confirmed', aliasOfGithubId: null, isAgent: false, ...overrides }
+}
 
 beforeEach(async () => {
   await pool.query('TRUNCATE contributors')
@@ -196,20 +204,56 @@ test('saveField rejects a field name outside the closed set rather than building
   await expect(saveField('1001', 'is_admin', 'true')).rejects.toThrow(/not a recognized field/)
 })
 
-test('syncContributorStatuses applies the registry file status and reports an unmatched github_id back', async () => {
+test('syncContributorAdminFields applies status/alias/is_agent and reports an unmatched github_id back', async () => {
   await ensureContributor('1001', 'octocat')
   await ensureContributor('2002', 'grace')
 
-  const { updated, notFound } = await syncContributorStatuses([
-    { githubId: '1001', status: 'confirmed' },
-    { githubId: '999999', status: 'confirmed' },
+  const { updated, notFound, rejected } = await syncContributorAdminFields([
+    adminUpdate({ githubId: '1001', status: 'confirmed', isAgent: true }),
+    adminUpdate({ githubId: '999999' }),
   ])
 
   expect(updated).toEqual(['1001'])
   expect(notFound).toEqual(['999999'])
-  expect((await findByGithubId('1001'))?.status).toBe('confirmed')
-  // Untouched by the sync — still its default.
-  expect((await findByGithubId('2002'))?.status).toBe('draft')
+  expect(rejected).toEqual([])
+  const found = await findByGithubId('1001')
+  expect(found?.status).toBe('confirmed')
+  expect(found?.isAgent).toBe(true)
+  // Untouched by the sync — still its defaults.
+  const other = await findByGithubId('2002')
+  expect(other?.status).toBe('draft')
+  expect(other?.isAgent).toBe(false)
+})
+
+test('syncContributorAdminFields sets an alias pointing at another real contributor', async () => {
+  await ensureContributor('1001', 'octocat')
+  await ensureContributor('2002', 'grace')
+
+  const { updated } = await syncContributorAdminFields([adminUpdate({ githubId: '2002', aliasOfGithubId: '1001' })])
+
+  expect(updated).toEqual(['2002'])
+  expect((await findByGithubId('2002'))?.aliasOfGithubId).toBe('1001')
+})
+
+test('syncContributorAdminFields rejects an alias pointing at a github_id this app has never seen', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  const { updated, rejected } = await syncContributorAdminFields([
+    adminUpdate({ githubId: '1001', aliasOfGithubId: '999999' }),
+  ])
+
+  expect(updated).toEqual([])
+  expect(rejected).toEqual(['1001'])
+  // Rejected, so nothing about the row changed at all.
+  expect((await findByGithubId('1001'))?.aliasOfGithubId).toBeUndefined()
+})
+
+test('syncContributorAdminFields rejects a contributor aliased to themselves', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  const { rejected } = await syncContributorAdminFields([adminUpdate({ githubId: '1001', aliasOfGithubId: '1001' })])
+
+  expect(rejected).toEqual(['1001'])
 })
 
 test('listContributorsForRegistry returns every contributor, ordered by github login', async () => {

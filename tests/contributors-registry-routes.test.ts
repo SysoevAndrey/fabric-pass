@@ -50,18 +50,25 @@ test('sync refuses a request with no or the wrong secret', async () => {
   expect(response.status).toBe(401)
 })
 
-test('sync applies a status change from the registry file to the matching contributor', async () => {
+test('sync applies status, alias_of_github_id, and is_agent from the registry file to the matching contributor', async () => {
   await ensureContributor('1001', 'octocat')
+  await ensureContributor('2002', 'grace')
 
   const response = await syncRoute(
     new Request('http://localhost/internal/contributors/sync', {
       method: 'POST',
       headers: { authorization: `Bearer ${SYNC_SECRET}` },
-      body: 'contributors:\n  - github_id: "1001"\n    status: confirmed\n',
+      body:
+        'contributors:\n' +
+        '  - github_id: "1001"\n    status: confirmed\n' +
+        '  - github_id: "2002"\n    status: draft\n    alias_of_github_id: "1001"\n    is_agent: true\n',
     }),
   )
 
   expect(response.status).toBe(200)
-  expect(await response.json()).toEqual({ updated: 1, skipped: 0 })
+  expect(await response.json()).toEqual({ updated: 2, skipped: 0 })
   expect((await findByGithubId('1001'))?.status).toBe('confirmed')
+  const alias = await findByGithubId('2002')
+  expect(alias?.aliasOfGithubId).toBe('1001')
+  expect(alias?.isAgent).toBe(true)
 })

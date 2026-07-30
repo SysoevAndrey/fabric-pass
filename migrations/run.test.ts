@@ -65,16 +65,17 @@ test('the name backfill combines first and last name, and leaves both-blank as N
        (4, 'both-blank', '', '', 'blank@example.com')`,
   )
 
-  // 003 (telegram_id -> text), 004 (provider profile fields), and 005
-  // (contributor status) are also pending from this pre-002 starting point
-  // and apply right behind 002 — irrelevant to what this test checks, but
-  // `migrate` returns every file it applied.
+  // 003 (telegram_id -> text), 004 (provider profile fields), 005
+  // (contributor status), and 006 (alias/agent fields) are also pending from
+  // this pre-002 starting point and apply right behind 002 — irrelevant to
+  // what this test checks, but `migrate` returns every file it applied.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '002_contributor_name_and_nullable_fields.sql',
     '003_telegram_id_as_text.sql',
     '004_provider_profile_fields.sql',
     '005_contributor_status.sql',
+    '006_alias_and_agent_fields.sql',
   ])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
@@ -109,13 +110,15 @@ test('the telegram_id migration carries an existing value across to text and acc
   )
   await pool.query(`INSERT INTO contributors (github_id, github_login, telegram_id) VALUES (1, 'has-telegram', 555)`)
 
-  // 004 (provider profile fields) and 005 (contributor status) are also
-  // pending from this pre-003 starting point and apply right behind 003.
+  // 004 (provider profile fields), 005 (contributor status), and 006
+  // (alias/agent fields) are also pending from this pre-003 starting point
+  // and apply right behind 003.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '003_telegram_id_as_text.sql',
     '004_provider_profile_fields.sql',
     '005_contributor_status.sql',
+    '006_alias_and_agent_fields.sql',
   ])
 
   const { rows: columnRows } = await pool.query(
