@@ -1,4 +1,6 @@
+import { randomBytes } from 'node:crypto'
 import { pool } from '@/lib/db'
+import { EMAIL_CONFIRMATION_TTL_MS, sendConfirmationEmail } from '@/lib/email'
 import type { Identity, ProviderName } from '@/lib/providers/types'
 
 /**
@@ -29,6 +31,15 @@ export interface Contributor {
   discordName?: string
   name?: string
   email?: string
+  /** Set the moment `email` is confirmed — by clicking the emailed link for
+   * a typed address, or immediately for one prefilled from GitHub's own
+   * already-verified public profile (see ensureContributor). Cleared
+   * whenever `email` changes to a new, not-yet-confirmed value. */
+  emailConfirmedAt?: Date
+  /** When the current confirmation email was sent — undefined once
+   * confirmed. Used only to compute whether that link has expired; the
+   * token itself is never exposed on this type (see the module doc). */
+  emailConfirmationSentAt?: Date
   company?: string
   status: ContributorStatus
   /** Another contributor's `githubId` — this row is the same real person,
@@ -85,6 +96,8 @@ interface Row {
   discord_name: string | null
   name: string | null
   email: string | null
+  email_confirmed_at: Date | null
+  email_confirmation_sent_at: Date | null
   company: string | null
   status: ContributorStatus
   alias_of_github_id: string | null
@@ -110,6 +123,8 @@ function toContributor(row: Row): Contributor {
     discordName: row.discord_name ?? undefined,
     name: row.name ?? undefined,
     email: row.email ?? undefined,
+    emailConfirmedAt: row.email_confirmed_at ?? undefined,
+    emailConfirmationSentAt: row.email_confirmation_sent_at ?? undefined,
     company: row.company ?? undefined,
     status: row.status,
     aliasOfGithubId: row.alias_of_github_id ?? undefined,
@@ -137,6 +152,14 @@ export async function findByGithubId(githubId: string): Promise<Contributor | nu
  * whenever the typed field is still empty on a later sign-in); a value the
  * contributor has since typed is never overwritten by a freshly-changed
  * GitHub name or email.
+ *
+ * An email prefilled this way is marked confirmed immediately, with no
+ * emailed link required — GitHub's public-profile email is already the
+ * account holder's own verified address, which is exactly the thing the
+ * confirmation flow (see saveEmail) exists to establish for an address the
+ * contributor typed themselves. `email_confirmed_at` transitions alongside
+ * `email`, from the same null-to-GitHub's-value edge — not on every sign-in,
+ * and never once the contributor has typed their own address over it.
  */
 export async function ensureContributor(
   githubId: string,
@@ -145,14 +168,18 @@ export async function ensureContributor(
   githubEmail?: string,
 ): Promise<Contributor> {
   const { rows } = await pool.query<Row>(
-    `INSERT INTO contributors (github_id, github_login, github_name, github_email, name, email)
-          VALUES ($1, $2, $3, $4, $3, $4)
+    `INSERT INTO contributors (github_id, github_login, github_name, github_email, name, email, email_confirmed_at)
+          VALUES ($1, $2, $3, $4, $3, $4, CASE WHEN $4::text IS NOT NULL THEN now() END)
      ON CONFLICT (github_id) DO UPDATE
        SET github_login = EXCLUDED.github_login,
            github_name = EXCLUDED.github_name,
            github_email = EXCLUDED.github_email,
            name = COALESCE(contributors.name, EXCLUDED.name),
            email = COALESCE(contributors.email, EXCLUDED.email),
+           email_confirmed_at = CASE
+             WHEN contributors.email IS NULL AND EXCLUDED.email IS NOT NULL THEN now()
+             ELSE contributors.email_confirmed_at
+           END,
            updated_at = now()
        RETURNING *`,
     [githubId, githubLogin, githubName ?? null, githubEmail ?? null],
@@ -273,12 +300,59 @@ export async function resolveProviderLabels(
   }
 }
 
+function randomConfirmationToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+/**
+ * `email` is the one typed field with side effects beyond its own column —
+ * every save that actually changes the value starts (or clears) the
+ * confirmation flow, since a contributor can type any address at all here,
+ * unlike GitHub's own prefill (see ensureContributor), which the provider
+ * has already verified. A save that repeats the address already on file is
+ * a no-op on the confirmation fields — re-focusing and blurring the field
+ * without changing it must not re-send an email or reset an already-earned
+ * confirmation.
+ */
+async function saveEmail(githubId: string, value: string | undefined): Promise<void> {
+  const normalized = value || null
+  const current = await pool.query<{ email: string | null }>('SELECT email FROM contributors WHERE github_id = $1', [
+    githubId,
+  ])
+  if (current.rows.length === 0) throw new ContributorNotFoundError(githubId)
+  if (current.rows[0].email === normalized) return
+
+  if (!normalized) {
+    const result = await pool.query(
+      `UPDATE contributors
+          SET email = NULL, email_confirmed_at = NULL, email_confirmation_token = NULL, email_confirmation_sent_at = NULL,
+              updated_at = now()
+        WHERE github_id = $1`,
+      [githubId],
+    )
+    if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+    return
+  }
+
+  const token = randomConfirmationToken()
+  const result = await pool.query(
+    `UPDATE contributors
+        SET email = $2, email_confirmed_at = NULL, email_confirmation_token = $3, email_confirmation_sent_at = now(),
+            updated_at = now()
+      WHERE github_id = $1`,
+    [githubId, normalized, token],
+  )
+  if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+  await sendConfirmationEmail(normalized, token)
+}
+
 /**
  * Saves one typed field exactly as given, including empty (stored as null) —
  * clearing a field is as deliberate an edit as filling one, and with no Save
  * button this is the only path a keystroke has to the database. Each field
  * autosaves independently so that, say, a still-invalid email in progress
- * never blocks a finished name from persisting.
+ * never blocks a finished name from persisting. `email` specifically also
+ * drives the confirmation flow — see saveEmail.
  */
 export async function saveField(githubId: string, field: DetailField, value: string | undefined): Promise<void> {
   // `field` is typed `DetailField` for every in-repo caller, but this is the
@@ -286,12 +360,64 @@ export async function saveField(githubId: string, field: DetailField, value: str
   // re-checked here too rather than trusting the type alone (see
   // isDetailField's doc comment).
   if (!isDetailField(field)) throw new Error(`saveField: not a recognized field: ${field}`)
-  const column = { name: 'name', email: 'email', company: 'company' }[field]
+  if (field === 'email') return saveEmail(githubId, value)
+  const column = { name: 'name', company: 'company' }[field]
   const result = await pool.query(`UPDATE contributors SET ${column} = $2, updated_at = now() WHERE github_id = $1`, [
     githubId,
     value ?? null,
   ])
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+}
+
+export type EmailConfirmationResult = 'confirmed' | 'expired' | 'invalid'
+
+/**
+ * The token is single-use and self-invalidating: a match clears it
+ * immediately, whether or not it turned out to be expired, so the same
+ * (leaked, logged, forwarded) link can never be replayed. An expired token
+ * still identifies whose confirmation it was for — resendConfirmationEmail
+ * is the recovery path — but this function itself only ever reports the
+ * outcome, not the contributor.
+ */
+export async function confirmEmail(token: string): Promise<EmailConfirmationResult> {
+  const { rows } = await pool.query<{ github_id: string; email_confirmation_sent_at: Date | null }>(
+    'SELECT github_id, email_confirmation_sent_at FROM contributors WHERE email_confirmation_token = $1',
+    [token],
+  )
+  const row = rows[0]
+  if (!row) return 'invalid'
+
+  await pool.query(
+    'UPDATE contributors SET email_confirmation_token = NULL, updated_at = now() WHERE github_id = $1',
+    [row.github_id],
+  )
+
+  const sentAt = row.email_confirmation_sent_at
+  if (!sentAt || Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS) return 'expired'
+
+  await pool.query('UPDATE contributors SET email_confirmed_at = now(), updated_at = now() WHERE github_id = $1', [
+    row.github_id,
+  ])
+  return 'confirmed'
+}
+
+/**
+ * A fresh token and timestamp, and a fresh email — for an address that's
+ * already confirmed, or for a contributor with no email on file at all,
+ * this is a deliberate no-op: there's nothing to resend for either case,
+ * and resending would otherwise let a stale "pending confirmation" UI state
+ * silently re-arm an already-settled address.
+ */
+export async function resendConfirmationEmail(githubId: string): Promise<void> {
+  const contributor = await findByGithubId(githubId)
+  if (!contributor?.email || contributor.emailConfirmedAt) return
+
+  const token = randomConfirmationToken()
+  await pool.query(
+    'UPDATE contributors SET email_confirmation_token = $2, email_confirmation_sent_at = now(), updated_at = now() WHERE github_id = $1',
+    [githubId, token],
+  )
+  await sendConfirmationEmail(contributor.email, token)
 }
 
 /** Every field the cf-internal registry export is willing to publish — see

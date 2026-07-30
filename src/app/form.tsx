@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { AutosaveField, CompanyField } from './autosave-field'
+import type { Notice } from './auth/notice'
 import { Collected } from './collected'
 import { DiscordMark, TelegramMark } from './marks'
 
@@ -9,7 +10,40 @@ interface Props {
   telegramLabel: string | null
   discordLabel: string | null
   defaults: { name: string; email: string; company: string }
-  error?: string
+  emailConfirmedAt: Date | null
+  emailConfirmationSentAt: Date | null
+  notice?: Notice
+}
+
+const EMAIL_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000
+
+/**
+ * There's nothing this app's own UI can click to confirm an email — that has
+ * to happen from the link sent to the address itself, since that's the
+ * whole point of proving the contributor can read mail sent there. This is
+ * only ever a status readout plus a way to ask for a fresh link.
+ */
+function EmailConfirmationStatus({
+  email,
+  confirmedAt,
+  sentAt,
+}: {
+  email: string
+  confirmedAt: Date | null
+  sentAt: Date | null
+}) {
+  if (!email) return null
+  if (confirmedAt) return <p className="email-status confirmed">✓ Confirmed</p>
+
+  const expired = !sentAt || Date.now() - sentAt.getTime() > EMAIL_CONFIRMATION_TTL_MS
+  return (
+    <p className="email-status pending">
+      {expired
+        ? 'That confirmation link has expired.'
+        : `Check your inbox at ${email} and click the confirmation link we sent.`}{' '}
+      <a href="/auth/resend-confirmation">Resend confirmation email</a>
+    </p>
+  )
 }
 
 /**
@@ -45,13 +79,20 @@ function ProviderField({
   )
 }
 
-export function ContributorForm({ telegramLabel, discordLabel, defaults, error }: Props) {
+export function ContributorForm({
+  telegramLabel,
+  discordLabel,
+  defaults,
+  emailConfirmedAt,
+  emailConfirmationSentAt,
+  notice,
+}: Props) {
   return (
     <>
       <h2>Contributor Profile</h2>
       <p className="subtitle">Please share your contact details below so other community members can reach you.</p>
 
-      {error ? <p className="error">{error}</p> : null}
+      {notice ? <p className={notice.kind}>{notice.message}</p> : null}
 
       {/* No submit button: every field autosaves on its own (Telegram and
           Discord navigate to their own OAuth flow instead), so this isn't a
@@ -59,6 +100,7 @@ export function ContributorForm({ telegramLabel, discordLabel, defaults, error }
       <form onSubmit={(e) => e.preventDefault()}>
         <AutosaveField id="name" field="name" label="Name" placeholder="e.g. John Doe" defaultValue={defaults.name} />
         <AutosaveField id="email" field="email" label="Email" type="email" defaultValue={defaults.email} />
+        <EmailConfirmationStatus email={defaults.email} confirmedAt={emailConfirmedAt} sentAt={emailConfirmationSentAt} />
         <CompanyField defaultValue={defaults.company} />
         <ProviderField
           label="Discord"

@@ -30,6 +30,11 @@ interface RegistryRow {
   discord_name: string | null
   name: string | null
   email: string | null
+  // Deliberately the only email-confirmation field here — the confirmation
+  // token itself (see migrations/007_email_confirmation.sql) is never
+  // exported: it's a bearer credential, and the registry file is neither
+  // private nor access-controlled the way the database is.
+  email_confirmed_at: string | null
   company: string | null
   status: string
   alias_of_github_id: string | null
@@ -62,6 +67,7 @@ export function toRegistryYaml(contributors: Contributor[]): string {
     discord_name: contributor.discordName ?? null,
     name: contributor.name ?? null,
     email: contributor.email ?? null,
+    email_confirmed_at: contributor.emailConfirmedAt?.toISOString() ?? null,
     company: contributor.company ?? null,
     status: contributor.status,
     alias_of_github_id: contributor.aliasOfGithubId ?? null,

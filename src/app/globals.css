@@ -387,3 +387,24 @@ button,
   border-radius: 6px;
   color: #c33;
 }
+
+.success {
+  padding: 0.75rem;
+  border: 1px solid #1a7f37;
+  border-radius: 6px;
+  color: #1a7f37;
+}
+
+.email-status {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.email-status.confirmed {
+  color: #1a7f37;
+}
+
+.email-status a {
+  color: inherit;
+}

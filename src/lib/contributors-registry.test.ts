@@ -20,6 +20,7 @@ test('renders a contributor as a registry row, contact fields and admin fields a
     contributor({
       name: 'Ada Lovelace',
       email: 'ada@example.com',
+      emailConfirmedAt: new Date('2026-02-01T00:00:00.000Z'),
       company: 'Analytical Engines',
       status: 'confirmed',
       aliasOfGithubId: '2002',
@@ -32,11 +33,21 @@ test('renders a contributor as a registry row, contact fields and admin fields a
   expect(yaml).toContain('github_login: octocat')
   expect(yaml).toContain('name: Ada Lovelace')
   expect(yaml).toContain('email: ada@example.com')
+  expect(yaml).toContain('email_confirmed_at: 2026-02-01T00:00:00.000Z')
   expect(yaml).toContain('company: Analytical Engines')
   expect(yaml).toContain('status: confirmed')
   expect(yaml).toContain('alias_of_github_id: "2002"')
   expect(yaml).toContain('is_agent: true')
   expect(yaml).toContain('created_at:')
+})
+
+// The confirmation token is a bearer credential — the one thing standing
+// between "click this link" and confirming someone else's email — and the
+// registry file is neither private nor access-controlled the way Postgres
+// is. It must never appear in an export, under any field name.
+test('never exports the email confirmation token, confirmed or not', () => {
+  const yaml = toRegistryYaml([contributor({ email: 'ada@example.com', emailConfirmedAt: new Date('2026-01-01') })])
+  expect(yaml.toLowerCase()).not.toContain('token')
 })
 
 test('an unset contact field renders as null, not omitted or empty-string', () => {
@@ -84,6 +95,13 @@ test('drops a row missing github_id entirely', () => {
   const { updates, invalidRowCount } = parseRegistryYaml('contributors:\n  - status: confirmed\n')
   expect(invalidRowCount).toBe(1)
   expect(updates).toEqual([])
+})
+
+test('email_confirmed_at in the file is ignored on import, same as every other non-admin-owned field', () => {
+  const { updates } = parseRegistryYaml(
+    'contributors:\n  - github_id: "1001"\n    status: draft\n    email_confirmed_at: "2026-01-01T00:00:00.000Z"\n',
+  )
+  expect(updates).toEqual([{ githubId: '1001', status: 'draft', aliasOfGithubId: null, isAgent: false }])
 })
 
 test('an empty or missing contributors list parses to no updates, not an error', () => {

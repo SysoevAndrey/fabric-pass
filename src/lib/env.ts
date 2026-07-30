@@ -12,6 +12,13 @@ const schema = z.object({
   TELEGRAM_CLIENT_SECRET: z.string().min(1),
   CONTRIBUTORS_EXPORT_SECRET: z.string().min(1),
   CONTRIBUTORS_SYNC_SECRET: z.string().min(1),
+  // Optional, unlike everything above: this app must still boot (and did,
+  // in production, before these existed) with no SMTP configured at all —
+  // see lib/email.ts, which logs instead of sending when SMTP_HOST is unset.
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
 })
 
 export const env = schema.parse(process.env)

@@ -1,16 +1,30 @@
 import { afterAll, beforeEach, expect, test } from 'vitest'
 import {
   type AdminFieldsUpdate,
+  confirmEmail,
   ContributorNotFoundError,
   ensureContributor,
   findByGithubId,
   linkProvider,
   listContributorsForRegistry,
+  resendConfirmationEmail,
   resolveProviderLabels,
   saveField,
   syncContributorAdminFields,
 } from './contributors.ts'
 import { pool } from './db.ts'
+
+/** Confirmation tokens are deliberately not on the `Contributor` type at all
+ * (see contributors.ts's module doc) — tests that need one read it straight
+ * out of Postgres, the same as the migration tests already do for other
+ * columns no public function exposes. */
+async function confirmationToken(githubId: string): Promise<string | null> {
+  const { rows } = await pool.query<{ email_confirmation_token: string | null }>(
+    'SELECT email_confirmation_token FROM contributors WHERE github_id = $1',
+    [githubId],
+  )
+  return rows[0]?.email_confirmation_token ?? null
+}
 
 /** `status` is the only field every caller of syncContributorAdminFields
  * actually varies test to test; the other two default the same way an
@@ -319,4 +333,122 @@ test('resolveProviderLabels never inherits when the row already has its own link
   const labels = await resolveProviderLabels((await findByGithubId('1002'))!)
 
   expect(labels.discordLabel).toBe('grace-discord')
+})
+
+// GitHub has already verified the email on its own side — that's exactly
+// what the confirmation flow below exists to establish for an address a
+// contributor typed themselves, so there's nothing left to prove here.
+test('an email prefilled from github is confirmed immediately, with no token', async () => {
+  const found = await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+
+  expect(found.emailConfirmedAt).toBeInstanceOf(Date)
+  expect(await confirmationToken('1001')).toBeNull()
+})
+
+test('a returning sign-in never re-confirms an email the contributor has since typed over', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+  await saveField('1001', 'email', 'ada@example.com')
+  expect((await findByGithubId('1001'))?.emailConfirmedAt).toBeUndefined()
+
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+
+  // Still whatever saveField left it as — a second sign-in must not silently
+  // mark the contributor's own typed address as GitHub-confirmed.
+  expect((await findByGithubId('1001'))?.emailConfirmedAt).toBeUndefined()
+  expect((await findByGithubId('1001'))?.email).toBe('ada@example.com')
+})
+
+test('saving a typed email starts a pending confirmation, cleared from any previous one', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com') // confirmed via github
+
+  await saveField('1001', 'email', 'ada@example.com')
+
+  const found = await findByGithubId('1001')
+  expect(found?.email).toBe('ada@example.com')
+  expect(found?.emailConfirmedAt).toBeUndefined()
+  expect(found?.emailConfirmationSentAt).toBeInstanceOf(Date)
+  expect(await confirmationToken('1001')).not.toBeNull()
+})
+
+test('saving the same email again is a no-op — no fresh token, no re-triggered confirmation', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+  const tokenBefore = await confirmationToken('1001')
+
+  await saveField('1001', 'email', 'ada@example.com')
+
+  expect(await confirmationToken('1001')).toBe(tokenBefore)
+})
+
+test('clearing an email back to empty clears every confirmation field with it', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+
+  await saveField('1001', 'email', undefined)
+
+  const found = await findByGithubId('1001')
+  expect(found?.email).toBeUndefined()
+  expect(found?.emailConfirmedAt).toBeUndefined()
+  expect(found?.emailConfirmationSentAt).toBeUndefined()
+  expect(await confirmationToken('1001')).toBeNull()
+})
+
+test('confirmEmail marks the email confirmed and consumes the token', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+  const token = await confirmationToken('1001')
+
+  expect(await confirmEmail(token!)).toBe('confirmed')
+
+  const found = await findByGithubId('1001')
+  expect(found?.emailConfirmedAt).toBeInstanceOf(Date)
+  expect(await confirmationToken('1001')).toBeNull()
+})
+
+test('confirmEmail reports an unrecognized token as invalid', async () => {
+  expect(await confirmEmail('not-a-real-token')).toBe('invalid')
+})
+
+test('confirmEmail reports an expired token as expired, and still consumes it', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+  const token = await confirmationToken('1001')
+  // Backdate the send past the 24h TTL — the only way to exercise
+  // expiration without waiting a real day.
+  await pool.query("UPDATE contributors SET email_confirmation_sent_at = now() - interval '25 hours' WHERE github_id = '1001'")
+
+  expect(await confirmEmail(token!)).toBe('expired')
+  expect(await confirmationToken('1001')).toBeNull() // single-use even when expired
+  expect((await findByGithubId('1001'))?.emailConfirmedAt).toBeUndefined()
+})
+
+test('resendConfirmationEmail issues a fresh token for a still-unconfirmed email', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+  const originalToken = await confirmationToken('1001')
+
+  await resendConfirmationEmail('1001')
+
+  const newToken = await confirmationToken('1001')
+  expect(newToken).not.toBeNull()
+  expect(newToken).not.toBe(originalToken)
+})
+
+test('resendConfirmationEmail is a no-op once the email is already confirmed', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com') // confirmed via github
+  expect(await confirmationToken('1001')).toBeNull()
+
+  await resendConfirmationEmail('1001')
+
+  // No token materialized — nothing was sent, and emailConfirmedAt survives.
+  expect(await confirmationToken('1001')).toBeNull()
+  expect((await findByGithubId('1001'))?.emailConfirmedAt).toBeInstanceOf(Date)
+})
+
+test('resendConfirmationEmail is a no-op for a contributor with no email at all', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  await resendConfirmationEmail('1001')
+
+  expect(await confirmationToken('1001')).toBeNull()
 })

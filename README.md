@@ -2,11 +2,11 @@
 
 Part of [Constructor Fabric](https://constructorfabric.org). Fabric Pass is a directory of an open-source project's contributors, collected through a single link. A contributor signs in with GitHub, which creates their one row immediately, keyed by GitHub account; from there, linking Telegram and/or Discord and filling in a short profile each autosave as they happen, with no separate save step. Returning and signing in again loads the existing row for correction.
 
-The registry stores each linked provider's numeric ID (which never changes), its current username, and — already part of each provider's public profile, at no extra OAuth scope — its current name; or, for a Telegram account with no username, a phone number given with consent. GitHub's public email is stored the same way, when the account has one set. It stores no avatars and no access or refresh tokens. There is no admin UI; the data is read directly from Postgres (see [Reading the data](#reading-the-data)), or via [the cf-internal registry sync](#contributors-registry-sync) for the fields it owns.
+The registry stores each linked provider's numeric ID (which never changes), its current username, and — already part of each provider's public profile, at no extra OAuth scope — its current name; or, for a Telegram account with no username, a phone number given with consent. GitHub's public email is stored the same way, when the account has one set, and is confirmed immediately since GitHub already verified it; an email the contributor types themselves goes through [its own confirmation flow](#email-confirmation) instead, since nothing vouches for that one. It stores no avatars and no access or refresh tokens. There is no admin UI; the data is read directly from Postgres (see [Reading the data](#reading-the-data)), or via [the cf-internal registry sync](#contributors-registry-sync) for the fields it owns.
 
 ## Data collected
 
-The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`, `migrations/003_telegram_id_as_text.sql`, `migrations/004_provider_profile_fields.sql`, `migrations/005_contributor_status.sql`, and `migrations/006_alias_and_agent_fields.sql`):
+The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrations/002_contributor_name_and_nullable_fields.sql`, `migrations/003_telegram_id_as_text.sql`, `migrations/004_provider_profile_fields.sql`, `migrations/005_contributor_status.sql`, `migrations/006_alias_and_agent_fields.sql`, and `migrations/007_email_confirmation.sql`):
 
 | Column(s) | Notes |
 |---|---|
@@ -15,13 +15,20 @@ The `contributors` table (`migrations/001_contributors.sql`, reshaped by `migrat
 | `github_name`, `github_email` | From GitHub's own public profile, refreshed on every sign-in — not what's typed into the form below. `github_email` is specifically whichever address (if any) the account holder has chosen to make public; GitHub exposes nothing more without asking for an additional scope, so this is often null |
 | `telegram_id`, `telegram_username`, `telegram_phone`, `telegram_name` | Telegram's ID (unique) — stored as text, since it isn't bounded to 64 bits the way a `bigint` is (`discord_id` below was already text for the same reason); current `@username`, or a phone number when the account has none; `telegram_name` from the account's own profile |
 | `discord_id`, `discord_username`, `discord_name` | Discord's snowflake ID (unique), current username, and current display name (`global_name`) |
-| `name`, `email`, `company` | Entered directly in the form, one field at a time as it autosaves; all three are optional — a blank value clears the column |
+| `name`, `company` | Entered directly in the form, one field at a time as it autosaves; both optional — a blank value clears the column |
+| `email` | Entered directly in the form, same as `name`/`company` — but see [Email confirmation](#email-confirmation): saving a new value here has side effects beyond this one column |
+| `email_confirmed_at` | Set the moment `email` is confirmed; `null` until then. Owned by this app, not the registry sync — exported for visibility, never imported back (see [Email confirmation](#email-confirmation)) |
+| `email_confirmation_token`, `email_confirmation_sent_at` | The pending confirmation's bearer token and when it was sent, used to serve `/confirm-email` and compute the 24-hour expiry. **`email_confirmation_token` is never exported anywhere** — see [Email confirmation](#email-confirmation) |
 | `status` | `'draft'` or `'confirmed'` — owned by [the cf-internal registry sync](#contributors-registry-sync) below, not by this app; every contributor starts as `'draft'` |
-| `alias_of_github_id` | Another contributor's `github_id` — set when this row is a second registration by the same real person. `null` means this is a primary contributor, not an alias of anyone. Owned by the registry sync, same as `status`; a foreign key into this same table, and constrained to never reference itself |
+| `alias_of_github_id` | Another contributor's `github_id` — set when this row is a second registration by the same real person. `null` means this is a primary contributor, not an alias of anyone. Usually set by an admin via the registry sync, same as `status` — but also set automatically; see [Linking a Telegram/Discord account already linked elsewhere](#linking-a-telegramdiscord-account-already-linked-elsewhere) below. Either way it flows back out to the registry file on the next export. A foreign key into this same table, and constrained to never reference itself |
 | `is_agent` | `true` for a bot/agent account rather than a human. Owned by the registry sync, same as `status`; defaults to `false` |
 | `created_at`, `updated_at` | Set automatically |
 
 None of `github_name`/`github_email`/`discord_name`/`telegram_name` need any OAuth scope beyond what's already requested (see [Registering the OAuth applications](#registering-the-oauth-applications)) — they're already part of each provider's public-profile response. No provider here exposes a phone number outside Telegram's existing no-username path, and Discord/Telegram have no email in their public profile at all.
+
+### Linking a Telegram/Discord account already linked elsewhere
+
+`telegram_id`/`discord_id` are unique — one provider account can be the direct link for only one contributor row — but a real person can end up with more than one row (a personal GitHub account and a work one, say). Attempting to link a Telegram/Discord account already linked to a *different* row is not refused: successfully completing that OAuth flow is treated as proof the two rows are the same person, and the row attempting the link is recorded as an alias of whichever one already holds the identity (`alias_of_github_id`, above) rather than erroring. The identity itself is never duplicated in storage — only the alias row's *display* inherits it (`resolveProviderLabels` in `src/lib/contributors.ts`), so the contributor sees their Telegram/Discord as linked on either row despite it living in only one place in the database. An alias already pointed at someone else (set by an admin, or by an earlier shared-identity proof) is left alone rather than silently overwritten by a conflicting new claim.
 
 ## Session outlives its row
 
@@ -94,8 +101,9 @@ The test suite runs against `contributor_registry_test`, using the credentials a
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | From the Discord application |
 | `TELEGRAM_CLIENT_ID`, `TELEGRAM_CLIENT_SECRET` | From the Telegram bot |
 | `CONTRIBUTORS_EXPORT_SECRET`, `CONTRIBUTORS_SYNC_SECRET` | Shared secrets guarding the two `/internal/contributors/*` routes used by the cf-internal registry sync (see below); at least 32 characters each (`openssl rand -hex 32`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | **Optional** — see [Email confirmation](#email-confirmation). With `SMTP_HOST` unset, a confirmation email is logged instead of sent, so the app still boots and runs with none of these set |
 
-All eleven are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider.
+The eleven above `SMTP_*` are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider. `SMTP_*` is the one exception, deliberately: this app needs to keep booting in an environment where email hasn't been configured yet.
 
 ## Registering the OAuth applications
 
@@ -137,12 +145,28 @@ A row exists from the moment someone signs in with GitHub, before they've typed 
 
 ## Contributors registry sync
 
-Three columns — `status`, `alias_of_github_id`, `is_agent` — are mirrored to and from a YAML file — `pass/contributors.yaml` in the private [constructorfabric/cf-internal](https://github.com/constructorfabric/cf-internal) repo — which is the actual source of truth for those three. Every other column in the table flows one way only, DB → file; these three flow only file → DB. Every column is present in the file either way, but each has exactly one writer, so there's never a conflict over which side owns a given field:
+Three columns — `status`, `alias_of_github_id`, `is_agent` — are mirrored to and from a YAML file — `pass/contributors.yaml` in the private [constructorfabric/cf-internal](https://github.com/constructorfabric/cf-internal) repo — which is the actual source of truth for those three. Every other column in the table flows one way only, DB → file; these three flow only file → DB. Every column is present in the file either way, but each has exactly one writer, so there's never a conflict over which side owns a given field. (`alias_of_github_id` alone can also be set by the app itself, outside this sync entirely — see [Linking a Telegram/Discord account already linked elsewhere](#linking-a-telegramdiscord-account-already-linked-elsewhere) — but whichever way it was set, it's still exported here the same as if an admin had typed it.)
 
 - **Export** (DB → file, hourly): `.github/workflows/export-contributors.yml` in *this* repo calls `GET /internal/contributors/export` (bearer-protected by `CONTRIBUTORS_EXPORT_SECRET`), which renders every column of every contributor — including their current `status`/`alias_of_github_id`/`is_agent` — as YAML, and commits the result into cf-internal if it changed. Uses a fine-grained PAT (`CF_INTERNAL_PAT`, scoped to just that repo, `Contents: Read and write`) stored as a secret on *this* repo — the droplet itself never holds a GitHub write credential.
 - **Import** (file → DB, on push): a small shim workflow living in cf-internal (`on: push: paths: ['pass/contributors.yaml']`) posts the file's content to `POST /internal/contributors/sync` (bearer-protected by `CONTRIBUTORS_SYNC_SECRET`), which updates `status`, `alias_of_github_id`, and `is_agent` for each `github_id` it finds a matching row for — nothing else in the payload is read. This is how an admin's manual edit in GitHub reaches the app — and also fires harmlessly after the export's own commit, since re-applying already-current values is a no-op. A row whose `alias_of_github_id` fails the database's own FK or not-self CHECK constraint (an unknown `github_id`, or a self-reference) is skipped and logged rather than aborting the rest of the batch.
 
 An admin acts by editing one of the three owned fields in `pass/contributors.yaml` directly — e.g. `status: draft` → `confirmed` to promote a contributor, `alias_of_github_id: "<their github_id>"` to mark a duplicate registration as the same person, or `is_agent: true` for a bot account — and merging that change. No other field in the file should be hand-edited, since the next hourly export overwrites everything except those three from the database.
+
+## Email confirmation
+
+A contributor can type any email address at all into the form — unlike GitHub's own public email (`github_email`), nothing vouches for it — so a typed `email` isn't trusted until its owner proves they can read mail sent there.
+
+- **Saving a new, different `email`** (`src/lib/contributors.ts`'s `saveEmail`, reached through the same `saveField` every typed field autosaves through) generates a token, records `email_confirmation_sent_at`, clears any previous `email_confirmed_at`, and sends a link to `{APP_URL}/confirm-email?token=…` from `no-reply@cfabric.org`. Saving the *same* address again (e.g. re-focusing and blurring the field without changing it) is a deliberate no-op — it doesn't re-send anything or reset an already-earned confirmation.
+- **`GET /confirm-email?token=…`** (`src/app/confirm-email/route.ts`) is the link itself — no sign-in required, since the token is the credential. A match clears the token immediately, whether or not it turned out to be expired, so the same link can never be replayed. Expired is 24 hours after `email_confirmation_sent_at` (`EMAIL_CONFIRMATION_TTL_MS` in `src/lib/email.ts`).
+- **"Resend confirmation email"** (`GET /auth/resend-confirmation`, session-authenticated) issues a fresh token for the signed-in contributor's own still-unconfirmed email. A no-op if the email is already confirmed, or if there's no email on file at all.
+- The signed-in profile page shows the live status next to the Email field: "✓ Confirmed", a prompt to check the inbox with a resend link, or "expired" with the same resend link.
+- **The confirmation token is never exported** to the registry file, or anywhere else outside Postgres — it's a bearer credential, and the file is neither private nor access-controlled the way the database is. Only `email_confirmed_at` is exported, for visibility; it's never read back in (see [Contributors registry sync](#contributors-registry-sync) — this app is `email_confirmed_at`'s sole writer, the same as `email` itself).
+
+### Sending email
+
+Sending goes through [Nodemailer](https://nodemailer.com) over plain SMTP (`src/lib/email.ts`), so any provider that hands out SMTP credentials works — Postmark, SES, Mailgun, a Google Workspace relay, a self-hosted server, whatever's already handling `@cfabric.org` mail. Set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` (see [Environment variables](#environment-variables)); with `SMTP_HOST` unset, a confirmation email is logged instead of sent, so the app still runs with no SMTP configured at all — this matters because these four are the only *optional* variables in the whole app (everything else fails the build if unset).
+
+Sending `from: no-reply@cfabric.org` specifically will need that domain's own SPF/DKIM records pointed at whichever provider is chosen, or mail is likely to land in spam regardless of the app working correctly — that setup lives with the mail provider/DNS, not in this repo.
 
 ## Deployment
 

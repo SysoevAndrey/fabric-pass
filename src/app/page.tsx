@@ -1,6 +1,6 @@
 import { findByGithubId, resolveProviderLabels } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
-import { noticeMessage, REAUTH_REQUIRED_MESSAGE } from './auth/notice'
+import { noticeKind, noticeMessage, REAUTH_REQUIRED_MESSAGE, type Notice } from './auth/notice'
 import { ContributorForm } from './form'
 import { GitHubMark } from './marks'
 
@@ -14,12 +14,12 @@ interface PageProps {
  * README's "session outlives its row") — the same action, signing in with
  * GitHub again, recovers from both, since it recreates the row.
  */
-function SignInPrompt({ message }: { message?: string }) {
+function SignInPrompt({ notice }: { notice?: Notice }) {
   return (
     <>
       <h2>Sign In</h2>
       <p className="subtitle">Sign in with GitHub to add or update your profile.</p>
-      {message ? <p className="error">{message}</p> : null}
+      {notice ? <p className={notice.kind}>{notice.message}</p> : null}
       <a className="link-button brand github" href="/auth/github">
         <GitHubMark />
         Sign in with GitHub
@@ -34,10 +34,11 @@ export default async function Page({ searchParams }: PageProps) {
   // A one-shot notice from an OAuth redirect, read from the URL rather than
   // the session — a Server Component can't clear a cookie during render, but
   // a query parameter is naturally gone on the next navigation.
-  const error = noticeMessage(params.notice, params.provider)
+  const message = noticeMessage(params.notice, params.provider)
+  const notice: Notice | undefined = message ? { message, kind: noticeKind(params.notice) } : undefined
 
   if (!session.github) {
-    return <SignInPrompt message={error} />
+    return <SignInPrompt notice={notice} />
   }
 
   // The row was created (or its login refreshed) the instant GitHub sign-in
@@ -53,7 +54,7 @@ export default async function Page({ searchParams }: PageProps) {
     // bind a form to, and no in-page action other than signing in again can
     // fix it, so this reads the same as being signed out rather than
     // rendering a form bound to a row that no longer exists.
-    return <SignInPrompt message={REAUTH_REQUIRED_MESSAGE} />
+    return <SignInPrompt notice={{ message: REAUTH_REQUIRED_MESSAGE, kind: 'error' }} />
   }
 
   const { telegramLabel, discordLabel } = await resolveProviderLabels(existing)
@@ -67,7 +68,9 @@ export default async function Page({ searchParams }: PageProps) {
         email: existing.email ?? '',
         company: existing.company ?? '',
       }}
-      error={error}
+      emailConfirmedAt={existing.emailConfirmedAt ?? null}
+      emailConfirmationSentAt={existing.emailConfirmationSentAt ?? null}
+      notice={notice}
     />
   )
 }

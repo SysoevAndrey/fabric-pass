@@ -1,5 +1,12 @@
 import type { ProviderName } from '@/lib/providers/types'
 
+/** The rendered form of a notice — `noticeMessage` + `noticeKind` combined
+ * into what page.tsx and form.tsx actually need to display one. */
+export interface Notice {
+  message: string
+  kind: 'error' | 'success'
+}
+
 /**
  * A one-shot notice from an OAuth redirect, carried as a query parameter
  * rather than in the session. `session.error` used to hold this, but a
@@ -11,7 +18,16 @@ import type { ProviderName } from '@/lib/providers/types'
  * The code is a fixed, closed set chosen only by callback/route.ts — never
  * free text — so nothing reaches page.tsx from the URL except a lookup key.
  */
-export type NoticeCode = 'expired' | 'link-failed' | 'telegram-no-contact' | 'identity-changed' | 'reauth-required'
+export type NoticeCode =
+  | 'expired'
+  | 'link-failed'
+  | 'telegram-no-contact'
+  | 'identity-changed'
+  | 'reauth-required'
+  | 'email-confirmed'
+  | 'confirmation-expired'
+  | 'invalid-confirmation-link'
+  | 'confirmation-resent'
 
 /**
  * The one message shown for a session that outlives its row — from the
@@ -29,7 +45,11 @@ function isNoticeCode(value: string): value is NoticeCode {
     value === 'link-failed' ||
     value === 'telegram-no-contact' ||
     value === 'identity-changed' ||
-    value === 'reauth-required'
+    value === 'reauth-required' ||
+    value === 'email-confirmed' ||
+    value === 'confirmation-expired' ||
+    value === 'invalid-confirmation-link' ||
+    value === 'confirmation-resent'
   )
 }
 
@@ -75,5 +95,28 @@ export function noticeMessage(
       // The session cookie named a contributor row that no longer exists —
       // retrying the same action can never succeed, only signing in again can.
       return REAUTH_REQUIRED_MESSAGE
+    case 'email-confirmed':
+      return 'Your email has been confirmed.'
+    case 'confirmation-expired':
+      // The link itself is already spent by the time this shows — confirmEmail
+      // clears a matched token whether or not it turned out to be expired, so
+      // "expired" and "already used" look identical to the contributor, and
+      // "click resend" is the fix either way.
+      return 'That confirmation link has expired. Use "Resend confirmation email" below to get a new one.'
+    case 'invalid-confirmation-link':
+      return 'That confirmation link is not valid. Use "Resend confirmation email" below to get a new one.'
+    case 'confirmation-resent':
+      return 'Confirmation email sent — check your inbox.'
   }
+}
+
+/**
+ * `noticeMessage`'s companion: whether the message it returns reads as an
+ * error or a success, so the page can style the two differently instead of
+ * every notice defaulting to the same red banner regardless of what it's
+ * actually saying.
+ */
+export function noticeKind(rawCode: string | string[] | undefined): 'error' | 'success' {
+  const code = typeof rawCode === 'string' ? rawCode : undefined
+  return code === 'email-confirmed' || code === 'confirmation-resent' ? 'success' : 'error'
 }
