@@ -47,11 +47,15 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # See the webhook service's mount below for why this is a directory
+    # mount, not `./Caddyfile:/etc/caddy/Caddyfile:ro` — the same staleness
+    # bug applies to any single bind-mounted file.
+    command: ["caddy", "run", "--config", "/deploy/Caddyfile", "--adapter", "caddyfile"]
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - .:/deploy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -69,10 +73,20 @@ services:
     # — it's also why DEPLOY_WEBHOOK_SECRET must never leak; anyone who can
     # trigger this endpoint successfully can run arbitrary containers on the
     # host.
+    #
+    # `.:/deploy:ro` mounts the whole directory, not the individual files —
+    # a single-file bind mount pins the container to that file's inode at
+    # mount time. `sed -i` (and rsync, and most editors) replace a file via
+    # write-new-then-rename rather than editing in place, which changes the
+    # inode; a single-file mount then keeps showing the old, orphaned
+    # content forever, invisibly, until the container itself restarts. A
+    # directory mount doesn't have this failure mode — it was the actual
+    # cause of production twice serving a webhook-triggered `app` container
+    # built from a stale, incomplete `.env` after a `sed -i` edit, with the
+    # file on disk already correct by the time anyone checked it.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./docker-compose.yml:/deploy/docker-compose.yml:ro
-      - ./.env:/deploy/.env:ro
+      - .:/deploy:ro
     expose:
       - "9000"
 
