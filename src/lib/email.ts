@@ -1,7 +1,15 @@
 import nodemailer from 'nodemailer'
 import { env } from '@/lib/env'
 
-const FROM_ADDRESS = 'no-reply@cfabric.org'
+// Sent as whichever mailbox SMTP_USER authenticates as — most providers
+// (this one included: name.com's cPanel-hosted mail) reject or flag a From
+// address that doesn't match the authenticated account, so this is derived
+// rather than a separately-hardcoded address that could drift out of sync
+// with it. Falls back to a placeholder only because the module has to
+// import cleanly with no SMTP configured at all (see the transporter below,
+// and lib/env.ts's SMTP_* being the one optional block of variables) — the
+// fallback is never actually used to send anything.
+const FROM_ADDRESS = env.SMTP_USER ?? 'no-reply@cfabric.org'
 
 export const EMAIL_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000
 
