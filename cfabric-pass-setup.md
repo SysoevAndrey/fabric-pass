@@ -181,18 +181,31 @@ Verified: recreated both `webhook` and `caddy` (`docker compose up -d --force-re
 
 All four services (`postgres`, `app`, `caddy`, `webhook`) are up and healthy, and the redeploy path that broke twice is now verified working through its actual trigger (a real webhook call), not just a manual workaround. The full pipeline — push to `main` → GitHub Actions builds & publishes to GHCR → webhook pulls & redeploys `app` — is live. The site is reachable at `https://pass.cfabric.org`.
 
-## Step 8 — cf-internal contributors registry sync (implemented, one manual step pending)
+## Step 8 — cf-internal contributors registry sync (done, verified live both directions)
 
 Full design and rationale live in [README.md's "Contributors registry sync"](README.md#contributors-registry-sync) — this is the deployment side.
 
-- `migrations/005_contributor_status.sql`, the two `/internal/contributors/*` endpoints, and `.github/workflows/export-contributors.yml` are implemented, tested (119/119 passing, including a live curl smoke test against a throwaway local Postgres — export → sync → re-export all verified end-to-end), and committed locally on `fabric-pass` — not yet pushed.
-- `constructorfabric/cf-internal` got `pass/contributors.yaml` (seeded with `contributors: []` so the export workflow's `git diff` has a tracked baseline to compare against from its very first run) and a minimal, credential-free shim workflow (`notify-fabric-pass.yml`) that forwards the file to fabric-pass's sync endpoint on every push — committed locally in a throwaway clone, not yet pushed.
+- `migrations/005_contributor_status.sql`, the two `/internal/contributors/*` endpoints, and `.github/workflows/export-contributors.yml` — implemented, tested (119/119 passing, including a live curl smoke test against a throwaway local Postgres before any of this touched production), committed on `fabric-pass`.
+- `constructorfabric/cf-internal` got `pass/contributors.yaml` (seeded with `contributors: []` so the export workflow's `git diff` has a tracked baseline from its very first run) and a minimal, credential-free shim workflow (`notify-fabric-pass.yml`) that forwards the file to fabric-pass's sync endpoint on every push.
 - Found in passing: `cf-internal` already has an unrelated, much larger `contributors.md` at its root (166 identities, multiple emails/aliases per person, workshop-attendance dates) — a different, pre-existing effort, untouched by this work. `pass/contributors.yaml` is new and doesn't conflict with it.
-- Both `CONTRIBUTORS_EXPORT_SECRET` (on `fabric-pass`) and `CONTRIBUTORS_SYNC_SECRET` (on `cf-internal`) are set as repo secrets, and both are also in `/opt/fabric-pass/.env` on the droplet already.
-- **Blocked on one manual step:** `CF_INTERNAL_PAT` — a fine-grained PAT scoped to just `cf-internal` with `Contents: Read and write` — has to be minted by a human via GitHub's web UI (no API for fine-grained PAT creation) and set as a `fabric-pass` repo secret. Until that exists, the export workflow can check out `cf-internal` but can't push to it.
+- **`CF_INTERNAL_PAT`** (fine-grained, scoped to only `cf-internal`, `Contents: Read and write`) — minted by the user via GitHub's web UI (no API exists for creating a fine-grained PAT) and set as a `fabric-pass` repo secret via `gh secret set`, so the raw token never passed through this chat.
+- Pushed both repos' pending commits (`fabric-pass` `00c6c41`, `cf-internal` `e3ecd1d`). The `fabric-pass` push rebuilt and redeployed through the existing pipeline — migration 005 applied cleanly on the first try this time, no repeat of Step 7's stale-mount bug.
+- **Export direction, verified live:** triggered `export-contributors.yml` manually (`gh workflow run`) rather than waiting for its hourly schedule. It read the real production database — by this point 4 real contributors had already signed in — rendered them as YAML, and pushed to `cf-internal` using `CF_INTERNAL_PAT`. Confirmed via `gh api repos/constructorfabric/cf-internal/contents/pass/contributors.yaml` that the file matched what the export endpoint returned, all four at `status: draft`.
+- **One expected, harmless failure along the way:** the shim workflow's very first run (triggered by the initial seed-file push, which landed in `cf-internal` moments before the `fabric-pass` deploy finished) hit `curl: (22) ... 404` — the sync endpoint didn't exist on production yet at that exact instant. A one-time sequencing artifact of this specific rollout, not a recurring issue: the next push (the export's own commit, after deploy had finished) succeeded normally.
+- **Import direction, verified live:** edited `pass/contributors.yaml` directly — the same action a real admin would take — setting `vzhuman`'s `status` from `draft` to `confirmed`, committed, and pushed. The shim workflow fired and posted to `/internal/contributors/sync` within seconds. Confirmed directly against production Postgres:
+  ```
+  github_login | status
+  claudedigon  | draft
+  frontgeeks   | draft
+  lobster40    | draft
+  vzhuman      | confirmed
+  ```
+  Exactly the one row touched — the other three untouched drafts confirm the sync only ever writes `status`, never anything else.
+
+Both directions of the sync are now live and confirmed working through their real triggers (a real scheduled/dispatched export, a real admin-style file edit), not just unit tests.
 
 ## Not yet done
 
 - Nightly `pg_dump` backup timer — the droplet has no backups yet, only Postgres's own on-disk state
-- Actually signing in through all three providers hasn't been exercised yet (only that the page loads) — worth a real end-to-end sign-in test
-- Push the pending `fabric-pass` and `cf-internal` commits, once the PAT exists
+- Actually signing in through all three OAuth providers hasn't been exercised end-to-end by me (only that the page loads and that real contributors have signed in on their own) — worth a deliberate walkthrough
+- The registry sync's `status` field has no consumer yet — gating a feature (e.g. contributor search) on `confirmed` is explicitly future work, not started
