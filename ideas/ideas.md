@@ -15,3 +15,8 @@ A separate page for the contributor's profile.
 Review how data flows between the Postgres database and git (the cf-internal
 registry sync): what is exported, what is imported back, and whether the process
 holds up.
+
+## 003 Root user configured via env by GitHub ID
+**status:** proposed · **owner:** frontgeeks · **by:** frontgeeks · 2026-07-31
+
+A root user for the app, designated by GitHub ID through an environment variable.
