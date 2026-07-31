@@ -1,42 +1,98 @@
 # Fabric Pass — deployment setup
 
-Deployment target: a single DigitalOcean droplet running the app, Postgres, a
-reverse proxy, and a deploy webhook, all as Docker Compose services. Images
-are built by GitHub Actions and published to GHCR; the droplet pulls and
-redeploys on a signed webhook call rather than being built on. See
-[README.md](README.md) for the application itself.
+Step-by-step instructions for deploying Fabric Pass from scratch: a single
+server running the app, Postgres, a reverse proxy, and a deploy webhook, all
+as Docker Compose services. Images are built by GitHub Actions and published
+to GHCR; the server pulls and redeploys on a signed webhook call rather than
+being built on directly. See [README.md](README.md) for the application
+itself — this file covers infrastructure only.
 
-This file is the running record of what's been configured and how, so the
-setup can be audited or reproduced. Update it as later steps land.
+Follow the steps in order — each one depends on the ones before it.
 
-## Infrastructure summary
+Sections marked **Implementation notes** are collapsed by default and exist
+for whoever (human or AI agent) is doing the actual reproduction — they hold
+the non-obvious "why," not just the "what." Skip them on a first read; come
+back if something doesn't behave the way the main text says it should.
 
-| Item | Value |
-|---|---|
-| Domain | `pass.cfabric.org`, proxied through Cloudflare |
-| Droplet name | `fabric-pass` |
-| Droplet ID | `588639485` |
-| Region | `fra1` |
-| Plan | Basic, 1 vCPU / 1GB RAM / 25GB SSD (**$6/mo** — downsized from the originally planned $12/mo 2GB plan; see [Swap](#swap) for how that's offset) |
-| OS | Ubuntu 24.04.4 LTS |
-| Public IP | `46.101.123.136` |
-| SSH key | `~/.ssh/id_ed25519` (`xiboliaren@gmail.com`), reused from an existing key rather than generated fresh |
+## Prerequisites
 
-**Note for the upcoming Caddy/TLS step:** `pass.cfabric.org` resolves to Cloudflare's edge IPs (proxied), not `46.101.123.136` directly. Caddy's automatic HTTPS will need Cloudflare's SSL/TLS mode set to **Full (strict)** — plain **Flexible** mode terminates TLS at Cloudflare and speaks plain HTTP to the origin, which will loop or fail against Caddy's own auto-HTTPS.
+- A DigitalOcean account (or any host that gives you a fresh Ubuntu VM with
+  root SSH access — the steps below are DigitalOcean-flavored but not
+  DigitalOcean-specific).
+- A domain you control, with DNS you can edit. Proxying through Cloudflare
+  is recommended (DDoS protection, hides the origin IP) but not required.
+- A GitHub repository to host the code and run the CI workflows, with GHCR
+  (GitHub Container Registry) available to it — this comes free with the repo.
+- A [Resend](https://resend.com) account (or another transactional-email API
+  provider) for sending confirmation emails. See [Step 10](#step-10--set-up-email-resend).
+- An SSH key pair on the machine you'll administer from. Reuse one you
+  already have, or generate one: `ssh-keygen -t ed25519 -C "you@example.com"`.
 
-## Steps 1–3 — done manually (by the user, via the DO/Cloudflare consoles)
+## Before you start — define your constants
 
-1. Created the droplet in the DigitalOcean console: `fabric-pass`, Ubuntu 24.04, Basic $6/mo (1 vCPU/1GB/25GB), region `fra1`, with the existing `id_ed25519` SSH key attached at creation.
-2. Pointed `pass.cfabric.org` at the droplet's IP via Cloudflare DNS (proxied).
-3. Verified SSH reachability from the laptop (as `root`, before the hardening below).
+Pick values for everything in this table and substitute them consistently
+into every command below. The **Example** column shows a real, working value
+where the setting isn't sensitive (region, plan, username), and a
+documentation-safe placeholder where it is (IP address).
 
-I don't have DigitalOcean or Cloudflare account access in this environment (no `doctl`/API token configured), so these three stay manual — everything below this point was run by me over SSH once step 3 confirmed connectivity.
+| Placeholder | Example | What it is |
+|---|---|---|
+| `<DOMAIN>` | `pass.cfabric.org` | Public hostname the app is served from |
+| `<DROPLET_NAME>` | `fabric-pass` | Server name; also used as `COMPOSE_PROJECT_NAME` |
+| `<REGION>` | `fra1` | DigitalOcean region slug — pick one close to your users |
+| `<DEPLOY_USER>` | `deploy` | Non-root account used for all server access after setup |
+| `<APP_DIR>` | `/opt/fabric-pass` | Where the Compose files live on the server |
+| `<SSH_HOST_ALIAS>` | `fabric-pass` | Local `~/.ssh/config` `Host` alias for this server |
+| `<SSH_KEY>` | `~/.ssh/id_ed25519` | Local SSH key used to reach the server |
+| `<DROPLET_IP>` | `203.0.113.10` | The server's public IP (yours will differ — this is a documentation-only example address) |
+| `<GITHUB_REPO>` | `constructorfabric/fabric-pass` | The repo this is deployed from |
+| `<GHCR_IMAGE>` | `ghcr.io/constructorfabric/fabric-pass` | Where CI publishes images |
+| `<RESEND_DOMAIN>` | `cfabric.org` | The domain you verify in Resend and send confirmation emails from |
 
-## Step 4 — server base setup (done, automated)
+## Step 1 — Provision the server
+
+Via the DigitalOcean console (or `doctl compute droplet create` if you
+prefer the CLI):
+
+1. Name: `<DROPLET_NAME>`.
+2. Image: Ubuntu 24.04 LTS.
+3. Plan: Basic, 1 vCPU / 1GB RAM / 25GB SSD (~$6/mo) is enough — see the
+   swap setup in [Step 4](#step-4--server-base-setup) for why a box this
+   small still works comfortably for this app.
+4. Region: `<REGION>`.
+5. Attach your SSH public key at creation time, so root login works
+   immediately with no password ever set.
+6. Note the droplet's public IP once it's up — that's your `<DROPLET_IP>`.
+
+## Step 2 — Point DNS at the server
+
+1. At your DNS provider, add an **A record**: `<DOMAIN>` → `<DROPLET_IP>`.
+2. If you're proxying through Cloudflare, set SSL/TLS mode to **Full
+   (strict)**. Caddy (installed in [Step 6](#step-6--review-the-deployment-files))
+   gets its own certificate and terminates real TLS at the origin —
+   Cloudflare's default **Flexible** mode instead terminates TLS at its own
+   edge and speaks plain HTTP to the origin, which fights with Caddy's
+   automatic HTTPS and produces a redirect loop.
+
+## Step 3 — Verify SSH access as root
+
+```bash
+ssh root@<DROPLET_IP>
+```
+
+Confirm you land in a shell. This root session is only used to bootstrap
+the `<DEPLOY_USER>` account below — root login gets disabled once that
+account is confirmed working.
+
+## Step 4 — Server base setup
+
+Run everything in this step as root, over the SSH session from Step 3.
 
 ### Swap
 
-The droplet has 961MB of physical RAM — tight for Postgres + Next.js + Caddy + the webhook receiver running concurrently, especially during a container recreation. Added a 2GB swap file as an OOM safety net, and lowered `vm.swappiness` so the kernel prefers RAM and only spills to swap under real pressure:
+The smallest droplet plan has under 1GB of RAM — tight for Postgres,
+Next.js, Caddy, and the webhook receiver running at once, especially during
+a container recreation. A swap file is a cheap OOM safety net:
 
 ```bash
 fallocate -l 2G /swapfile
@@ -48,9 +104,14 @@ sysctl -w vm.swappiness=10
 echo "vm.swappiness=10" > /etc/sysctl.d/99-swappiness.conf
 ```
 
+`vm.swappiness=10` tells the kernel to prefer RAM and only spill to swap
+under real pressure, rather than swapping eagerly.
+
 ### Docker
 
-Installed from Docker's official apt repo (not the older Ubuntu-packaged `docker.io`), giving the Compose v2 plugin:
+Install from Docker's own apt repo, not the older Ubuntu-packaged
+`docker.io` — this is what gives you the Compose v2 plugin (`docker compose`,
+no hyphen) that the rest of this guide assumes:
 
 ```bash
 install -m 0755 -d /etc/apt/keyrings
@@ -59,33 +120,44 @@ chmod a+r /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+docker --version && docker compose version
 ```
 
-Result: Docker `29.6.2`, Compose `v5.3.1`.
+### Create the deploy user
 
-### `deploy` user
-
-Root login is disabled (below), so all access and all container operations go through this account:
+Root login gets disabled later in this step, so every future login and
+every container operation goes through this account instead:
 
 ```bash
-adduser --disabled-password --gecos "" deploy
-usermod -aG sudo,docker deploy
-mkdir -p /home/deploy/.ssh
-cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
-chown -R deploy:deploy /home/deploy/.ssh
-chmod 700 /home/deploy/.ssh
-chmod 600 /home/deploy/.ssh/authorized_keys
-echo "deploy ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/deploy
-chmod 440 /etc/sudoers.d/deploy
+adduser --disabled-password --gecos "" <DEPLOY_USER>
+usermod -aG sudo,docker <DEPLOY_USER>
+mkdir -p /home/<DEPLOY_USER>/.ssh
+cp /root/.ssh/authorized_keys /home/<DEPLOY_USER>/.ssh/authorized_keys
+chown -R <DEPLOY_USER>:<DEPLOY_USER> /home/<DEPLOY_USER>/.ssh
+chmod 700 /home/<DEPLOY_USER>/.ssh
+chmod 600 /home/<DEPLOY_USER>/.ssh/authorized_keys
+echo "<DEPLOY_USER> ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/<DEPLOY_USER>
+chmod 440 /etc/sudoers.d/<DEPLOY_USER>
 ```
 
-- Same SSH key as `root` had (`id_ed25519`) — no new key needed.
-- `docker` group membership means Compose commands don't need `sudo` at all.
-- `NOPASSWD` sudo is granted anyway, since this is a single-admin personal server and `deploy` has no password to prompt for in the first place.
+This reuses the same SSH key root already has — no second key needed.
+`docker` group membership means Compose commands never need `sudo`.
 
-### Firewall (`ufw`)
+<details>
+<summary>Implementation notes</summary>
 
-Default deny on incoming; only SSH and the two web ports are reachable from the internet. Postgres is never exposed — it's only reachable inside the Compose network:
+`NOPASSWD` sudo is reasonable for a single-admin personal server where the
+account has no password to prompt for in the first place. For a
+multi-admin or compliance-sensitive setup, scope this down instead of
+copying it verbatim.
+</details>
+
+### Firewall (ufw)
+
+Default-deny on incoming; only SSH and the two web ports are reachable from
+the public internet. Postgres is deliberately never opened here — see the
+note in [Step 6](#step-6--review-the-deployment-files) about why it has no
+`ports:` entry in Compose either.
 
 ```bash
 apt-get install -y ufw fail2ban
@@ -95,125 +167,324 @@ ufw allow 443/tcp
 ufw --force enable
 ```
 
-### `fail2ban`
+### fail2ban
 
-Installed and enabled with its default `sshd` jail, to blunt SSH brute-force attempts against the now-internet-facing `deploy` account:
+Blunts SSH brute-force attempts against the now-internet-facing
+`<DEPLOY_USER>` account, using its default `sshd` jail:
 
 ```bash
 systemctl enable --now fail2ban
 ```
 
-### SSH hardening
+### Disable root SSH login
 
-`PasswordAuthentication` was already `no` (DigitalOcean's cloud-init default — key-only from the start). Changed one more setting, only after confirming `deploy` login worked end-to-end (key auth, passwordless `sudo`, `docker ps`) in a separate connection:
+**Before running this**, open a *second*, separate SSH session as
+`<DEPLOY_USER>` and confirm key auth, passwordless `sudo`, and `docker ps`
+all work. Only disable root once that's confirmed — otherwise a mistake
+above can lock you out entirely.
 
 ```bash
 sed -i "s/^PermitRootLogin yes/PermitRootLogin no/" /etc/ssh/sshd_config
 systemctl restart ssh
 ```
 
-Verified afterward: `ssh root@46.101.123.136` now fails with `Permission denied (publickey)`; `ssh deploy@46.101.123.136` still works with full `sudo` and `docker` access.
+Verify from your local machine: `ssh root@<DROPLET_IP>` should now fail
+with `Permission denied (publickey)`, while `ssh <DEPLOY_USER>@<DROPLET_IP>`
+still works.
 
-## Local machine configuration
+## Step 5 — Configure local SSH access
 
-`~/.ssh/config` on the laptop now has:
+Add to `~/.ssh/config` on your own machine:
 
 ```
-Host fabric-pass
-  HostName 46.101.123.136
-  User deploy
-  IdentityFile ~/.ssh/id_ed25519
+Host <SSH_HOST_ALIAS>
+  HostName <DROPLET_IP>
+  User <DEPLOY_USER>
+  IdentityFile <SSH_KEY>
 ```
 
-`ssh fabric-pass` connects directly as `deploy`. (A separate, pre-existing `Host droplet` entry points at an unrelated droplet, hostname `be-app` — left untouched, not part of this project.)
+From here on, every command in this guide that says `ssh <SSH_HOST_ALIAS>`
+means "connect to the server as `<DEPLOY_USER>`."
 
-## Step 5 — repo-side deployment files (done)
+## Step 6 — Review the deployment files
 
-Added to the repo, under [deploy/](deploy/):
+These already exist in the repo under [deploy/](deploy/) — nothing to
+create, just know what's there before you copy it to the server:
 
-- **[deploy/docker-compose.yml](deploy/docker-compose.yml)** — four services: `postgres` (18-alpine, tuned per the low-memory settings agreed earlier — `shared_buffers=128MB`, `max_connections=20`, etc.), `app` (pulled from `ghcr.io/constructorfabric/fabric-pass:latest`, `DATABASE_URL` built from `POSTGRES_PASSWORD`), `caddy` (2-alpine, only container publishing host ports — 80/443), `webhook` (custom-built, see below).
-  - Postgres 18's image changed its expected layout: the volume mounts at `/var/lib/postgresql` (the parent), not `.../data` — mounting at `.../data` makes the image refuse to start, treating it as leftover data from an older layout.
-  - Postgres is deliberately never given a `ports:` entry — it's reachable only over the compose network. Worth remembering if it's ever exposed for debugging: Docker's own iptables rules can bypass `ufw`, so `ufw` alone wouldn't protect it the way it protects the host's other services.
-- **[deploy/Caddyfile](deploy/Caddyfile)** — routes `/deploy-hook*` to the webhook service, everything else to `app`, using `handle` blocks (not multiple bare `reverse_proxy` directives) so the routing is unambiguous.
-- **[deploy/webhook/](deploy/webhook)** — a small custom Node HTTP server (no framework), not a third-party webhook tool, so its logic is fully readable in one file:
-  - Checks `Authorization: Bearer <secret>` with `crypto.timingSafeEqual`, rejects with 401 otherwise.
-  - On success, shells out `docker compose pull app && docker compose up -d app` against the *host's* Docker daemon, via the mounted `/var/run/docker.sock` (the classic "Docker-outside-of-Docker" pattern).
-  - Built on `alpine:3.20` with the `docker-cli`/`docker-cli-compose` apk packages (not the upstream `docker:*-cli` image) so the `compose` subcommand's availability doesn't depend on unstated bundling behavior between image tags.
-  - **This container has host-root-equivalent power** via the socket mount — anyone who can produce a valid `Authorization` header can run arbitrary containers on the droplet. `DEPLOY_WEBHOOK_SECRET` is the entire access boundary.
-  - File is `server.mjs`, not `server.js` — Alpine's Node defaults new `.js` files to CommonJS, and the server uses `import` syntax.
-  - Runs `docker compose` with `--project-directory /deploy`, which auto-loads `/deploy/.env` (mounted read-only) — this is what keeps `COMPOSE_PROJECT_NAME=fabric-pass` consistent between the webhook's nested compose invocation and the droplet's own `/opt/fabric-pass`, so they operate on the *same* project instead of the webhook accidentally spinning up a second stack.
-- **[.github/workflows/deploy.yml](.github/workflows/deploy.yml)** — on push to `main` (or manual dispatch): builds the root [Dockerfile](Dockerfile), pushes `latest` + the commit SHA to GHCR using the workflow's own `GITHUB_TOKEN` (no extra registry credential needed), then calls `https://pass.cfabric.org/deploy-hook` with the shared secret.
+- **[deploy/docker-compose.yml](deploy/docker-compose.yml)** — four
+  services: `postgres` (tuned down for a low-memory box —
+  `shared_buffers=128MB`, `max_connections=20`, etc.), `app` (pulled from
+  `<GHCR_IMAGE>:latest`), `caddy` (the only service publishing host ports,
+  80/443), `webhook` (custom-built, see below).
+- **[deploy/Caddyfile](deploy/Caddyfile)** — routes `/deploy-hook*` to the
+  webhook service, everything else to `app`.
+- **[deploy/webhook/](deploy/webhook)** — a small custom Node HTTP server.
+  Checks `Authorization: Bearer <secret>`, and on success runs
+  `docker compose pull app && docker compose up -d app` against the host's
+  own Docker daemon via a mounted socket. This is how a CI push turns into
+  a live redeploy with no SSH access needed from CI.
+- **[.github/workflows/deploy.yml](.github/workflows/deploy.yml)** — on
+  push to `main` (or manual dispatch): builds the root [Dockerfile](Dockerfile),
+  pushes `:latest` and `:<commit-sha>` to GHCR, then calls the webhook.
 
-## Step 5 — droplet-side deployment (done, partially)
+<details>
+<summary>Implementation notes</summary>
 
-- Generated `POSTGRES_PASSWORD` (`openssl rand -hex 24` — hex, so it's safe inside the `DATABASE_URL` connection string with no escaping needed), `SESSION_PASSWORD` (`openssl rand -base64 32`), and `DEPLOY_WEBHOOK_SECRET` (`openssl rand -hex 32`). None of these were echoed to chat.
-- `deploy/` was copied to `/opt/fabric-pass` on the droplet (`rsync`, not a git clone — these files change rarely, so a fresh sync is enough; no git access needed on the droplet at all).
-- Wrote the real `/opt/fabric-pass/.env` (`chmod 600`, owned by `deploy`) with `COMPOSE_PROJECT_NAME`, `POSTGRES_PASSWORD`, `DEPLOY_WEBHOOK_SECRET` (matching the GitHub Actions secret of the same name, set via `gh secret set`), `APP_URL`, `SESSION_PASSWORD`. **`GITHUB_CLIENT_ID`/`SECRET`, `DISCORD_CLIENT_ID`/`SECRET`, `TELEGRAM_CLIENT_ID`/`SECRET` are still blank** — pending the OAuth registrations below.
-- Brought up `postgres`, `webhook`, and `caddy` only (`docker compose up -d --build --no-deps postgres webhook caddy` — the `--no-deps` matters, since `caddy`'s `depends_on: [app, webhook]` would otherwise pull `app`'s image too, which doesn't exist in GHCR yet and would fail the whole command). `app` stays down until the OAuth values exist — `env.ts` fails fast on any missing/empty variable, so starting it now would just crash-loop.
-- Verified live, through the real Cloudflare-proxied `https://pass.cfabric.org`:
-  - Caddy already obtained a valid Let's Encrypt certificate and is serving HTTPS (confirms Cloudflare's SSL/TLS mode is already compatible — see the note under [Infrastructure summary](#infrastructure-summary)).
-  - `POST /deploy-hook` with a wrong secret → `401`.
-  - `POST /deploy-hook` with the correct secret → `202`, and the webhook's own logs show it correctly attempted `docker compose pull app` (which fails only because no image has been pushed to GHCR yet — expected at this point).
+- Postgres 18's image expects its volume mounted at `/var/lib/postgresql`
+  (the parent directory), not `.../data` — mounting at `.../data` makes the
+  image treat it as leftover data from an older layout and refuse to start.
+- Postgres has no `ports:` entry — it's reachable only over the Compose
+  network. If you ever need to expose it for debugging, remember Docker's
+  own iptables rules can bypass `ufw`, so `ufw` alone won't protect a
+  published Postgres port the way it protects the host's other services.
+- `webhook` and `caddy` bind-mount the *whole* `<APP_DIR>` directory
+  read-only (`.:/deploy:ro`), not individual files like `.env` or
+  `Caddyfile`. A single-file bind mount pins the container to the specific
+  inode that existed at mount time; `sed -i`, most editors, and `rsync` all
+  write a new file and rename it over the old path rather than editing in
+  place, which silently orphans a single-file mount — the container keeps
+  seeing the old content forever, even though the file on disk is correct.
+  A directory mount doesn't have this failure mode. If you ever see a
+  freshly-deployed `app` container with empty environment variables despite
+  a correct `.env` on disk, this is almost certainly why — recreate
+  `webhook`/`caddy` (`docker compose up -d --force-recreate caddy webhook`)
+  and confirm with `docker exec <webhook-container> cat /deploy/.env`.
+- The webhook container has host-root-equivalent power via the Docker
+  socket mount — anyone who can produce a valid `Authorization` header can
+  run arbitrary containers on the server. `DEPLOY_WEBHOOK_SECRET` (see
+  Step 8) is the entire access boundary; treat it like a root password.
+- `webhook`'s entry file is `server.mjs`, not `server.js` — Alpine's Node
+  treats a bare `.js` file as CommonJS by default, and the server uses
+  `import` syntax.
+- `webhook` runs `docker compose` with `--project-directory /deploy`, which
+  auto-loads `/deploy/.env`. This keeps `COMPOSE_PROJECT_NAME` consistent
+  between the webhook's nested compose invocation and the server's own
+  `<APP_DIR>`, so both operate on the *same* Compose project instead of the
+  webhook accidentally spinning up a second stack.
+</details>
 
-## Step 6 — OAuth registrations and first live deploy (done)
+## Step 7 — Copy the deployment files to the server
 
-- Created a **new, dedicated GitHub OAuth App** (`Fabric Pass`) under the `constructorfabric` org, rather than reusing the org's existing app — GitHub OAuth Apps support exactly one callback URL each, and the existing app is used elsewhere.
-- Created a dedicated **Discord application** and a dedicated **Telegram bot** (via BotFather's Web Login settings), each with its callback pointed at `https://pass.cfabric.org/auth/<provider>/callback`.
-- All six credential values were written into `/opt/fabric-pass/.env` by the user directly over SSH (a `read -p`/`read -sp` one-liner), so the values never passed through this chat.
-- Pushed the branch to `main` — the Actions workflow ran successfully, built and published `ghcr.io/constructorfabric/fabric-pass:latest` and `:<sha>`, and called the deploy webhook automatically.
-- The GHCR package defaulted to **private**; there's no REST/CLI endpoint that can change a container package's visibility (a long-standing GitHub API gap) — `gh api -X PATCH .../packages/container/fabric-pass` 404s. Flipped to public manually via **Package → Settings → Danger Zone → Change visibility** in the GitHub UI. `gh auth refresh -s read:packages -s write:packages` was used separately to let `gh api` at least *read* package metadata for verification.
-- **Bug hit, and "fixed" — misdiagnosed at the time:** the first `up -d app` produced a container with empty `DISCORD_CLIENT_SECRET`/`TELEGRAM_CLIENT_ID`/`TELEGRAM_CLIENT_SECRET`, 500ing on every request, even though `.env` on disk was already correct. `docker compose up -d --force-recreate app` fixed the symptom. At the time this was written off as a timing race between the user's manual fill-in and the webhook's auto-trigger. **That explanation was wrong — see Step 7, which hit the same bug again with no `.env` edits anywhere near the trigger, and found the real cause.**
-- Verified live: `https://pass.cfabric.org/` → `200`, serving the real sign-in page; `docker compose logs app` shows all three migrations already applied and `next start` ready.
+```bash
+rsync -av deploy/ <SSH_HOST_ALIAS>:<APP_DIR>/
+```
 
-## Step 7 — the real bug behind Step 6's outage, found and fixed
+A plain sync, not a git clone — these files change rarely, and the server
+never needs git or repo access at all.
 
-A later push (name/email capture from providers, trust-copy rewrite, field styling) went through the same pipeline — build, publish, webhook — and produced the *exact same symptom*: `app` 500ing, `GITHUB_CLIENT_SECRET`/`DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`/`TELEGRAM_CLIENT_ID`/`TELEGRAM_CLIENT_SECRET` all empty in the new container, despite `/opt/fabric-pass/.env` on disk being fully correct at the time. No one had touched `.env` anywhere near this deploy, which ruled out Step 6's "timing race" explanation outright.
+## Step 8 — Generate secrets
 
-**Root cause:** `docker-compose.yml` bind-mounted `.env` and `docker-compose.yml` into the `webhook` container as individual *files* (`./.env:/deploy/.env:ro`). A single-file bind mount pins the container to the specific inode that existed at mount time. `sed -i` — used for the original OAuth-credential fill-in back in Step 6 — doesn't edit a file's content in place; like most editors and like `rsync`, it writes a new file and renames it over the old path. The rename swaps the directory entry to a new inode, but the webhook container's mount kept referencing the old one — so from inside that container, `/deploy/.env` had been silently frozen at whatever it looked like the moment the webhook container was created, no matter how many times the real file changed afterward. `docker inspect fabric-pass-webhook-1 --format '{{range .Config.Env}}...'` showed the webhook's own process env was clean (no shadowing there); `docker exec fabric-pass-webhook-1 cat /deploy/.env` was the check that actually caught it — it showed the stale, credential-blank version side by side with a simultaneously-correct `cat /opt/fabric-pass/.env` on the host.
+Generate each of these and keep them somewhere durable (a password
+manager) — none of them should ever be pasted into a chat window, an AI
+tool, or committed to git:
 
-This explains why Step 6's `--force-recreate app` **appeared** to fix things: running that directly on the host reads `.env` fresh from the host filesystem, sidestepping the webhook container's stale mount entirely — it never touched the actual defect, which stayed dormant in the still-running `webhook` container until the next image pull triggered a fresh, silently-broken `app` container from the exact same stale source.
+| Secret | Command | Used for |
+|---|---|---|
+| `POSTGRES_PASSWORD` | `openssl rand -hex 24` | Postgres auth (hex, so it's safe unescaped inside a connection string) |
+| `SESSION_PASSWORD` | `openssl rand -base64 32` | Encrypts the app's session cookie (needs ≥32 characters) |
+| `DEPLOY_WEBHOOK_SECRET` | `openssl rand -hex 32` | Bearer token the deploy webhook checks |
+| `CONTRIBUTORS_EXPORT_SECRET` | `openssl rand -hex 32` | Only if using the registry sync — see [Step 12](#step-12--optional-contributors-registry-sync) |
+| `CONTRIBUTORS_SYNC_SECRET` | `openssl rand -hex 32` | Only if using the registry sync |
 
-**Fix:** mount the whole `/opt/fabric-pass` directory read-only (`.:/deploy:ro`) into both `webhook` and `caddy`, instead of mounting `.env`/`docker-compose.yml`/`Caddyfile` individually. A directory mount doesn't pin inodes the way a file mount does — a rename-replace inside a mounted directory is reflected immediately. Caddy's command now points explicitly at `/deploy/Caddyfile` (`caddy run --config /deploy/Caddyfile --adapter caddyfile`) since it no longer sits at the image's default `/etc/caddy/Caddyfile`.
+Also set `DEPLOY_WEBHOOK_SECRET`'s value as a GitHub Actions secret on
+`<GITHUB_REPO>` (`gh secret set DEPLOY_WEBHOOK_SECRET`) — the workflow in
+Step 6 needs the same value to authenticate its webhook call.
 
-Verified: recreated both `webhook` and `caddy` (`docker compose up -d --force-recreate caddy webhook`), confirmed `docker exec fabric-pass-webhook-1 cat /deploy/.env` now matches the host exactly, then triggered a *real* webhook call end-to-end — the resulting `app` container came up with every credential correctly populated, no manual host-side intervention this time. `https://pass.cfabric.org/` → `200` throughout.
+## Step 9 — Register the OAuth applications
 
-## Current state
+Each redirect/callback URL must match `<DOMAIN>` exactly, so a fork or a
+second environment (staging, a personal dev deploy) needs its own
+registration at all three providers — credentials can't be shared across
+different `<DOMAIN>` values.
 
-All four services (`postgres`, `app`, `caddy`, `webhook`) are up and healthy, and the redeploy path that broke twice is now verified working through its actual trigger (a real webhook call), not just a manual workaround. The full pipeline — push to `main` → GitHub Actions builds & publishes to GHCR → webhook pulls & redeploys `app` — is live. The site is reachable at `https://pass.cfabric.org`.
+**GitHub** — [github.com/settings/developers](https://github.com/settings/developers)
+→ New OAuth App:
+- Homepage URL: `https://<DOMAIN>`
+- Authorization callback URL: `https://<DOMAIN>/auth/github/callback`
 
-## Step 8 — cf-internal contributors registry sync (done, verified live both directions)
+**Discord** — [discord.com/developers/applications](https://discord.com/developers/applications)
+→ New Application → OAuth2 → add redirect `https://<DOMAIN>/auth/discord/callback`.
 
-Full design and rationale live in [README.md's "Contributors registry sync"](README.md#contributors-registry-sync) — this is the deployment side.
+**Telegram** — via [@BotFather](https://t.me/botfather): `/newbot` to create
+the bot, then its Mini App (not the chat commands) → Bot Settings → Web
+Login → add `https://<DOMAIN>/auth/telegram/callback` as an allowed URL.
 
-- `migrations/005_contributor_status.sql`, the two `/internal/contributors/*` endpoints, and `.github/workflows/export-contributors.yml` — implemented, tested (119/119 passing, including a live curl smoke test against a throwaway local Postgres before any of this touched production), committed on `fabric-pass`.
-- `constructorfabric/cf-internal` got `pass/contributors.yaml` (seeded with `contributors: []` so the export workflow's `git diff` has a tracked baseline from its very first run) and a minimal, credential-free shim workflow (`notify-fabric-pass.yml`) that forwards the file to fabric-pass's sync endpoint on every push.
-- Found in passing: `cf-internal` already has an unrelated, much larger `contributors.md` at its root (166 identities, multiple emails/aliases per person, workshop-attendance dates) — a different, pre-existing effort, untouched by this work. `pass/contributors.yaml` is new and doesn't conflict with it.
-- **`CF_INTERNAL_PAT`** (fine-grained, scoped to only `cf-internal`, `Contents: Read and write`) — minted by the user via GitHub's web UI (no API exists for creating a fine-grained PAT) and set as a `fabric-pass` repo secret via `gh secret set`, so the raw token never passed through this chat.
-- Pushed both repos' pending commits (`fabric-pass` `00c6c41`, `cf-internal` `e3ecd1d`). The `fabric-pass` push rebuilt and redeployed through the existing pipeline — migration 005 applied cleanly on the first try this time, no repeat of Step 7's stale-mount bug.
-- **Export direction, verified live:** triggered `export-contributors.yml` manually (`gh workflow run`) rather than waiting for its hourly schedule. It read the real production database — by this point 4 real contributors had already signed in — rendered them as YAML, and pushed to `cf-internal` using `CF_INTERNAL_PAT`. Confirmed via `gh api repos/constructorfabric/cf-internal/contents/pass/contributors.yaml` that the file matched what the export endpoint returned, all four at `status: draft`.
-- **One expected, harmless failure along the way:** the shim workflow's very first run (triggered by the initial seed-file push, which landed in `cf-internal` moments before the `fabric-pass` deploy finished) hit `curl: (22) ... 404` — the sync endpoint didn't exist on production yet at that exact instant. A one-time sequencing artifact of this specific rollout, not a recurring issue: the next push (the export's own commit, after deploy had finished) succeeded normally.
-- **Import direction, verified live:** edited `pass/contributors.yaml` directly — the same action a real admin would take — setting `vzhuman`'s `status` from `draft` to `confirmed`, committed, and pushed. The shim workflow fired and posted to `/internal/contributors/sync` within seconds. Confirmed directly against production Postgres:
-  ```
-  github_login | status
-  claudedigon  | draft
-  frontgeeks   | draft
-  lobster40    | draft
-  vzhuman      | confirmed
-  ```
-  Exactly the one row touched — the other three untouched drafts confirm the sync only ever writes `status`, never anything else.
+Note each provider's client ID and secret — they go into the server's
+`.env` in [Step 11](#step-11--write-the-servers-env-file).
 
-Both directions of the sync are now live and confirmed working through their real triggers (a real scheduled/dispatched export, a real admin-style file edit), not just unit tests.
+## Step 10 — Set up email (Resend)
 
-## Step 9 — full field export, plus `alias_of_github_id`/`is_agent` (done)
+Sending goes through [Resend](https://resend.com)'s HTTPS API, not SMTP.
 
-`migrations/006_alias_and_agent_fields.sql` adds two more registry-file-owned columns alongside `status`: `alias_of_github_id` (a same-real-person link to another contributor's `github_id`) and `is_agent` (bot/agent flag). The export was also missing several columns entirely — `id`, `telegram_id`, `discord_id`, `github_name`/`github_email`, `discord_name`, `telegram_name`, `created_at`, `updated_at` — it now sends the full row.
+<details>
+<summary>Implementation notes</summary>
 
-- **Bug caught before it reached production:** the migration originally declared `alias_of_github_id text REFERENCES contributors (github_id)`, assuming `github_id` had been converted to `text` the same way `telegram_id` was (migrations/003) — it hadn't; `github_id` is still `bigint` (GitHub's own ids are nowhere near that ceiling). The FK failed at migration time with a type-mismatch error, caught locally against a throwaway Postgres before ever touching the droplet. Fixed by matching the column type.
-- Verified live, against real production data before deploying and again after: correct field export, an alias+agent assignment applying correctly, and — deliberately — a self-reference and an unknown-target alias both rejected (`{"updated":0,"skipped":2}`) without corrupting the rows' existing state or crashing the rest of the batch.
-- Pushed (`a516eab`), redeployed cleanly (`Applied: 006_alias_and_agent_fields.sql`, `https://pass.cfabric.org/` → `200` throughout), then re-ran the export workflow manually to refresh `cf-internal`'s file with the new fields. Confirmed the refreshed file kept `vzhuman`'s `status: confirmed` from Step 8 intact — the new fields didn't disturb the existing sync state — and now also shows real `telegram_id`/`discord_id` snowflakes for the two contributors who'd linked those providers, previously invisible in the file.
+DigitalOcean blocks all outbound SMTP-family ports on its droplets by
+default — not just the commonly-documented 25/465/587, but also 2525,
+confirmed by direct `/dev/tcp` connectivity testing against several
+providers' mail-submission hosts. HTTPS (443) is unrestricted, which is why
+this app sends over an HTTP API rather than SMTP at all. If you migrate to
+a different host that doesn't block these ports, SMTP would work too, but
+there's no reason to switch back — the HTTP API has no downside once
+you're already using it.
+</details>
 
-## Not yet done
+1. Sign up at [resend.com](https://resend.com) and create an API key.
+2. Add `<RESEND_DOMAIN>` in Resend's dashboard and add the DNS records it
+   gives you (an MX and an SPF TXT record for the domain, plus a DKIM TXT
+   record at `resend._domainkey.<RESEND_DOMAIN>`) at your DNS provider.
+   Wait for Resend to show the domain as verified — usually minutes to a
+   few hours.
+3. **Verify the domain you actually intend to send from, not a subdomain of
+   it.** A dedicated sending subdomain (e.g. `send.<RESEND_DOMAIN>`) looks
+   appealing — it keeps SPF/DKIM separate from any existing mail setup on
+   the root domain — but it's one more domain that has to be separately
+   verified before Resend will accept a send from it. Resend rejects a send
+   from *any* domain, including a subdomain, that it hasn't verified. The
+   simplest path that works on the first try: verify `<RESEND_DOMAIN>`
+   itself, and send from `no-reply@<RESEND_DOMAIN>`.
+4. The API key becomes `RESEND_API_KEY` in the server's `.env` (next step).
+   With it unset, the app logs "would have sent" instead of failing, so you
+   can bring the rest of the stack up before Resend is fully verified.
 
-- Nightly `pg_dump` backup timer — the droplet has no backups yet, only Postgres's own on-disk state
-- Actually signing in through all three OAuth providers hasn't been exercised end-to-end by me (only that the page loads and that real contributors have signed in on their own) — worth a deliberate walkthrough
-- The registry sync's `status` field has no consumer yet — gating a feature (e.g. contributor search) on `confirmed` is explicitly future work, not started
+## Step 11 — Write the server's `.env` file
+
+On the server (`ssh <SSH_HOST_ALIAS>`), create `<APP_DIR>/.env`:
+
+```bash
+cat > <APP_DIR>/.env <<'EOF'
+COMPOSE_PROJECT_NAME=<DROPLET_NAME>
+POSTGRES_PASSWORD=<from Step 8>
+DEPLOY_WEBHOOK_SECRET=<from Step 8>
+APP_URL=https://<DOMAIN>
+SESSION_PASSWORD=<from Step 8>
+GITHUB_CLIENT_ID=<from Step 9>
+GITHUB_CLIENT_SECRET=<from Step 9>
+DISCORD_CLIENT_ID=<from Step 9>
+DISCORD_CLIENT_SECRET=<from Step 9>
+TELEGRAM_CLIENT_ID=<from Step 9>
+TELEGRAM_CLIENT_SECRET=<from Step 9>
+RESEND_API_KEY=<from Step 10, optional>
+# Optional — defaults to no-reply@<RESEND_DOMAIN> if unset
+RESEND_FROM_ADDRESS=
+# Optional — only needed for the registry sync, see Step 12
+CONTRIBUTORS_EXPORT_SECRET=
+CONTRIBUTORS_SYNC_SECRET=
+EOF
+chmod 600 <APP_DIR>/.env
+```
+
+Don't paste real secret values into a chat tool or an AI agent's context to
+produce this file. Type them directly at the terminal, e.g. with
+`read -sp`, or paste from a password manager straight into the SSH session.
+
+<details>
+<summary>Implementation notes</summary>
+
+If scripting this non-interactively (an agent driving the terminal, a
+provisioning tool), remember `ssh` needs a `-t` flag whenever the remote
+command uses `read -p`/`read -sp` — without a pseudo-terminal, those
+prompts never display, and the connection appears to hang forever with no
+error, indistinguishable from a network stall.
+</details>
+
+## Step 12 — (Optional) Contributors registry sync
+
+Fabric Pass can mirror three columns of its `contributors` table to and
+from a YAML file in another repository, so an admin can promote/alias
+contributors by editing a file instead of touching the database directly.
+Full design in [README.md's "Contributors registry sync"](README.md#contributors-registry-sync);
+setup:
+
+1. In the target repo, add the YAML file you'll sync to/from (seed it with
+   an empty list, e.g. `contributors: []`, so the first export's diff has a
+   tracked baseline).
+2. Mint a fine-grained GitHub PAT scoped to just that repo, `Contents: Read
+   and write` (via GitHub's web UI — there's no API for creating one).
+   Store it as a secret on `<GITHUB_REPO>` (e.g. `gh secret set
+   CF_INTERNAL_PAT`).
+3. Add a minimal workflow in the target repo that POSTs the file's content
+   to `https://<DOMAIN>/internal/contributors/sync` on every push, bearer-
+   authenticated with `CONTRIBUTORS_SYNC_SECRET`.
+4. `<GITHUB_REPO>`'s own `.github/workflows/export-contributors.yml` calls
+   `GET /internal/contributors/export` (authenticated with
+   `CONTRIBUTORS_EXPORT_SECRET`) on a schedule and commits the result back
+   using the PAT from step 2.
+5. Set both `CONTRIBUTORS_EXPORT_SECRET` and `CONTRIBUTORS_SYNC_SECRET`
+   (generated in Step 8) in the server's `.env`.
+
+## Step 13 — First bring-up
+
+Before any app image has been published, bring up everything except `app`:
+
+```bash
+ssh <SSH_HOST_ALIAS>
+cd <APP_DIR>
+docker compose up -d --no-deps postgres webhook caddy
+```
+
+`--no-deps` matters: `caddy` depends on `app`, and without this flag
+Compose would try to pull `app`'s image too — which doesn't exist in GHCR
+yet, and would fail the whole command. `app` itself refuses to start with
+any environment variable missing or empty, so it stays down until the
+OAuth values from Step 9 are actually in place.
+
+Verify:
+
+```bash
+curl -i https://<DOMAIN>/deploy-hook -H "Authorization: Bearer wrong-secret"   # expect 401
+curl -i https://<DOMAIN>/deploy-hook -H "Authorization: Bearer <DEPLOY_WEBHOOK_SECRET>"  # expect 202
+```
+
+The 202 case will still fail to actually pull anything yet (no image
+published) — that's expected at this point. Also confirm Caddy got a
+certificate: `curl -I https://<DOMAIN>/` should return real TLS, not a
+certificate error.
+
+## Step 14 — First real deploy
+
+Push to `main` (or trigger the workflow manually). GitHub Actions builds
+the image, publishes it to GHCR, and calls the deploy webhook, which brings
+`app` up for the first time.
+
+GitHub sometimes creates a brand-new container package as **private** by
+default. If the server pulls without any registry credentials configured
+(this setup doesn't configure any), the pull will fail until you flip it to
+public: on GitHub, go to the package → **Settings** → **Danger Zone** →
+**Change visibility**. There's no REST/CLI endpoint for this — it has to be
+done once, by hand, in the web UI.
+
+## Step 15 — Verify
+
+- `curl -I https://<DOMAIN>/` → `200`, serving the real sign-in page.
+- `ssh <SSH_HOST_ALIAS> "cd <APP_DIR> && docker compose logs app"` shows
+  every migration applied and `next start` ready.
+- Sign in through all three providers (GitHub, Discord, Telegram) at least
+  once each, end to end, not just "the page loads."
+- Trigger a real confirmation email (fill in an email address, click
+  Confirm) and check it actually arrives — this is the one piece Step 13's
+  curl checks can't cover, since it depends on Resend's domain verification
+  from Step 10 having actually completed.
+
+## Common pitfalls
+
+- **A freshly-deployed `app` container has empty environment variables,
+  even though `.env` on disk is correct.** See the bind-mount note under
+  [Step 6](#step-6--review-the-deployment-files) — recreate `webhook` and
+  `caddy`, not just `app`.
+- **Confirmation emails never arrive, with no error in the logs.** Check
+  Resend's dashboard for the domain's verification status — an unverified
+  sending domain is rejected by Resend itself, not by this app, so nothing
+  in `docker compose logs app` will show it unless `RESEND_API_KEY` is set
+  and the request actually reaches Resend.
+- **`docker compose up -d --no-deps ...` still tries to build/pull `app`.**
+  Double-check `--no-deps` is actually present — `caddy`'s `depends_on`
+  will otherwise pull it in.
+- **An SSH one-liner with `read -p` hangs with no output.** Add `-t` to the
+  `ssh` command — see the note under [Step 11](#step-11--write-the-servers-env-file).
+
+## Recommended, not yet covered above
+
+- A nightly `pg_dump` backup timer — this guide gets Postgres running, but
+  doesn't set up backups. Worth adding before this holds anything you'd
+  mind losing.
