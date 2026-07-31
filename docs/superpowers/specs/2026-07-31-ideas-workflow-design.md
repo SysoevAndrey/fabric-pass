@@ -30,15 +30,18 @@ recorded and pushed immediately.
 
 ## File format
 
-One `##` section per idea. The heading is `## NNN Title`; the first line after it is
-the status, with `— owner` appended only when someone owns it; then a free-form
-description. No authors, no dates, no comment threads in the file — `git log
-ideas/ideas.md` already records who wrote what and when.
+One `##` section per idea. The heading is `## NNN Title`; the line after it carries
+labeled metadata; then a free-form description. No comment threads in the file —
+discussion outcomes are edited into the description, history lives in `git log`.
 
     ## 003 CSV export for admins
-    in-progress — dima
+    **status:** in-progress · **owner:** dima · **by:** mckey · 2026-07-24
 
     Endpoint `/api/export.csv` behind an env-var token, streamed.
+
+`owner` is who is doing (or intends to do) the idea — settable at any status as a
+statement of intent, required for `in-progress`/`done`, `—` when unclaimed. `by` and
+the date record who proposed the idea and when, set once. Names are GitHub logins.
 
 Numbers are assigned once (max existing + 1) and never reused. `dropped` and `parked`
 descriptions must keep one sentence saying why.

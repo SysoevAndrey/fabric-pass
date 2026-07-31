@@ -12,18 +12,23 @@ once it is on GitHub.
 
 ## File format
 
-One `##` section per idea:
+One `##` section per idea, with a metadata line right after the heading:
 
     ## 003 Short idea title
-    in-progress — dima
+    **status:** in-progress · **owner:** dima · **by:** mckey · 2026-07-24
 
     Free-form description: what and why.
 
 - The number is assigned once (max existing + 1) and never reused.
-- The line right after the heading is the status; `— name` follows it only for
-  `in-progress` and `done`.
-- No authors, no dates, no comment threads in the file — `git log ideas/ideas.md`
-  already records who wrote what and when.
+- **status** — see Statuses below.
+- **owner** — who is doing (or intends to do) the idea; `—` when unclaimed.
+  May be set at any status as a statement of intent; required for `in-progress`
+  and `done`.
+- **by** — who proposed the idea; **date** — when it was proposed. Both are set once
+  and never change.
+- Names are GitHub logins (`gh api user -q .login`; fallback `git config user.name`).
+- No comment threads in the file — discussion outcomes are edited into the
+  description; history lives in `git log ideas/ideas.md`.
 - `dropped` and `parked` descriptions must keep one sentence saying why.
 
 ## Statuses
@@ -47,8 +52,8 @@ status — a contested idea is edited in place.
 ## Claiming an idea — starting work
 
 1. `git pull`.
-2. Set the idea's status line to `in-progress — <owner>`, where owner is
-   `git config user.name`.
+2. In the idea's metadata line set `**status:** in-progress` and `**owner:**` to
+   your GitHub login.
 3. Commit only this change — `ideas: NNN → in-progress (<owner>)` — and push
    **immediately**. An unpushed claim is invisible to everyone else.
 4. Push rejected → `git pull --rebase`, then re-read the section: someone may have
@@ -56,7 +61,8 @@ status — a contested idea is edited in place.
 
 ## Finishing
 
-Set `done — <owner>`, add the PR or commit reference to the description, commit
+Set `**status:** done` (owner stays), add the PR or commit reference to the
+description, commit
 (`ideas: NNN → done`) and push. Same flow for `dropped` / `parked`, with the
 one-sentence reason in the description.
 
