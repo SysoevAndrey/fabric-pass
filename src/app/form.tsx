@@ -59,7 +59,7 @@ export function ContributorForm({
   return (
     <>
       <h2>Contributor Profile</h2>
-      <p className="subtitle">Please share your contact details below so other community members can reach you.</p>
+      <p className="subtitle">Please share your contact details below to make it easier for other community members to reach you and for us to grant you access to relevant community resources.</p>
 
       {notice ? <p className={notice.kind}>{notice.message}</p> : null}
 
