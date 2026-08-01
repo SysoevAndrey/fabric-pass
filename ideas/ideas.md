@@ -169,6 +169,7 @@ Expected outcome:
 Notes:
 `status` (draft/confirmed) is currently owned entirely by the cf-internal registry file — the app only ever reads it, never writes it (see README's "Contributors registry sync"). Confirm changing it from the app UI, and Block being a new status value at all, both need reconciling with that single-writer model before implementation: either this action becomes a second writer (and the sync direction for `status` has to change), or "Confirm"/"Block" here mean proposing a change that flows back out through the existing export instead of writing directly. Worth deciding before implementation.
 Depends on IDEA-011 for the Admin role itself.
+IDEA-021 (leave the community) hits this same single-writer question, from a different angle (self-service vs. admin-triggered) — worth deciding both together.
 
 By: vzhuman · 2026-07-31
 
@@ -199,6 +200,121 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-010 (tracks and their membership).
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
+Idea:
+A "getting started" checklist on the Main page for a contributor whose profile isn't yet complete, tying together pieces that already exist separately: fill in the profile, read the community policies, join a track.
+
+Expected outcome:
+- Shown to a signed-in contributor until their profile is considered complete (same completeness check as IDEA-001).
+- Steps: complete profile (name + email — IDEA-000's mandatory fields), read community policies (IDEA-006), request to join a track (IDEA-013).
+- Each step links straight to the relevant page/action; completed steps show as done.
+
+Notes:
+Depends on IDEA-000 (mandatory-field/completeness concept), IDEA-006 (policies), and IDEA-013 (join request) all existing first — this is a thin layer tying them together, not a new capability on its own.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-016 — Open-issue board across track repositories
+Idea:
+A board aggregating open, contributor-friendly issues (e.g. "good first issue") from every repository listed under every track, so a new contributor can find something to work on without hunting through each repo individually.
+
+Expected outcome:
+- Pulls open issues from the repositories listed in IDEA-010's tracks data, filtered to some contributor-friendly label convention.
+- Shown somewhere reachable from Main — a dedicated section or its own page.
+- Each issue links out to the real issue on GitHub (or wherever the repo is hosted).
+
+Notes:
+Depends on IDEA-010 for the repository list. Needs its own GitHub API access (rate limits, possibly a token) — worth scoping separately before committing to it.
+Split from IDEA-015 rather than folded in — it's a materially different piece of engineering (external API integration) from the rest of the onboarding checklist.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-017 — Leave a track
+Idea:
+A contributor can remove themselves from a track they're a member of, from that track's page — the voluntary counterpart to IDEA-013's join request, distinct from being removed by an admin.
+
+Expected outcome:
+- A "Leave track" action on a track's page, shown only to a contributor who's currently a member of it.
+- Takes effect immediately, no approval needed (unlike joining).
+- Synced to cf-internal the same way membership changes from IDEA-013/014 are.
+
+Notes:
+Depends on IDEA-010 (track membership existing at all) and IDEA-013/014 (the membership this removes).
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-018 — Volunteer for an open track leader slot
+Idea:
+A contributor can nominate themselves for one of a track's empty leader slots (Product Manager, Architect, Developer, Quality, Researcher — IDEA-010), the leadership counterpart to IDEA-013's membership join request.
+
+Expected outcome:
+- On a track's page, each empty leader slot shows a "Volunteer" action; filled slots don't show it.
+- The nomination is visible to that track's Track Admin(s)/Admins for approval, the same way IDEA-013's join requests are (IDEA-014).
+
+Notes:
+Depends on IDEA-010 (leader slots) and IDEA-014 (the review surface this needs, extended to cover leader nominations alongside membership requests).
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-019 — Notify a contributor when their join request is decided
+Idea:
+When a Track Admin (or Admin) accepts or rejects a join request (IDEA-013/014), the requesting contributor is told the outcome — currently nothing surfaces the decision back to them at all.
+
+Expected outcome:
+- Some visible signal to the requester once their request is accepted or rejected — at minimum, a status shown on the track's page or their own profile; email is a possible channel given Resend is already wired up, but not assumed here.
+
+Notes:
+Depends on IDEA-013/014 for the decision this reports. Notification channel (in-app only vs. also email) is undecided.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-020 — Discord announcements bell icon
+Idea:
+Announcements are posted to a Discord channel, not duplicated into this app. A bell icon somewhere in the UI reflects whether the signed-in contributor's linked Discord account has unread messages in that channel; clicking it opens the channel in Discord.
+
+Expected outcome:
+- A bell icon, visible when the contributor has linked Discord.
+- Indicates unread state in the announcements channel for that contributor's account, if Discord's API can expose that for a linked account.
+- Clicking it opens the announcements channel in Discord — no announcement content is ever rendered inside this app.
+
+Notes:
+Open question, needs research before committing to this shape: can Discord's API report per-channel unread state for an arbitrary linked account from a server-side integration, or only from a client the user is actually running? If not, this idea reduces to a plain static link to the channel with no unread indicator.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-021 — Leave the community (self-service)
+Idea:
+A contributor can remove themselves entirely. Their status becomes `left`, non-private fields get a `#left#ddmmyy-hhmmss` postfix, and private fields (Full Name, Email) are masked rather than deleted outright — e.g. "John Doe" → "J**** D****", "john.doe@gmail.com" → "j****@g****.com".
+
+Expected outcome:
+- A self-service "Leave the community" action, available to a signed-in contributor for their own row only.
+- Sets `status` to a new `left` value.
+- Full Name and Email are masked: each space-separated name part, and each of the email's local-part and domain-before-the-first-dot, becomes its first letter followed by four asterisks (matching the examples given); the rest of the email (the dot and TLD) is left intact.
+- Non-private fields get a `#left#ddmmyy-hhmmss` postfix appended, timestamped to when they left.
+
+Notes:
+Open question from the request itself: which fields count as "non-private" for the postfix — GitHub username, Discord username, and company were suggested, but not confirmed.
+Gap not covered by the request: Telegram phone number is on the contributor record and reads as at least as private as email — needs an explicit decision (masked like email, treated as non-private with a postfix, or cleared outright), not left implicit.
+Masking rule above is my best reading of the two worked examples, not a formal spec — worth confirming against a few more real names/emails (short names, single-word emails, a domain with no dot before the TLD) before building it.
+Written here as lowercase `left` to match the existing `draft`/`confirmed` convention (CONTRIBUTOR_STATUSES) rather than the literal uppercase `LEFT` — flag if uppercase is actually wanted.
+Same single-writer concern as IDEA-012: `status` is currently owned by the cf-internal registry file, and this is a second, self-service writer to it.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-022 — Audit log for admin operations
+Idea:
+A record of every admin/Track-Admin action taken through the app — Confirm/Block (IDEA-012), Accept/Reject (IDEA-014) — so there's accountability for who changed what and when.
+
+Expected outcome:
+- Every such action is logged: who did it, to whom, what changed, and when.
+- Visible to Admins (scope for Track Admins — their own tracks only, or none at all — undecided).
+
+Notes:
+Registry-file-driven changes (editing pass/contributors.yaml or pass/tracks.yaml directly) already have their own audit trail via git history — this idea covers only actions taken in-app, which don't.
+Depends on IDEA-012/014 existing as the actions being logged.
 
 By: vzhuman · 2026-07-31
 
