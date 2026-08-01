@@ -4,3 +4,6 @@ node_modules/
 .env*.local
 next-env.d.ts
 *.tsbuildinfo
+
+# Per-checkout author identity used by the ideas registry
+.author
