@@ -100,6 +100,7 @@ Expected outcome:
 Notes:
 Proposed addition, beyond what was asked — confirm before including: a link to the track's own community/discussion channel (e.g. its Discord channel), and a short "how to get involved" pointer. Both are cheap to add alongside the rest of this directory and squarely useful for a new contributor.
 Roadmap diagrams (IDEA-008) and call schedules (IDEA-009) build on this directory rather than being part of it.
+Depends on IDEA-010 for the underlying tracks data — nothing to display until that exists.
 
 By: vzhuman · 2026-07-31
 
@@ -124,6 +125,80 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-007 for the directory to attach to. Whether schedules link out to an external calendar or are entered/maintained here directly is undecided.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-010 — Tracks data & cf-internal sync
+Idea:
+A `tracks` concept in the database, mirrored to and from a new file in cf-internal (`pass/tracks.yaml`), following the same pattern as the existing contributors registry sync.
+
+Expected outcome:
+- Each track has: a name, a description, a list of repositories (each with its own short description and issue-tracker link — matching what IDEA-007 already promised to display), and up to five named leader slots — Product Manager, Architect, Developer, Quality, Researcher — each independently either empty or pointing at exactly one contributor.
+- A contributor can hold a leader slot on more than one track at once (e.g. Architect on one track, Product Manager on another).
+- Synced with cf-internal's `pass/tracks.yaml`, mirroring `pass/contributors.yaml`'s bidirectional, single-writer-per-field design.
+
+Notes:
+The per-repository description/issue-tracker-link fields go beyond the source request's bare "list of repositories" — added because IDEA-007 already promised to display them, and they need somewhere to live. Confirm before building.
+Prerequisite for IDEA-007/008/009 (nothing to display until this data exists) and for IDEA-011's Track Admin role, IDEA-013's join requests, and IDEA-014's per-track membership.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
+Idea:
+Three levels of access: Contributor (default), Track Admin (scoped to one or more specific tracks), and Admin (internally "Organization Admin," but just "Admin" in the UI).
+
+Expected outcome:
+- Every contributor is a plain Contributor by default.
+- Admin is a global role, held by zero or more contributors.
+- Track Admin is per-track, not global — a contributor can be Track Admin of more than one track at once, and a track can have more than one Track Admin.
+- Admin and Track Admin unlock additional pages/page-sections beyond what a plain Contributor sees (specifics in IDEA-012 and IDEA-014).
+
+Notes:
+Depends on IDEA-010 for tracks to scope Track Admin against.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
+Idea:
+A page, visible only to Admins, listing every contributor — unlike the plain-Contributor view, which only gets search (IDEA-005) with no full table. Admins can Confirm or Block a contributor from this list, changing their status.
+
+Expected outcome:
+- Admin-only page: the full contributor table, plus the same search as IDEA-005.
+- Confirm and Block actions per row, each changing that contributor's status.
+
+Notes:
+`status` (draft/confirmed) is currently owned entirely by the cf-internal registry file — the app only ever reads it, never writes it (see README's "Contributors registry sync"). Confirm changing it from the app UI, and Block being a new status value at all, both need reconciling with that single-writer model before implementation: either this action becomes a second writer (and the sync direction for `status` has to change), or "Confirm"/"Block" here mean proposing a change that flows back out through the existing export instead of writing directly. Worth deciding before implementation.
+Depends on IDEA-011 for the Admin role itself.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-013 — Request to join a track
+Idea:
+A contributor can request to join a track from that track's page. The request is stored, synced to cf-internal, and visible to that track's Track Admin(s) (and to Admins).
+
+Expected outcome:
+- A "Request to join" action on a track's page (IDEA-007), available to any signed-in contributor.
+- The request is persisted and synced into cf-internal alongside the rest of the tracks data (IDEA-010).
+- Pending requests are visible to that track's Track Admin(s) and to Admins — see IDEA-014 for where they act on them.
+
+Notes:
+Depends on IDEA-010 (tracks must exist) and IDEA-007 (the track page this is requested from).
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
+Idea:
+A page, visible to Track Admins (and Admins), listing the people assigned to their track(s) plus that track's pending join requests (IDEA-013), with Accept/Reject actions on requests.
+
+Expected outcome:
+- A Track Admin sees only the members and pending requests for the track(s) they admin, not every track.
+- A Track Admin managing more than one track sees all of them, not just one.
+- Accept/Reject actions on a pending join request.
+- Admins have the same Accept/Reject capability as a Track Admin, but across every track rather than just their own — an Admin can act on behalf of any Track Admin.
+- Search, same as the plain-Contributor and Admin views (IDEA-005 / IDEA-012), scoped to the Track Admin's own track(s).
+
+Notes:
+Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-010 (tracks and their membership).
 
 By: vzhuman · 2026-07-31
 
