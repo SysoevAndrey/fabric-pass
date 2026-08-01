@@ -45,3 +45,85 @@ By: frontgeeks · 2026-07-31
 Idea: A root user for the app, designated by GitHub ID through an environment variable.
 By: frontgeeks · 2026-07-31
 
+## [DRAFT] [vzhuman] IDEA-004 — Public contributor profile view
+Idea:
+A read-only page for viewing another contributor's public details — reachable by direct link now, and from search once IDEA-005 lands. Merges in everything recorded under any of that contributor's aliases, not just the row that was opened.
+
+Expected outcome:
+- Shows a contributor's public details: name, company, and every linked account they (or an alias of theirs) have.
+- Discord/Telegram: click to open the corresponding app's chat with that person.
+- Email: click to open a mail client addressed to them.
+- GitHub: click to open their GitHub profile.
+- Fields sourced from any of the contributor's aliases are merged into one view, not shown only from the row that was clicked into.
+- No edit affordances anywhere — this is never the signed-in contributor's own editable form.
+
+Notes:
+Feeds IDEA-005 (contributor search) as its destination page.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-005 — Contributor search on Main page
+Idea:
+A search box on the Main page for finding other contributors, opening the matching one in the profile view (IDEA-004).
+
+Expected outcome:
+- Matches against name, email, GitHub username, GitHub email, Discord username, and Telegram username.
+- Live results appear once 3–4+ characters are typed, capped at the 5 best matches.
+- Selecting a result opens that contributor's profile view (IDEA-004).
+
+Notes:
+Depends on IDEA-004 for the destination page.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-006 — Community rules & policies on Main page
+Idea:
+A section on the Main page listing Constructor Fabric's community-wide rules and policies, most likely as links into the public governance repository's markdown documents, possibly alongside links to individual tracks' own policies.
+
+Expected outcome:
+- A visible list of policy/rules links on the Main page.
+- Each link points at a markdown document in the governance repository.
+
+Notes:
+Open question, not yet decided: does a link navigate straight to the document (e.g. on GitHub), or open it rendered inside this app, in a new tab, with a link back to the source repository?
+Track-specific policy links, if any, are out of scope until IDEA-007's track directory exists to hang them off of.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-007 — Track directory on Main page
+Idea:
+A directory of Constructor Fabric's tracks (Studio, Insight, Gears — with Gears Core/OSS/BSS/FrontX/Mobile as sub-tracks —, Research, Governance), each with a summary, its leaders and their roles, and links to its repositories.
+
+Expected outcome:
+- Every track (and sub-track) shows: a short summary of what it's about, its leaders with role (Product Manager, Architect, Developer, Researcher, etc.), and its repositories, each with a short description and a link to its issue tracker.
+
+Notes:
+Proposed addition, beyond what was asked — confirm before including: a link to the track's own community/discussion channel (e.g. its Discord channel), and a short "how to get involved" pointer. Both are cheap to add alongside the rest of this directory and squarely useful for a new contributor.
+Roadmap diagrams (IDEA-008) and call schedules (IDEA-009) build on this directory rather than being part of it.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-008 — Track roadmap diagrams
+Idea:
+A roadmap diagram for each track, shown on its entry in the track directory (IDEA-007).
+
+Expected outcome:
+- Each track in the directory shows, or links to, a roadmap diagram reflecting its current plan.
+
+Notes:
+Depends on IDEA-007 for the directory to attach to. Diagram source/format (static image, embedded tool, generated from a tracked file) is undecided.
+
+By: vzhuman · 2026-07-31
+
+## [DRAFT] [vzhuman] IDEA-009 — Track meeting schedules
+Idea:
+Each track's recurring calls, shown on its entry in the track directory (IDEA-007): daily sync-up, regular community update/demo call, and regular planning call.
+
+Expected outcome:
+- Each track in the directory lists its daily sync-up schedule, its regular community call schedule (updates and demos), and its regular planning call schedule.
+
+Notes:
+Depends on IDEA-007 for the directory to attach to. Whether schedules link out to an external calendar or are entered/maintained here directly is undecided.
+
+By: vzhuman · 2026-07-31
+
