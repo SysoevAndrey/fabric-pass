@@ -18,6 +18,8 @@ Expected outcome:
 - Save button (edit mode only) switches back to view-only mode.
 - Pressing Save enforces the mandatory fields — Name and Email must be filled in, or Save is blocked and the contributor is prompted to fill them in.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/1
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [frontgeeks] IDEA-001 — Dedicated profile page
@@ -34,15 +36,19 @@ Expected outcome:
 Notes:
 Depends on IDEA-000's view/edit mode split — "view mode disallows editing" only means something once that mode exists.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/2
+
 By: frontgeeks · 2026-07-31
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [frontgeeks] IDEA-002 — Review of the database–git data exchange process
 Idea: Review how data flows between the Postgres database and git (the cf-internal registry sync): what is exported, what is imported back, and whether the process holds up.
+Task: https://github.com/constructorfabric/fabric-pass/issues/3
 By: frontgeeks · 2026-07-31
 
 ## [TODO] IDEA-003 — Root user configured via env by GitHub ID
 Idea: A root user for the app, designated by GitHub ID through an environment variable.
+Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
 
 ## [DRAFT] [vzhuman] IDEA-004 — Public contributor profile view
