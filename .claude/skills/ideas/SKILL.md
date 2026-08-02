@@ -151,15 +151,32 @@ Board** — https://github.com/orgs/constructorfabric/projects/52. The links
 are always bidirectional: the issue body links to the idea, the idea body
 carries a `Task:` line with the issue URL.
 
+**One idea — one task, forever.** Before creating anything, look the idea up
+on the board by title (`gh project item-list 52 --owner constructorfabric
+--format json --jq '.items[] | {id, title, type: .content.type}'`). If an
+item titled `IDEA-NNN — …` already exists in any form, never create a second
+one — update the existing item (convert, retitle, reassign) instead.
+
 - **Idea recorded as `DRAFT`** — create a **draft item** directly on the
   board (`gh project item-create`), same title convention, body linking to
   the idea. Draft items have no URL of their own, so the idea carries no
   `Task:` line yet.
 - **Idea becomes `TODO`** — the task becomes a real issue in
-  `constructorfabric/fabric-pass` (convert the board draft if one exists,
-  else create the issue and add it), with **no assignee**. Title:
-  `IDEA-NNN — <idea title>`. Body: a link to `ideas/ideas.md` naming the
-  IDEA-NNN, plus the one-line idea. Add the `Task:` line to the idea now.
+  `constructorfabric/fabric-pass`, with **no assignee**. If a board draft
+  exists, **convert it in place** — do not open a parallel issue:
+
+  ```bash
+  gh api graphql -f query='mutation($item: ID!, $repo: ID!) {
+    convertProjectV2DraftIssueItemToIssue(input: {itemId: $item, repositoryId: $repo}) {
+      item { content { ... on Issue { url } } } } }' \
+    -F item=<PVTI_ item id> -F repo=<repository node id>
+  ```
+
+  (repo node id: `gh api repos/constructorfabric/fabric-pass --jq '.node_id'`.)
+  Only when no draft exists, create the issue fresh and `gh project item-add`
+  it. Title: `IDEA-NNN — <idea title>`. Body: a link to `ideas/ideas.md`
+  naming the IDEA-NNN, plus the one-line idea. Add the `Task:` line to the
+  idea now.
 - **Idea is claimed (`TAKEN`) or transferred** — create the task first if it
   doesn't exist yet, and set the issue assignee to the owner's GitHub login.
   Claiming yourself → assign yourself; transfer → reassign to the new owner.
