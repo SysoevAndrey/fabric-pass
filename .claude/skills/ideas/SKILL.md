@@ -101,6 +101,8 @@ What should be true when the idea is complete.
 Notes:
 Constraints, open questions, links, or implementation context.
 
+Task: <GitHub issue URL of the idea's project task — see "Project tasks">
+
 Result:
 PR, commit, specification, or other completion reference. Required for DONE.
 ```
@@ -124,6 +126,10 @@ A `By:` line records who proposed the idea and when. It lives at the end of
 the body. The first line is frozen when the idea is written — to add another
 author, append to it (e.g. `By: frontgeeks, lobster40 · 2026-08-01`).
 
+A `Task:` line holds the URL of the idea's project task (see "Project
+tasks"). It sits immediately before the `By:` lines, in the simple and the
+expanded body alike.
+
 ## Statuses
 
 `DRAFT` → `TODO` → `TAKEN` → `DONE`. `DROPPED` and `PARKED` are terminal and
@@ -136,6 +142,36 @@ allowed from any status; the body keeps one sentence saying why.
 - **DONE** — expected outcome delivered. The body has a `Result` reference.
 - **DROPPED** — won't do. Body keeps the why.
 - **PARKED** — postponed. Body keeps the why.
+
+## Project tasks — CF Board
+
+Every actionable idea (`TODO` and beyond) has a companion task: a GitHub
+issue in `constructorfabric/fabric-pass`, added to the org project **CF
+Board** — https://github.com/orgs/constructorfabric/projects/52. The links
+are always bidirectional: the issue body links to the idea, the idea body
+carries a `Task:` line with the issue URL.
+
+- **Idea becomes `TODO`** — create the task immediately, with **no
+  assignee**. Title: `IDEA-NNN — <idea title>`. Body: a link to
+  `ideas/ideas.md` naming the IDEA-NNN, plus the one-line idea.
+- **Idea is claimed (`TAKEN`) or transferred** — create the task first if it
+  doesn't exist yet, and set the issue assignee to the owner's GitHub login.
+  Claiming yourself → assign yourself; transfer → reassign to the new owner.
+- **Release** (`TAKEN` → `TODO`) — keep the task, remove the assignee.
+- **`DONE` / `DROPPED` / `PARKED`** — close the issue (for `DROPPED`/`PARKED`
+  leave a closing comment with the one-sentence why).
+
+Commands:
+
+```bash
+gh issue create -R constructorfabric/fabric-pass \
+  --title "IDEA-NNN — <title>" [--assignee <owner>] --body "<link to idea>"
+gh project item-add 52 --owner constructorfabric --url <issue-url>
+```
+
+Adding or updating the `Task:` line in `ideas.md` is a normal registry edit —
+commit it separately from the claim commit (`ideas: link task for IDEA-NNN`)
+and push.
 
 ## Before any substantive work — the check
 
@@ -164,6 +200,10 @@ not in the registry.
    **immediately**. An unpushed claim is invisible to everyone else.
 5. Push rejected → `git pull --rebase` and re-read the section. If someone has
    claimed it first, stop and tell the user.
+6. Sync the project task (see "Project tasks"): create the issue if the idea
+   doesn't have one yet, assign it to the new owner, and make sure the idea's
+   `Task:` line points at it — that line lands in its own commit
+   (`ideas: link task for IDEA-NNN`), pushed right after the claim.
 
 The claim commit must contain no code, tests, or unrelated registry edits.
 
@@ -173,16 +213,20 @@ The claim commit must contain no code, tests, or unrelated registry edits.
 2. Add the `Result` reference (PR / commit / version).
 3. Set `[TAKEN]` → `[DONE]`, keeping the owner token.
 4. Commit `ideas: complete IDEA-NNN` and push.
+5. Close the linked project task (see "Project tasks").
 
-Same flow for `DROPPED` / `PARKED`: keep one sentence in the body that says why.
+Same flow for `DROPPED` / `PARKED`: keep one sentence in the body that says
+why, and close the task with that sentence as a comment.
 
 ## Releasing, transferring, stale claims
 
 - **Release** — set `[TAKEN]` back to `[TODO]`, drop the owner token, add a
-  short note about partial work, commit, push.
+  short note about partial work, commit, push. Remove the assignee from the
+  linked project task, keep the task open.
 - **Transfer** — explicit agreement from old and new owners (or a human
   coordinator). Replace the owner while keeping `[TAKEN]`, record the transfer
-  in the body, commit, push before the new owner starts.
+  in the body, commit, push before the new owner starts. Reassign the linked
+  project task to the new owner.
 - **Stale** — a `TAKEN` idea with no related commits for ~14 days is a review
   trigger, not automatic permission to take it. A human coordinator moves the
   item back to `TODO`; the agent does not start until that push is on the
