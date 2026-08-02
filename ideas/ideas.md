@@ -20,7 +20,7 @@ Expected outcome:
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-001 — Dedicated profile page
+## [TAKEN] [frontgeeks] IDEA-001 — Dedicated profile page
 Idea:
 The profile view/edit form becomes its own page, opened via "Profile" in the top-right menu, and closed via a new Close button (an "X" with a "Close" hint), placed near the Edit (pencil) button. A new static Main page (placeholder content only, "Main Form", for now) is what closing the Profile page returns to, shown in its already-saved state.
 
