@@ -184,12 +184,24 @@ one — update the existing item (convert, retitle, reassign) instead.
 - **`DONE` / `DROPPED` / `PARKED`** — close the issue (for `DROPPED`/`PARKED`
   leave a closing comment with the one-sentence why).
 
+**Board column follows the idea status.** After creating or updating an
+item, set its `Status` field: `DRAFT` → **Backlog**, `TODO` → **Todo**,
+`TAKEN` → **In Progress**, `DONE`/`DROPPED`/`PARKED` → **Done** (and the
+issue is closed). Reading it back the same way: an item moved to Todo/In
+Progress/Done by a human on the board is a status signal for the sync below.
+
 Commands:
 
 ```bash
 gh issue create -R constructorfabric/fabric-pass \
   --title "IDEA-NNN — <title>" [--assignee <owner>] --body "<link to idea>"
 gh project item-add 52 --owner constructorfabric --url <issue-url>
+# set the column (Status option ids: Backlog 5b786606, Todo f75ad846,
+# In Progress 47fc9ee4, In Test 09d0e0a8, Done 98236657):
+gh project item-edit --id <PVTI_ item id> \
+  --project-id PVT_kwDOERGOus4Be9CB \
+  --field-id PVTSSF_lADOERGOus4Be9CBzhZTfQw \
+  --single-select-option-id <option id>
 ```
 
 Adding or updating the `Task:` line in `ideas.md` is a normal registry edit —
@@ -204,14 +216,17 @@ registry must follow. As part of the pre-work check (next section), after
 (`gh issue view <n>` / `gh project item-list 52 --owner constructorfabric`)
 and reconcile:
 
-- Task **assigned** on the board, idea still `TODO` → set
-  `[TAKEN] [<assignee>]` in the registry.
-- Task **unassigned**, idea `TAKEN` → release the idea back to `[TODO]`.
+- Task **assigned** on the board (or moved to **In Progress**), idea still
+  `TODO` → set `[TAKEN] [<assignee>]` in the registry.
+- Task **unassigned** (or moved back to **Todo**), idea `TAKEN` → release
+  the idea back to `[TODO]`.
 - Task **reassigned**, idea `TAKEN` by someone else → record a transfer to
   the new assignee.
-- Task **closed**, idea not terminal → move the idea to `[DONE]` (take the
-  `Result` from the issue) — or ask the human whether it's `DROPPED`/`PARKED`
-  if no result is visible.
+- Task **closed** or moved to **Done**, idea not terminal → move the idea to
+  `[DONE]` (take the `Result` from the issue) — or ask the human whether
+  it's `DROPPED`/`PARKED` if no result is visible.
+- Draft item moved out of **Backlog** to Todo → the idea is approved:
+  set it to `[TODO]`, convert the draft to an issue, add the `Task:` line.
 
 Each reconciliation is its own commit — `ideas: sync IDEA-NNN from board` —
 pushed immediately. If board and registry changed in conflicting ways, stop
