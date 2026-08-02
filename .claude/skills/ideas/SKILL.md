@@ -151,9 +151,15 @@ Board** — https://github.com/orgs/constructorfabric/projects/52. The links
 are always bidirectional: the issue body links to the idea, the idea body
 carries a `Task:` line with the issue URL.
 
-- **Idea becomes `TODO`** — create the task immediately, with **no
-  assignee**. Title: `IDEA-NNN — <idea title>`. Body: a link to
-  `ideas/ideas.md` naming the IDEA-NNN, plus the one-line idea.
+- **Idea recorded as `DRAFT`** — create a **draft item** directly on the
+  board (`gh project item-create`), same title convention, body linking to
+  the idea. Draft items have no URL of their own, so the idea carries no
+  `Task:` line yet.
+- **Idea becomes `TODO`** — the task becomes a real issue in
+  `constructorfabric/fabric-pass` (convert the board draft if one exists,
+  else create the issue and add it), with **no assignee**. Title:
+  `IDEA-NNN — <idea title>`. Body: a link to `ideas/ideas.md` naming the
+  IDEA-NNN, plus the one-line idea. Add the `Task:` line to the idea now.
 - **Idea is claimed (`TAKEN`) or transferred** — create the task first if it
   doesn't exist yet, and set the issue assignee to the owner's GitHub login.
   Claiming yourself → assign yourself; transfer → reassign to the new owner.
@@ -172,6 +178,27 @@ gh project item-add 52 --owner constructorfabric --url <issue-url>
 Adding or updating the `Task:` line in `ideas.md` is a normal registry edit —
 commit it separately from the claim commit (`ideas: link task for IDEA-NNN`)
 and push.
+
+### Board → registry sync
+
+The sync is two-way: people also move tasks directly on CF Board, and the
+registry must follow. As part of the pre-work check (next section), after
+`git pull`, also read the board state of any idea you're about to touch
+(`gh issue view <n>` / `gh project item-list 52 --owner constructorfabric`)
+and reconcile:
+
+- Task **assigned** on the board, idea still `TODO` → set
+  `[TAKEN] [<assignee>]` in the registry.
+- Task **unassigned**, idea `TAKEN` → release the idea back to `[TODO]`.
+- Task **reassigned**, idea `TAKEN` by someone else → record a transfer to
+  the new assignee.
+- Task **closed**, idea not terminal → move the idea to `[DONE]` (take the
+  `Result` from the issue) — or ask the human whether it's `DROPPED`/`PARKED`
+  if no result is visible.
+
+Each reconciliation is its own commit — `ideas: sync IDEA-NNN from board` —
+pushed immediately. If board and registry changed in conflicting ways, stop
+and ask the human instead of picking a side.
 
 ## Before any substantive work — the check
 
