@@ -8,7 +8,7 @@
      form genuinely won't carry the information, otherwise split into multiple ideas.
      Format and rules: .claude/skills/ideas/SKILL.md -->
 
-## [DRAFT] [vzhuman] IDEA-000 — Improve profile view & editing logic
+## [TAKEN] [frontgeeks] IDEA-000 — Improve profile view & editing logic
 Idea:
 Default the profile form to a locked, view-only mode instead of always-editable, to avoid accidental edits. A pencil-icon "Edit" button ("Modify profile" hint), top-right of the form on the same line as the "Contributor Profile" title, switches it into edit mode — today's always-editable behavior, unchanged autosave, unchanged title. A "Save" button, shown only in edit mode, switches the form back to view-only mode.
 
