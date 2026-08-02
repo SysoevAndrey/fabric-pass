@@ -37,7 +37,7 @@ Depends on IDEA-000's view/edit mode split — "view mode disallows editing" onl
 By: frontgeeks · 2026-07-31
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-002 — Review of the database–git data exchange process
+## [TAKEN] [frontgeeks] IDEA-002 — Review of the database–git data exchange process
 Idea: Review how data flows between the Postgres database and git (the cf-internal registry sync): what is exported, what is imported back, and whether the process holds up.
 By: frontgeeks · 2026-07-31
 
