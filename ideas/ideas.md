@@ -329,4 +329,6 @@ By: vzhuman · 2026-07-31
 Idea:
 A confirmation link stops working the moment anything touches it once (confirmEmail consumes the token before checking anything), and every resend rotates the token, killing all previously sent emails. Real failure seen in production: contributor pressed Confirm twice, opened the newest email, got "That confirmation link is not valid" while the address was in fact confirmed by an earlier request (link scanner or double navigation). Fix: confirmEmail reports already-confirmed as success instead of invalid and no longer destroys the token on success; resendConfirmationEmail re-sends the existing unexpired token instead of rotating it.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/5
+
 By: frontgeeks · 2026-08-03
