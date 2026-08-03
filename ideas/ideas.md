@@ -339,6 +339,9 @@ By: frontgeeks · 2026-08-03
 Idea:
 Add LinkedIn to the contributor profile alongside GitHub/Discord/Telegram, so community members can reach each other professionally. Open question: a linked account via OAuth like Discord/Telegram, or a typed profile-URL field — LinkedIn's OAuth (OpenID Connect) readily proves account ownership, but its API is restrictive, so the typed field may be the pragmatic start.
 
+Notes:
+Creating the LinkedIn application itself (developer-portal app, OAuth credentials for the deploy env) is a companion task owned by vzhuman: https://github.com/constructorfabric/fabric-pass/issues/8.
+
 Task: https://github.com/constructorfabric/fabric-pass/issues/7
 
 By: frontgeeks · 2026-08-04
