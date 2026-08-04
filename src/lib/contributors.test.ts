@@ -195,6 +195,36 @@ test('linking a discord account already linked elsewhere succeeds and records th
   expect((await findByGithubId('1002'))?.aliasOfGithubId).toBe('1001')
 })
 
+// LinkedIn carries no username — `toIdentity` (providers/linkedin.ts) never
+// sets one — so linking stores only the id and name, with no counterpart
+// column left stale.
+test('linking linkedin stores id and name, with no username field to set', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  await linkProvider('1001', 'linkedin', { providerId: 'li-555', name: 'Ada Lovelace' })
+
+  const found = await findByGithubId('1001')
+  expect(found?.linkedinId).toBe('li-555')
+  expect(found?.linkedinName).toBe('Ada Lovelace')
+})
+
+test('linking a linkedin account already linked elsewhere succeeds and records the newer row as an alias', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'linkedin', { providerId: 'li-888', name: 'Ada Lovelace' })
+  await ensureContributor('1002', 'grace')
+
+  await expect(
+    linkProvider('1002', 'linkedin', { providerId: 'li-888', name: 'Ada Lovelace' }),
+  ).resolves.toBeUndefined()
+
+  const newer = await findByGithubId('1002')
+  expect(newer?.aliasOfGithubId).toBe('1001')
+  // The identity itself is never duplicated — it stays only on the row that
+  // already held it, keeping the unique constraint intact in storage.
+  expect(newer?.linkedinId).toBeUndefined()
+  expect((await findByGithubId('1001'))?.linkedinId).toBe('li-888')
+})
+
 test('a shared-identity alias never overwrites an alias already set to someone else', async () => {
   await ensureContributor('1001', 'octocat')
   await linkProvider('1001', 'discord', { providerId: '888', username: 'ada' })
@@ -327,6 +357,29 @@ test('resolveProviderLabels shows a contributor their own direct link when they 
 
   expect(labels.telegramLabel).toBe('@ada')
   expect(labels.discordLabel).toBeNull()
+  expect(labels.linkedinLabel).toBeNull()
+})
+
+// LinkedIn's label is its name — there's no username to prefer, unlike
+// Telegram/Discord above.
+test('resolveProviderLabels shows a contributor their own linkedin name', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'linkedin', { providerId: 'li-555', name: 'Ada Lovelace' })
+
+  const labels = await resolveProviderLabels((await findByGithubId('1001'))!)
+
+  expect(labels.linkedinLabel).toBe('Ada Lovelace')
+})
+
+test('resolveProviderLabels inherits an alias target\'s linkedin name when the row has none of its own', async () => {
+  await ensureContributor('1001', 'octocat')
+  await linkProvider('1001', 'linkedin', { providerId: 'li-555', name: 'Ada Lovelace' })
+  await ensureContributor('1002', 'grace')
+  await linkProvider('1002', 'linkedin', { providerId: 'li-555', name: 'Ada Lovelace' }) // sets 1002's alias to 1001
+
+  const labels = await resolveProviderLabels((await findByGithubId('1002'))!)
+
+  expect(labels.linkedinLabel).toBe('Ada Lovelace')
 })
 
 test('resolveProviderLabels inherits an alias target\'s link when the row has none of its own', async () => {

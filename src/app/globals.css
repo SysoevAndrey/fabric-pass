@@ -287,6 +287,7 @@ button,
    standing alone on its own line. */
 .link-button.telegram,
 .link-button.discord,
+.link-button.linkedin,
 .link-button.email {
   margin: 0;
   padding: 0.4rem 0.85rem;
@@ -311,6 +312,16 @@ button,
 .link-button.discord:hover {
   border-color: #4451dd;
   background: #4451dd;
+}
+
+.link-button.linkedin {
+  border-color: #0a66c2;
+  background: #0a66c2;
+}
+
+.link-button.linkedin:hover {
+  border-color: #08549f;
+  background: #08549f;
 }
 
 .link-button.email {

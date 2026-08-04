@@ -17,9 +17,12 @@ const schema = z.object({
   // all — see lib/email.ts, which logs instead of sending when unset.
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_ADDRESS: z.string().min(1).optional(),
-  // Optional for the same reason: staged ahead of the LinkedIn provider
-  // integration itself (IDEA-024, github.com/constructorfabric/fabric-pass/issues/7),
-  // which doesn't exist in this app yet — nothing reads these two yet.
+  // This app's only optional *provider* — unlike GitHub/Discord/Telegram
+  // above, LinkedIn must be possible to leave unconfigured and still have
+  // the app boot and run. See lib/providers/index.ts, which admits
+  // 'linkedin' into its providers map only when both of these are set, and
+  // form.tsx, which hides the LinkedIn row unless the page resolved a
+  // provider for it.
   LINKEDIN_CLIENT_ID: z.string().min(1).optional(),
   LINKEDIN_CLIENT_SECRET: z.string().min(1).optional(),
 })

@@ -1,5 +1,6 @@
 import { findByGithubId, resolveProviderLabels } from '@/lib/contributors'
 import { isProfileComplete } from '@/lib/profile-completeness'
+import { isProviderConfigured } from '@/lib/providers'
 import { getSession } from '@/lib/session'
 import { noticeKind, noticeMessage, REAUTH_REQUIRED_MESSAGE, type Notice } from '@/app/auth/notice'
 import { ContributorForm } from '@/app/form'
@@ -33,12 +34,14 @@ export default async function ProfilePage({ searchParams }: PageProps) {
     return <SignInPrompt notice={{ message: REAUTH_REQUIRED_MESSAGE, kind: 'error' }} />
   }
 
-  const { telegramLabel, discordLabel } = await resolveProviderLabels(existing)
+  const { telegramLabel, discordLabel, linkedinLabel } = await resolveProviderLabels(existing)
 
   return (
     <ContributorForm
       telegramLabel={telegramLabel}
       discordLabel={discordLabel}
+      linkedinLabel={linkedinLabel}
+      linkedinEnabled={isProviderConfigured('linkedin')}
       defaults={{
         name: existing.name ?? '',
         email: existing.email ?? '',

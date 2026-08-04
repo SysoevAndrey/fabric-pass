@@ -12,6 +12,11 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   const { provider: name } = await context.params
   if (!isProviderName(name)) return new NextResponse('Unknown provider', { status: 404 })
 
+  const provider = providers[name]
+  // Same guard as the start route (see auth/[provider]/route.ts) — LinkedIn
+  // is a known name that can still have nothing configured behind it.
+  if (!provider) return new NextResponse('Unknown provider', { status: 404 })
+
   const session = await getSession()
   const transaction = session.oauth?.[name]
   const home = new URL('/', env.APP_URL)
@@ -59,12 +64,7 @@ export async function GET(request: Request, context: { params: Promise<{ provide
 
   let identity
   try {
-    identity = await providers[name].callback(
-      new URL(request.url),
-      redirectUri,
-      transaction.codeVerifier,
-      transaction.state,
-    )
+    identity = await provider.callback(new URL(request.url), redirectUri, transaction.codeVerifier, transaction.state)
   } catch (error) {
     // Covers a cancelled authorization, a state or PKCE mismatch, and a
     // provider error alike: the contributor gets one identical, generic
@@ -134,6 +134,21 @@ export async function GET(request: Request, context: { params: Promise<{ provide
       // this same link can ever succeed, only signing in again can.
       if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(profile, 'reauth-required'))
       console.error('discord callback: failed to save the link:', error)
+      return NextResponse.redirect(withNotice(profile, 'link-failed', name))
+    }
+    await session.save()
+    return NextResponse.redirect(profile)
+  }
+
+  if (name === 'linkedin') {
+    try {
+      await linkProvider(githubId, 'linkedin', identity)
+    } catch (error) {
+      await session.save()
+      // The session cookie names a row that's gone — nothing about retrying
+      // this same link can ever succeed, only signing in again can.
+      if (error instanceof ContributorNotFoundError) return NextResponse.redirect(withNotice(profile, 'reauth-required'))
+      console.error('linkedin callback: failed to save the link:', error)
       return NextResponse.redirect(withNotice(profile, 'link-failed', name))
     }
     await session.save()
