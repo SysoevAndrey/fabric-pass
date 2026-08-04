@@ -51,7 +51,7 @@ Idea: A root user for the app, designated by GitHub ID through an environment va
 Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-004 — Public contributor profile view
+## [TODO] IDEA-004 — Public contributor profile view
 Idea:
 A read-only page for viewing another contributor's public details — reachable by direct link now, and from search once IDEA-005 lands. Merges in everything recorded under any of that contributor's aliases, not just the row that was opened.
 
@@ -68,7 +68,7 @@ Feeds IDEA-005 (contributor search) as its destination page.
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-005 — Contributor search on Main page
+## [TODO] IDEA-005 — Contributor search on Main page
 Idea:
 A search box on the Main page for finding other contributors, opening the matching one in the profile view (IDEA-004).
 
@@ -82,7 +82,7 @@ Depends on IDEA-004 for the destination page.
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-006 — Community rules & policies on Main page
+## [TODO] IDEA-006 — Community rules & policies on Main page
 Idea:
 A section on the Main page listing Constructor Fabric's community-wide rules and policies, most likely as links into the public governance repository's markdown documents, possibly alongside links to individual tracks' own policies.
 
@@ -96,7 +96,7 @@ Track-specific policy links, if any, are out of scope until IDEA-007's track dir
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-007 — Track directory on Main page
+## [TODO] IDEA-007 — Track directory on Main page
 Idea:
 A directory of Constructor Fabric's tracks (Studio, Insight, Gears — with Gears Core/OSS/BSS/FrontX/Mobile as sub-tracks —, Research, Governance), each with a summary, its leaders and their roles, and links to its repositories.
 
@@ -110,7 +110,7 @@ Depends on IDEA-010 for the underlying tracks data — nothing to display until 
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-008 — Track roadmap diagrams
+## [TODO] IDEA-008 — Track roadmap diagrams
 Idea:
 A roadmap diagram for each track, shown on its entry in the track directory (IDEA-007).
 
@@ -122,7 +122,7 @@ Depends on IDEA-007 for the directory to attach to. Diagram source/format (stati
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-009 — Track meeting schedules
+## [TODO] IDEA-009 — Track meeting schedules
 Idea:
 Each track's recurring calls, shown on its entry in the track directory (IDEA-007): daily sync-up, regular community update/demo call, and regular planning call.
 
@@ -134,7 +134,7 @@ Depends on IDEA-007 for the directory to attach to. Whether schedules link out t
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-010 — Tracks data & cf-internal sync
+## [TODO] IDEA-010 — Tracks data & cf-internal sync
 Idea:
 A `tracks` concept in the database, mirrored to and from a new file in cf-internal (`pass/tracks.yaml`), following the same pattern as the existing contributors registry sync.
 
@@ -149,7 +149,7 @@ Prerequisite for IDEA-007/008/009 (nothing to display until this data exists) an
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
+## [TODO] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
 Idea:
 Three levels of access: Contributor (default), Track Admin (scoped to one or more specific tracks), and Admin (internally "Organization Admin," but just "Admin" in the UI).
 
@@ -164,7 +164,7 @@ Depends on IDEA-010 for tracks to scope Track Admin against.
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
+## [TODO] IDEA-012 — Admin: full contributor list with Confirm/Block
 Idea:
 A page, visible only to Admins, listing every contributor — unlike the plain-Contributor view, which only gets search (IDEA-005) with no full table. Admins can Confirm or Block a contributor from this list, changing their status.
 
@@ -179,7 +179,7 @@ IDEA-021 (leave the community) hits this same single-writer question, from a dif
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-013 — Request to join a track
+## [TODO] IDEA-013 — Request to join a track
 Idea:
 A contributor can request to join a track from that track's page. The request is stored, synced to cf-internal, and visible to that track's Track Admin(s) (and to Admins).
 
@@ -193,7 +193,7 @@ Depends on IDEA-010 (tracks must exist) and IDEA-007 (the track page this is req
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
+## [TODO] IDEA-014 — Track Admin: member list & join-request review
 Idea:
 A page, visible to Track Admins (and Admins), listing the people assigned to their track(s) plus that track's pending join requests (IDEA-013), with Accept/Reject actions on requests.
 
@@ -209,7 +209,7 @@ Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-01
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
+## [TODO] IDEA-015 — Onboarding checklist for new contributors
 Idea:
 A "getting started" checklist on the Main page for a contributor whose profile isn't yet complete, tying together pieces that already exist separately: fill in the profile, read the community policies, join a track.
 
@@ -223,7 +223,7 @@ Depends on IDEA-000 (mandatory-field/completeness concept), IDEA-006 (policies),
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-016 — Open-issue board across track repositories
+## [TODO] IDEA-016 — Open-issue board across track repositories
 Idea:
 A board aggregating open, contributor-friendly issues (e.g. "good first issue") from every repository listed under every track, so a new contributor can find something to work on without hunting through each repo individually.
 
@@ -238,7 +238,7 @@ Split from IDEA-015 rather than folded in — it's a materially different piece 
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-017 — Leave a track
+## [TODO] IDEA-017 — Leave a track
 Idea:
 A contributor can remove themselves from a track they're a member of, from that track's page — the voluntary counterpart to IDEA-013's join request, distinct from being removed by an admin.
 
@@ -252,7 +252,7 @@ Depends on IDEA-010 (track membership existing at all) and IDEA-013/014 (the mem
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-018 — Volunteer for an open track leader slot
+## [TODO] IDEA-018 — Volunteer for an open track leader slot
 Idea:
 A contributor can nominate themselves for one of a track's empty leader slots (Product Manager, Architect, Developer, Quality, Researcher — IDEA-010), the leadership counterpart to IDEA-013's membership join request.
 
@@ -265,7 +265,7 @@ Depends on IDEA-010 (leader slots) and IDEA-014 (the review surface this needs, 
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-019 — Notify a contributor when their join request is decided
+## [TODO] IDEA-019 — Notify a contributor when their join request is decided
 Idea:
 When a Track Admin (or Admin) accepts or rejects a join request (IDEA-013/014), the requesting contributor is told the outcome — currently nothing surfaces the decision back to them at all.
 
@@ -277,7 +277,7 @@ Depends on IDEA-013/014 for the decision this reports. Notification channel (in-
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-020 — Discord announcements bell icon
+## [TODO] IDEA-020 — Discord announcements bell icon
 Idea:
 Announcements are posted to a Discord channel, not duplicated into this app. A bell icon somewhere in the UI reflects whether the signed-in contributor's linked Discord account has unread messages in that channel; clicking it opens the channel in Discord.
 
@@ -291,7 +291,7 @@ Open question, needs research before committing to this shape: can Discord's API
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-021 — Leave the community (self-service)
+## [TODO] IDEA-021 — Leave the community (self-service)
 Idea:
 A contributor can remove themselves entirely. Their status becomes `left`, non-private fields get a `#left#ddmmyy-hhmmss` postfix, and private fields (Full Name, Email) are masked rather than deleted outright — e.g. "John Doe" → "J**** D****", "john.doe@gmail.com" → "j****@g****.com".
 
@@ -310,7 +310,7 @@ Same single-writer concern as IDEA-012: `status` is currently owned by the cf-in
 
 By: vzhuman · 2026-07-31
 
-## [DRAFT] [vzhuman] IDEA-022 — Audit log for admin operations
+## [TODO] IDEA-022 — Audit log for admin operations
 Idea:
 A record of every admin/Track-Admin action taken through the app — Confirm/Block (IDEA-012), Accept/Reject (IDEA-014) — so there's accountability for who changed what and when.
 
