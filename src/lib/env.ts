@@ -29,6 +29,12 @@ export const envSchema = z
     // provider for it.
     LINKEDIN_CLIENT_ID: z.string().min(1).optional(),
     LINKEDIN_CLIENT_SECRET: z.string().min(1).optional(),
+    // Optional — this app's single root user, identified by GitHub's numeric
+    // id (stored as digit-only text elsewhere in this app; see
+    // contributors.ts's Row#github_id). Unset means no root user at all.
+    // Groundwork for IDEA-011's roles work — nothing consults this yet except
+    // isRootUser (lib/root-user.ts).
+    ROOT_GITHUB_ID: z.string().regex(/^\d+$/, 'ROOT_GITHUB_ID must be numeric').optional(),
   })
   .refine((data) => Boolean(data.LINKEDIN_CLIENT_ID) === Boolean(data.LINKEDIN_CLIENT_SECRET), {
     // Independently optional fields would otherwise let exactly one of the

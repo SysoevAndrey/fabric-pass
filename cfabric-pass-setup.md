@@ -387,6 +387,9 @@ CONTRIBUTORS_SYNC_SECRET=
 # 404s)
 LINKEDIN_CLIENT_ID=
 LINKEDIN_CLIENT_SECRET=
+# Optional — the numeric GitHub id of this deployment's single root user;
+# unset means no root user at all. Staged ahead of IDEA-011's roles work.
+ROOT_GITHUB_ID=
 EOF
 chmod 600 <APP_DIR>/.env
 ```

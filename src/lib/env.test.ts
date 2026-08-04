@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { envSchema } from '@/lib/env'
 
 // A minimal object satisfying every required field, so each test below only
-// has to vary the LinkedIn pair it's actually checking.
+// has to vary the LinkedIn pair or ROOT_GITHUB_ID it's actually checking.
 const baseEnv = {
   DATABASE_URL: 'postgresql://localhost:5432/test',
   SESSION_PASSWORD: 'test-password-at-least-32-characters-long',
@@ -33,4 +33,16 @@ test('rejects LINKEDIN_CLIENT_ID set without LINKEDIN_CLIENT_SECRET', () => {
 
 test('rejects LINKEDIN_CLIENT_SECRET set without LINKEDIN_CLIENT_ID', () => {
   expect(() => envSchema.parse({ ...baseEnv, LINKEDIN_CLIENT_SECRET: 'linkedin-secret' })).toThrow()
+})
+
+test('parses with ROOT_GITHUB_ID unset', () => {
+  expect(() => envSchema.parse(baseEnv)).not.toThrow()
+})
+
+test('parses with a numeric ROOT_GITHUB_ID', () => {
+  expect(() => envSchema.parse({ ...baseEnv, ROOT_GITHUB_ID: '12345' })).not.toThrow()
+})
+
+test('rejects a non-numeric ROOT_GITHUB_ID', () => {
+  expect(() => envSchema.parse({ ...baseEnv, ROOT_GITHUB_ID: 'not-a-number' })).toThrow()
 })
