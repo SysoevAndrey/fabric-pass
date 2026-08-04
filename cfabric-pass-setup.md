@@ -309,8 +309,9 @@ different `<DOMAIN>` values.
 the bot, then its Mini App (not the chat commands) → Bot Settings → Web
 Login → add `https://<DOMAIN>/auth/telegram/callback` as an allowed URL.
 
-**LinkedIn** (optional — credentials only, the provider integration itself
-is separate work not yet in this app, see IDEA-024) — via
+**LinkedIn** (optional — this app's only optional provider; leave both
+values unset below to skip it entirely, see the main README's LinkedIn
+section) — via
 [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps) →
 Create app:
 - Requires an existing LinkedIn Company Page to attach the app to.
@@ -381,8 +382,9 @@ RESEND_FROM_ADDRESS=
 # Optional — only needed for the registry sync, see Step 12
 CONTRIBUTORS_EXPORT_SECRET=
 CONTRIBUTORS_SYNC_SECRET=
-# Optional — from Step 9, staged ahead of the LinkedIn provider integration
-# itself (IDEA-024), which doesn't exist in this app yet
+# Optional — from Step 9. This app's only optional provider: leave both
+# unset to skip LinkedIn entirely (no row on the profile form, /auth/linkedin
+# 404s)
 LINKEDIN_CLIENT_ID=
 LINKEDIN_CLIENT_SECRET=
 EOF

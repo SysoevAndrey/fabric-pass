@@ -28,6 +28,8 @@ interface RegistryRow {
   discord_id: string | null
   discord_username: string | null
   discord_name: string | null
+  linkedin_id: string | null
+  linkedin_name: string | null
   name: string | null
   email: string | null
   // Deliberately the only email-confirmation field here — the confirmation
@@ -65,6 +67,8 @@ export function toRegistryYaml(contributors: Contributor[]): string {
     discord_id: contributor.discordId ?? null,
     discord_username: contributor.discordUsername ?? null,
     discord_name: contributor.discordName ?? null,
+    linkedin_id: contributor.linkedinId ?? null,
+    linkedin_name: contributor.linkedinName ?? null,
     name: contributor.name ?? null,
     email: contributor.email ?? null,
     email_confirmed_at: contributor.emailConfirmedAt?.toISOString() ?? null,

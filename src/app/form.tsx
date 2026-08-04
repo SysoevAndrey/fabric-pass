@@ -6,11 +6,16 @@ import { AutosaveField, CompanyField, EmailField } from './autosave-field'
 import type { Notice } from './auth/notice'
 import { Collected } from './collected'
 import { missingMandatoryFields } from '@/lib/profile-completeness'
-import { CloseMark, DiscordMark, PencilMark, TelegramMark } from './marks'
+import { CloseMark, DiscordMark, LinkedInMark, PencilMark, TelegramMark } from './marks'
 
 interface Props {
   telegramLabel: string | null
   discordLabel: string | null
+  linkedinLabel: string | null
+  /** LinkedIn is this app's only optional provider (see lib/env.ts) — the
+   * row is left out of the form entirely, not shown disabled, when it isn't
+   * configured for this environment. */
+  linkedinEnabled: boolean
   defaults: { name: string; email: string; company: string }
   emailConfirmedAt: Date | null
   emailConfirmationSentAt: Date | null
@@ -39,7 +44,7 @@ function ProviderField({
   label: string
   value: string | null
   href: string
-  brand: 'telegram' | 'discord'
+  brand: 'telegram' | 'discord' | 'linkedin'
   mark: ReactNode
   /** View mode's gate on Link/Re-link: the action is left out of the markup
    * entirely rather than rendered disabled, since there's nothing to click
@@ -65,6 +70,8 @@ function ProviderField({
 export function ContributorForm({
   telegramLabel,
   discordLabel,
+  linkedinLabel,
+  linkedinEnabled,
   defaults,
   emailConfirmedAt,
   emailConfirmationSentAt,
@@ -157,6 +164,16 @@ export function ContributorForm({
           mark={<TelegramMark size={16} />}
           editable={editing}
         />
+        {linkedinEnabled ? (
+          <ProviderField
+            label="LinkedIn"
+            value={linkedinLabel}
+            href="/auth/linkedin"
+            brand="linkedin"
+            mark={<LinkedInMark size={16} />}
+            editable={editing}
+          />
+        ) : null}
       </form>
 
       <Collected />

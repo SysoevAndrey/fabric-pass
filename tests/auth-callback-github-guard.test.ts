@@ -11,7 +11,10 @@ const { fakeSession, githubCallbackResult, discordCallbackResult, contributorsSt
   fakeSession: {
     oauth: undefined as
       | Partial<
-          Record<'github' | 'discord' | 'telegram', { codeVerifier: string; state: string; variant?: 'phone' }>
+          Record<
+            'github' | 'discord' | 'telegram' | 'linkedin',
+            { codeVerifier: string; state: string; variant?: 'phone' }
+          >
         >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
@@ -59,7 +62,8 @@ vi.mock('@/lib/contributors', async () => {
 })
 
 vi.mock('@/lib/providers', () => ({
-  isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
+  isProviderName: (value: string) =>
+    value === 'github' || value === 'discord' || value === 'telegram' || value === 'linkedin',
   providers: {
     github: {
       name: 'github',
@@ -77,6 +81,15 @@ vi.mock('@/lib/providers', () => ({
     },
     telegram: {
       name: 'telegram',
+      authRequest: async () => {
+        throw new Error('not used in this test')
+      },
+      callback: async () => {
+        throw new Error('not used in this test')
+      },
+    },
+    linkedin: {
+      name: 'linkedin',
       authRequest: async () => {
         throw new Error('not used in this test')
       },

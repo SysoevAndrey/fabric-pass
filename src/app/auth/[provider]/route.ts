@@ -7,10 +7,16 @@ export async function GET(request: Request, context: { params: Promise<{ provide
   const { provider: name } = await context.params
   if (!isProviderName(name)) return new NextResponse('Unknown provider', { status: 404 })
 
+  const provider = providers[name]
+  // LinkedIn is this app's only provider that can be a known name
+  // (isProviderName above) yet still have nothing to hand back — see
+  // lib/providers/index.ts. Refused the same way an unknown name is: there's
+  // no meaningful distinction to surface to a client hitting either case.
+  if (!provider) return new NextResponse('Unknown provider', { status: 404 })
+
   const variant = new URL(request.url).searchParams.get('variant') === 'phone' ? 'phone' : undefined
   const redirectUri = `${env.APP_URL}/auth/${name}/callback`
 
-  const provider = providers[name]
   const { url, codeVerifier, state } = await provider.authRequest(redirectUri, variant)
 
   const session = await getSession()
