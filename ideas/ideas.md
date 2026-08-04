@@ -345,3 +345,26 @@ Creating the LinkedIn application itself (developer-portal app, OAuth credential
 Task: https://github.com/constructorfabric/fabric-pass/issues/7
 
 By: frontgeeks · 2026-08-04
+
+## [DRAFT] [vzhuman] IDEA-025 — Staging environment for pre-merge verification
+Idea:
+A staging environment — a running deployment of the app, separate from production, so a change can be verified end-to-end (real Docker image, real Postgres, real OAuth sign-in, real Caddy/TLS) before it's merged to `main` and goes live.
+
+Expected outcome:
+- A change can be deployed somewhere real and clicked through — sign in, autosave, provider linking, email confirmation — before it reaches `pass.cfabric.org`.
+- Staging never holds real contributor data and never touches the real cf-internal registry.
+
+Recommended approach:
+- A second, minimal droplet (~$6/mo, same 1 vCPU/1GB spec and hardening as production — see `cfabric-pass-setup.md`), at its own subdomain (e.g. `staging.pass.cfabric.org`), running the same Compose stack under a different `COMPOSE_PROJECT_NAME`.
+- Its own, empty Postgres — never a copy of production data. If a test needs data, seed synthetic contributors, not real ones.
+- Its own OAuth app registrations at GitHub/Discord/Telegram (and LinkedIn once IDEA-024 lands) — a redirect URL is bound to one exact domain (see the setup doc), so staging genuinely needs its own four app registrations, not a shared one. This is the real recurring cost of doing this properly.
+- `RESEND_API_KEY` left unset on staging (confirmation emails log instead of send) unless someone specifically needs to test the email path, so test traffic doesn't burn Resend's send quota or deliverability reputation.
+- `CONTRIBUTORS_EXPORT_SECRET`/`CONTRIBUTORS_SYNC_SECRET` left unset — staging should never write into or read from cf-internal's real `pass/contributors.yaml`.
+- Deploy trigger: a second, near-identical GitHub Actions workflow that builds and deploys to the staging droplet on push to an open PR targeting `main` (or on manual `workflow_dispatch`), rather than a separate long-lived staging branch that can drift from `main`. Only one PR's changes live on staging at a time — a queue, not a blocker, for a team this size.
+
+Notes:
+Main cost/friction: doubles the monthly hosting bill and, more significantly, requires four more OAuth app registrations to create and keep in sync with production's redirect-URL pattern.
+Alternative considered and rejected: a second stack on the *same* droplet. Production already needed a 2GB swap file just to run one stack comfortably (see the setup doc's Swap section) — a second concurrent Postgres+Next.js stack on the same 1GB box is a real OOM risk, not just an inconvenience.
+Alternative considered and rejected: true per-PR ephemeral environments (a fresh subdomain per PR, torn down on merge). Doesn't fit this app's OAuth-gated design — every provider requires an exact, pre-registered redirect URL, so a genuinely ephemeral per-PR domain can't complete an OAuth flow without registering (and cleaning up) an app per PR, which is more overhead than it saves.
+
+By: vzhuman · 2026-08-04
