@@ -114,12 +114,12 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     return NextResponse.redirect(isProfileComplete(contributor) ? home : profile)
   }
 
-  // Telegram and Discord can only be reached from the signed-in state — the
-  // page offers their link buttons only once session.github is set — so the
-  // row this writes to already exists. A missing session.github here means
-  // the cookie was lost mid-flow, with nothing to link to; the identity-bound
-  // transaction check above has already ruled out the case where one *is*
-  // present but belongs to someone else.
+  // Discord, Telegram, and LinkedIn can only be reached from the signed-in
+  // state — the page offers their link buttons only once session.github is
+  // set — so the row this writes to already exists. A missing session.github
+  // here means the cookie was lost mid-flow, with nothing to link to; the
+  // identity-bound transaction check above has already ruled out the case
+  // where one *is* present but belongs to someone else.
   if (!session.github) {
     await session.save()
     return NextResponse.redirect(withNotice(profile, 'expired'))
