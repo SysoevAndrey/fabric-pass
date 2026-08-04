@@ -392,3 +392,7 @@ By: vzhuman · 2026-08-04
 ## [TAKEN] [frontgeeks] IDEA-027 — Main redirects to Profile until the main page is ready
 Idea: Main's signed-in view is still the "Main Form" placeholder; until the real main page exists, redirect signed-in visitors to /profile (carrying any notice params along) instead of showing the stub.
 By: frontgeeks · 2026-08-05
+
+## [TAKEN] [frontgeeks] IDEA-028 — Pin the footer to the bottom of the viewport
+Idea: On pages shorter than the screen the footer sits right under the content, mid-screen; it should stay at the bottom of the viewport (classic sticky-footer layout), without becoming fixed/overlapping on long pages.
+By: frontgeeks · 2026-08-05
