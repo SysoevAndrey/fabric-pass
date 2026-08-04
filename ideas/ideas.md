@@ -400,3 +400,7 @@ By: frontgeeks · 2026-08-05
 ## [TAKEN] [frontgeeks] IDEA-029 — Profile: Close control only in edit mode, sized like its neighbors
 Idea: The profile header shows the Close (X) control at all times and it visibly differs in size from Edit/Save (it's an <a> next to <button>s). Show it only in edit mode as a way to leave editing, rendered the same size as the other header actions.
 By: frontgeeks · 2026-08-05
+
+## [TAKEN] [frontgeeks] IDEA-030 — Fix LinkedIn linking failing in production
+Idea: Linking LinkedIn on the deployed app ends in the generic "Linking linkedin did not complete" notice — the token exchange or its validation fails after LinkedIn redirects back. Root cause lives in the app container's logs (`auth callback error (linkedin)`); prime suspects are a wrong LINKEDIN_CLIENT_SECRET in the deploy env (handover in issue #8 shows an empty secret line) and LinkedIn's lack of declared PKCE support.
+By: frontgeeks · 2026-08-05
