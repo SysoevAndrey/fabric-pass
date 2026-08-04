@@ -29,6 +29,11 @@ export interface Contributor {
   discordId?: string
   discordUsername?: string
   discordName?: string
+  /** No `linkedinUsername`: unlike Discord/Telegram, LinkedIn's OIDC payload
+   * carries no username or vanity-URL claim (see providers/linkedin.ts) —
+   * `linkedinName` is the only label there is. */
+  linkedinId?: string
+  linkedinName?: string
   name?: string
   email?: string
   /** Set the moment `email` is confirmed — by clicking the emailed link for
@@ -94,6 +99,8 @@ interface Row {
   discord_id: string | null
   discord_username: string | null
   discord_name: string | null
+  linkedin_id: string | null
+  linkedin_name: string | null
   name: string | null
   email: string | null
   email_confirmed_at: Date | null
@@ -121,6 +128,8 @@ function toContributor(row: Row): Contributor {
     discordId: row.discord_id ?? undefined,
     discordUsername: row.discord_username ?? undefined,
     discordName: row.discord_name ?? undefined,
+    linkedinId: row.linkedin_id ?? undefined,
+    linkedinName: row.linkedin_name ?? undefined,
     name: row.name ?? undefined,
     email: row.email ?? undefined,
     emailConfirmedAt: row.email_confirmed_at ?? undefined,
@@ -188,25 +197,61 @@ export async function ensureContributor(
 }
 
 /**
- * Writes one provider's whole identity as a unit — id together with username
- * and phone — the moment its OAuth callback returns, so a value left over
- * from a *different* linked account cannot survive beside the new one.
- * Telegram's username and phone are mutually exclusive by construction (see
- * providers/telegram.ts's toIdentity), so re-linking a username-bearing
- * account after a phone-only one has to clear the phone rather than keep it:
- * the project has no basis to hold a number that no longer belongs to the
- * linked account.
+ * One entry per linkable provider, keyed by `Exclude<ProviderName,
+ * 'github'>`. `idColumn` is also what `recordAliasFromSharedIdentity` reads
+ * to find a conflicting row — kept alongside `sql`/`params` rather than in a
+ * second, separately-maintained lookup, since it's the same column named
+ * twice either way. LinkedIn has no `params` entry for username/phone: its
+ * OIDC payload carries neither claim (see providers/linkedin.ts), so its SQL
+ * only ever sets `linkedin_id`/`linkedin_name`.
+ */
+const PROVIDER_LINK_QUERIES: Record<
+  Exclude<ProviderName, 'github'>,
+  { idColumn: string; sql: string; params: (identity: Identity) => unknown[] }
+> = {
+  telegram: {
+    idColumn: 'telegram_id',
+    sql: `UPDATE contributors
+            SET telegram_id = $2, telegram_username = $3, telegram_phone = $4, telegram_name = $5, updated_at = now()
+          WHERE github_id = $1`,
+    params: (identity) => [identity.providerId, identity.username ?? null, identity.phone ?? null, identity.name ?? null],
+  },
+  discord: {
+    idColumn: 'discord_id',
+    sql: `UPDATE contributors
+            SET discord_id = $2, discord_username = $3, discord_name = $4, updated_at = now()
+          WHERE github_id = $1`,
+    params: (identity) => [identity.providerId, identity.username ?? null, identity.name ?? null],
+  },
+  linkedin: {
+    idColumn: 'linkedin_id',
+    sql: `UPDATE contributors
+            SET linkedin_id = $2, linkedin_name = $3, updated_at = now()
+          WHERE github_id = $1`,
+    params: (identity) => [identity.providerId, identity.name ?? null],
+  },
+}
+
+/**
+ * Writes one provider's whole identity as a unit — id together with
+ * whichever of username/phone/name that provider carries — the moment its
+ * OAuth callback returns, so a value left over from a *different* linked
+ * account cannot survive beside the new one. Telegram's username and phone
+ * are mutually exclusive by construction (see providers/telegram.ts's
+ * toIdentity), so re-linking a username-bearing account after a phone-only
+ * one has to clear the phone rather than keep it: the project has no basis
+ * to hold a number that no longer belongs to the linked account.
  *
  * A provider account that's already linked to a *different* contributor row
  * is not refused. Successfully completing that provider's OAuth flow is the
  * strongest proof this app ever gets that two rows are the same real person
- * — only that person could have authenticated as that Telegram/Discord
- * account — so this records the row attempting to link as an alias of
- * whichever one already holds the identity (see
+ * — only that person could have authenticated as that Telegram/Discord/
+ * LinkedIn account — so this records the row attempting to link as an alias
+ * of whichever one already holds the identity (see
  * recordAliasFromSharedIdentity) instead of erroring. The identity itself is
  * never duplicated onto the new row: the unique constraint on
- * telegram_id/discord_id stays intact, and resolveProviderLabels is what
- * makes an alias's inherited link visible on its own profile page.
+ * telegram_id/discord_id/linkedin_id stays intact, and resolveProviderLabels
+ * is what makes an alias's inherited link visible on its own profile page.
  *
  * Throws if `githubId` names no row — every caller reaches this only after
  * `ensureContributor`, so a miss here means that invariant broke rather than
@@ -217,23 +262,11 @@ export async function linkProvider(
   provider: Exclude<ProviderName, 'github'>,
   identity: Identity,
 ): Promise<void> {
-  const sql =
-    provider === 'telegram'
-      ? `UPDATE contributors
-            SET telegram_id = $2, telegram_username = $3, telegram_phone = $4, telegram_name = $5, updated_at = now()
-          WHERE github_id = $1`
-      : `UPDATE contributors
-            SET discord_id = $2, discord_username = $3, discord_name = $4, updated_at = now()
-          WHERE github_id = $1`
-
-  const params =
-    provider === 'telegram'
-      ? [githubId, identity.providerId, identity.username ?? null, identity.phone ?? null, identity.name ?? null]
-      : [githubId, identity.providerId, identity.username ?? null, identity.name ?? null]
+  const { sql, params } = PROVIDER_LINK_QUERIES[provider]
 
   let result
   try {
-    result = await pool.query(sql, params)
+    result = await pool.query(sql, [githubId, ...params(identity)])
   } catch (error) {
     const violation = error as { code?: string; constraint?: string }
     if (violation.code === '23505') {
@@ -258,7 +291,7 @@ async function recordAliasFromSharedIdentity(
   provider: Exclude<ProviderName, 'github'>,
   providerId: string,
 ): Promise<void> {
-  const column = provider === 'telegram' ? 'telegram_id' : 'discord_id'
+  const column = PROVIDER_LINK_QUERIES[provider].idColumn
   const { rows } = await pool.query<{ github_id: string }>(`SELECT github_id FROM contributors WHERE ${column} = $1`, [
     providerId,
   ])
@@ -272,31 +305,34 @@ async function recordAliasFromSharedIdentity(
 }
 
 /**
- * The label to show for a contributor's Telegram/Discord link on their own
- * profile page. A contributor with no direct link of their own, but who is
- * an alias of another row that does have one, inherits that link for
- * display — set by recordAliasFromSharedIdentity precisely because a
+ * The label to show for a contributor's Telegram/Discord/LinkedIn link on
+ * their own profile page. A contributor with no direct link of their own,
+ * but who is an alias of another row that does have one, inherits that link
+ * for display — set by recordAliasFromSharedIdentity precisely because a
  * successful OAuth login proved the two rows share the same linked account.
  */
 export async function resolveProviderLabels(
   contributor: Contributor,
-): Promise<{ telegramLabel: string | null; discordLabel: string | null }> {
+): Promise<{ telegramLabel: string | null; discordLabel: string | null; linkedinLabel: string | null }> {
   const hasOwnTelegram = Boolean(contributor.telegramUsername || contributor.telegramPhone)
   const hasOwnDiscord = Boolean(contributor.discordUsername)
+  const hasOwnLinkedin = Boolean(contributor.linkedinName)
 
   const aliasTarget =
-    contributor.aliasOfGithubId && (!hasOwnTelegram || !hasOwnDiscord)
+    contributor.aliasOfGithubId && (!hasOwnTelegram || !hasOwnDiscord || !hasOwnLinkedin)
       ? await findByGithubId(contributor.aliasOfGithubId)
       : null
 
   const telegramSource = hasOwnTelegram ? contributor : (aliasTarget ?? contributor)
   const discordSource = hasOwnDiscord ? contributor : (aliasTarget ?? contributor)
+  const linkedinSource = hasOwnLinkedin ? contributor : (aliasTarget ?? contributor)
 
   return {
     telegramLabel: telegramSource.telegramUsername
       ? `@${telegramSource.telegramUsername}`
       : (telegramSource.telegramPhone ?? null),
     discordLabel: discordSource.discordUsername ?? null,
+    linkedinLabel: linkedinSource.linkedinName ?? null,
   }
 }
 

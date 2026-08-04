@@ -11,7 +11,10 @@ const { fakeSession, githubCallbackResult, discordCallbackResult, contributorsSt
   fakeSession: {
     oauth: undefined as
       | Partial<
-          Record<'github' | 'discord' | 'telegram', { codeVerifier: string; state: string; variant?: 'phone' }>
+          Record<
+            'github' | 'discord' | 'telegram' | 'linkedin',
+            { codeVerifier: string; state: string; variant?: 'phone' }
+          >
         >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
@@ -25,6 +28,10 @@ const { fakeSession, githubCallbackResult, discordCallbackResult, contributorsSt
   contributorsState: {
     ensureCalls: [] as { githubId: string; githubLogin: string }[],
     ensureShouldThrow: false,
+    // Overrides the name/email the mocked ensureContributor returns, so a
+    // test can drive the redirect decision (Main vs. Profile-in-edit-mode)
+    // without a real database row.
+    ensureResult: {} as { name?: string; email?: string },
   },
 }))
 
@@ -39,7 +46,14 @@ vi.mock('@/lib/contributors', async () => {
     ensureContributor: async (githubId: string, githubLogin: string) => {
       if (contributorsState.ensureShouldThrow) throw new Error('connection refused')
       contributorsState.ensureCalls.push({ githubId, githubLogin })
-      return { id: '1', githubId, githubLogin, createdAt: new Date(), updatedAt: new Date() }
+      return {
+        id: '1',
+        githubId,
+        githubLogin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...contributorsState.ensureResult,
+      }
     },
     linkProvider: async () => {
       throw new Error('not used in this test — no test here exercises a completed link')
@@ -48,7 +62,8 @@ vi.mock('@/lib/contributors', async () => {
 })
 
 vi.mock('@/lib/providers', () => ({
-  isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
+  isProviderName: (value: string) =>
+    value === 'github' || value === 'discord' || value === 'telegram' || value === 'linkedin',
   providers: {
     github: {
       name: 'github',
@@ -73,6 +88,15 @@ vi.mock('@/lib/providers', () => ({
         throw new Error('not used in this test')
       },
     },
+    linkedin: {
+      name: 'linkedin',
+      authRequest: async () => {
+        throw new Error('not used in this test')
+      },
+      callback: async () => {
+        throw new Error('not used in this test')
+      },
+    },
   },
 }))
 
@@ -87,6 +111,7 @@ beforeEach(() => {
   discordCallbackResult.current = { providerId: 'discord-id-1', username: 'discordfan' }
   contributorsState.ensureCalls = []
   contributorsState.ensureShouldThrow = false
+  contributorsState.ensureResult = {}
 })
 
 test('a github identity with no username is refused, not written to the session, and no row is created', async () => {
@@ -158,6 +183,33 @@ test('a successful github sign-in creates the contributor row the same instant i
   expect(contributorsState.ensureCalls).toEqual([{ githubId: '583231', githubLogin: 'octocat' }])
 })
 
+// IDEA-001: sign-in lands on Main if the profile is already complete
+// (Name and Email both filled in), otherwise on Profile — which opens
+// straight into edit mode on its own (see profile/page.tsx), keyed off the
+// same isProfileComplete check.
+
+test('a successful github sign-in with a complete profile redirects to Main', async () => {
+  githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
+  contributorsState.ensureResult = { name: 'Ada Lovelace', email: 'ada@example.com' }
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  const response = await GET(request, context)
+
+  expect(response.headers.get('location')).toBe('http://localhost:3000/')
+})
+
+test('a successful github sign-in with an incomplete profile redirects to Profile', async () => {
+  githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
+  contributorsState.ensureResult = { name: 'Ada Lovelace', email: undefined }
+  const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
+  const context = { params: Promise.resolve({ provider: 'github' }) }
+
+  const response = await GET(request, context)
+
+  expect(response.headers.get('location')).toBe('http://localhost:3000/profile')
+})
+
 test('a failure creating the row is refused the same way a provider error is, and the session is left signed out', async () => {
   githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
   contributorsState.ensureShouldThrow = true
@@ -187,5 +239,8 @@ test('a discord callback with no signed-in github identity is refused as expired
   const response = await GET(request, context)
 
   const location = response.headers.get('location')
-  expect(location).toContain('notice=expired')
+  // Discord's notice target is Profile, not Main — unlike a github callback,
+  // whose expired/failed notices still land at '/' (see the other guard
+  // tests above).
+  expect(location).toBe('http://localhost:3000/profile?notice=expired')
 })

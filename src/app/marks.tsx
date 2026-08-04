@@ -32,6 +32,35 @@ export function EmailMark({ size = 20 }: Props) {
   )
 }
 
+export function PencilMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793ZM11.379 5.793 3 14.172V17h2.828l8.38-8.379-2.83-2.828Z" />
+    </svg>
+  )
+}
+
+export function CloseMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true">
+      <path
+        d="M4.5 4.5l11 11M15.5 4.5l-11 11"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+export function LinkedInMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286ZM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124ZM7.114 20.452H3.556V9h3.558v11.452Z" />
+    </svg>
+  )
+}
+
 export function DiscordMark({ size = 20 }: Props) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">

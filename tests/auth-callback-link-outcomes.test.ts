@@ -10,30 +10,32 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // providers, and the contributors module are replaced with in-memory
 // doubles, the same seam tests/auth-oauth-concurrent-transactions.test.ts
 // and tests/auth-callback-github-guard.test.ts use.
-const { fakeSession, discordCallbackResult, telegramCallbackResult, contributorsState } = vi.hoisted(() => ({
-  fakeSession: {
-    oauth: undefined as
-      | Partial<
-          Record<
-            'github' | 'discord' | 'telegram',
-            { codeVerifier: string; state: string; variant?: 'phone'; githubId?: string }
+const { fakeSession, discordCallbackResult, telegramCallbackResult, linkedinCallbackResult, contributorsState } =
+  vi.hoisted(() => ({
+    fakeSession: {
+      oauth: undefined as
+        | Partial<
+            Record<
+              'github' | 'discord' | 'telegram' | 'linkedin',
+              { codeVerifier: string; state: string; variant?: 'phone'; githubId?: string }
+            >
           >
-        >
-      | undefined,
-    github: undefined as { id: string; login: string } | undefined,
-    save: async () => {},
-  },
-  discordCallbackResult: { current: { providerId: 'discord-id-1', username: 'discordfan' } },
-  telegramCallbackResult: { current: { providerId: 'tg-id-1', username: 'ada_tg' } as {
-    providerId: string
-    username?: string
-    phone?: string
-  } },
-  contributorsState: {
-    linkCalls: [] as { githubId: string; provider: string; identity: unknown }[],
-    linkShouldThrow: undefined as 'generic' | 'not-found' | undefined,
-  },
-}))
+        | undefined,
+      github: undefined as { id: string; login: string } | undefined,
+      save: async () => {},
+    },
+    discordCallbackResult: { current: { providerId: 'discord-id-1', username: 'discordfan' } },
+    telegramCallbackResult: { current: { providerId: 'tg-id-1', username: 'ada_tg' } as {
+      providerId: string
+      username?: string
+      phone?: string
+    } },
+    linkedinCallbackResult: { current: { providerId: 'li-id-1', name: 'Ada Lovelace' } },
+    contributorsState: {
+      linkCalls: [] as { githubId: string; provider: string; identity: unknown }[],
+      linkShouldThrow: undefined as 'generic' | 'not-found' | undefined,
+    },
+  }))
 
 vi.mock('@/lib/session', () => ({
   getSession: async () => fakeSession,
@@ -56,7 +58,8 @@ vi.mock('@/lib/contributors', async () => {
 })
 
 vi.mock('@/lib/providers', () => ({
-  isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
+  isProviderName: (value: string) =>
+    value === 'github' || value === 'discord' || value === 'telegram' || value === 'linkedin',
   providers: {
     github: {
       name: 'github',
@@ -81,6 +84,13 @@ vi.mock('@/lib/providers', () => ({
       },
       callback: async () => telegramCallbackResult.current,
     },
+    linkedin: {
+      name: 'linkedin',
+      authRequest: async () => {
+        throw new Error('not used in this test')
+      },
+      callback: async () => linkedinCallbackResult.current,
+    },
   },
 }))
 
@@ -95,9 +105,11 @@ beforeEach(() => {
   fakeSession.oauth = {
     discord: { codeVerifier: 'discord-verifier', state: 'discord-state', githubId: '1001' },
     telegram: { codeVerifier: 'telegram-verifier', state: 'telegram-state', githubId: '1001' },
+    linkedin: { codeVerifier: 'linkedin-verifier', state: 'linkedin-state', githubId: '1001' },
   }
   discordCallbackResult.current = { providerId: 'discord-id-1', username: 'discordfan' }
   telegramCallbackResult.current = { providerId: 'tg-id-1', username: 'ada_tg' }
+  linkedinCallbackResult.current = { providerId: 'li-id-1', name: 'Ada Lovelace' }
   contributorsState.linkCalls = []
   contributorsState.linkShouldThrow = undefined
 })
@@ -109,19 +121,18 @@ test('a discord callback that fails generically is refused with the link-failed 
   const response = await GET(request, { params: Promise.resolve({ provider: 'discord' }) })
 
   const location = response.headers.get('location')
-  expect(location).toContain('notice=link-failed')
-  expect(location).toContain('provider=discord')
+  expect(location).toBe('http://localhost:3000/profile?notice=link-failed&provider=discord')
 })
 
 // resolveTelegramOutcome itself is unit-tested (tests/auth-routes.test.ts),
 // but nothing before this drove a successful Telegram link through the
 // route end to end.
-test('a successful telegram callback links the account and redirects home with no notice', async () => {
+test('a successful telegram callback links the account and redirects to Profile with no notice', async () => {
   const request = new Request('http://localhost:3000/auth/telegram/callback?code=abc&state=telegram-state')
 
   const response = await GET(request, { params: Promise.resolve({ provider: 'telegram' }) })
 
-  expect(response.headers.get('location')).toBe('http://localhost:3000/')
+  expect(response.headers.get('location')).toBe('http://localhost:3000/profile')
   expect(contributorsState.linkCalls).toEqual([
     { githubId: '1001', provider: 'telegram', identity: { providerId: 'tg-id-1', username: 'ada_tg' } },
   ])
@@ -137,6 +148,42 @@ test('a discord callback whose contributor row is gone is refused with the reaut
   const response = await GET(request, { params: Promise.resolve({ provider: 'discord' }) })
 
   const location = response.headers.get('location')
-  expect(location).toContain('notice=reauth-required')
+  expect(location).toBe('http://localhost:3000/profile?notice=reauth-required')
   expect(location).not.toContain('notice=link-failed')
+})
+
+// LinkedIn's success/failure shapes mirror Discord's — same guard, same
+// linkProvider call, same notices — so these three cases match the Discord
+// ones above one for one.
+
+test('a successful linkedin callback links the account and redirects to Profile with no notice', async () => {
+  const request = new Request('http://localhost:3000/auth/linkedin/callback?code=abc&state=linkedin-state')
+
+  const response = await GET(request, { params: Promise.resolve({ provider: 'linkedin' }) })
+
+  expect(response.headers.get('location')).toBe('http://localhost:3000/profile')
+  expect(contributorsState.linkCalls).toEqual([
+    { githubId: '1001', provider: 'linkedin', identity: { providerId: 'li-id-1', name: 'Ada Lovelace' } },
+  ])
+})
+
+test('a linkedin callback whose contributor row is gone is refused with the reauth-required notice, not link-failed', async () => {
+  contributorsState.linkShouldThrow = 'not-found'
+  const request = new Request('http://localhost:3000/auth/linkedin/callback?code=abc&state=linkedin-state')
+
+  const response = await GET(request, { params: Promise.resolve({ provider: 'linkedin' }) })
+
+  const location = response.headers.get('location')
+  expect(location).toBe('http://localhost:3000/profile?notice=reauth-required')
+  expect(location).not.toContain('notice=link-failed')
+})
+
+test('a linkedin callback that fails generically is refused with the link-failed notice', async () => {
+  contributorsState.linkShouldThrow = 'generic'
+  const request = new Request('http://localhost:3000/auth/linkedin/callback?code=abc&state=linkedin-state')
+
+  const response = await GET(request, { params: Promise.resolve({ provider: 'linkedin' }) })
+
+  const location = response.headers.get('location')
+  expect(location).toBe('http://localhost:3000/profile?notice=link-failed&provider=linkedin')
 })

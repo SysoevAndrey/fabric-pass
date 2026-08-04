@@ -25,6 +25,8 @@ test('renders a contributor as a registry row, contact fields and admin fields a
       status: 'confirmed',
       aliasOfGithubId: '2002',
       isAgent: true,
+      linkedinId: 'li-555',
+      linkedinName: 'Ada Lovelace',
     }),
   ])
 
@@ -39,6 +41,8 @@ test('renders a contributor as a registry row, contact fields and admin fields a
   expect(yaml).toContain('alias_of_github_id: "2002"')
   expect(yaml).toContain('is_agent: true')
   expect(yaml).toContain('created_at:')
+  expect(yaml).toContain('linkedin_id: li-555')
+  expect(yaml).toContain('linkedin_name: Ada Lovelace')
 })
 
 // The confirmation token is a bearer credential — the one thing standing
@@ -56,6 +60,8 @@ test('an unset contact field renders as null, not omitted or empty-string', () =
   expect(yaml).toContain('email: null')
   expect(yaml).toContain('alias_of_github_id: null')
   expect(yaml).toContain('is_agent: false')
+  expect(yaml).toContain('linkedin_id: null')
+  expect(yaml).toContain('linkedin_name: null')
 })
 
 test('round-trips admin field updates back out of what it just rendered', () => {

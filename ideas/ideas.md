@@ -8,7 +8,7 @@
      form genuinely won't carry the information, otherwise split into multiple ideas.
      Format and rules: .claude/skills/ideas/SKILL.md -->
 
-## [TAKEN] [frontgeeks] IDEA-000 — Improve profile view & editing logic
+## [DONE] [frontgeeks] IDEA-000 — Improve profile view & editing logic
 Idea:
 Default the profile form to a locked, view-only mode instead of always-editable, to avoid accidental edits. A pencil-icon "Edit" button ("Modify profile" hint), top-right of the form on the same line as the "Contributor Profile" title, switches it into edit mode — today's always-editable behavior, unchanged autosave, unchanged title. A "Save" button, shown only in edit mode, switches the form back to view-only mode.
 
@@ -18,11 +18,13 @@ Expected outcome:
 - Save button (edit mode only) switches back to view-only mode.
 - Pressing Save enforces the mandatory fields — Name and Email must be filled in, or Save is blocked and the contributor is prompted to fill them in.
 
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/9 (merged; IDEA-000 landed as fd7537c)
+
 Task: https://github.com/constructorfabric/fabric-pass/issues/1
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [frontgeeks] IDEA-001 — Dedicated profile page
+## [DONE] [frontgeeks] IDEA-001 — Dedicated profile page
 Idea:
 The profile view/edit form becomes its own page, opened via "Profile" in the top-right menu, and closed via a new Close button (an "X" with a "Close" hint), placed near the Edit (pencil) button. A new static Main page (placeholder content only, "Main Form", for now) is what closing the Profile page returns to, shown in its already-saved state.
 
@@ -36,6 +38,8 @@ Expected outcome:
 Notes:
 Depends on IDEA-000's view/edit mode split — "view mode disallows editing" only means something once that mode exists.
 
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/9 (merged; IDEA-001 landed as 353bf08)
+
 Task: https://github.com/constructorfabric/fabric-pass/issues/2
 
 By: frontgeeks · 2026-07-31
@@ -47,8 +51,9 @@ Result: review report on the task issue — https://github.com/constructorfabric
 Task: https://github.com/constructorfabric/fabric-pass/issues/3
 By: frontgeeks · 2026-07-31
 
-## [TODO] IDEA-003 — Root user configured via env by GitHub ID
+## [DONE] [frontgeeks] IDEA-003 — Root user configured via env by GitHub ID
 Idea: A root user for the app, designated by GitHub ID through an environment variable.
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/11
 Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
 
@@ -336,12 +341,14 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/5
 
 By: frontgeeks · 2026-08-03
 
-## [TAKEN] [frontgeeks] IDEA-024 — LinkedIn on the contributor profile
+## [DONE] [frontgeeks] IDEA-024 — LinkedIn on the contributor profile
 Idea:
 Add LinkedIn to the contributor profile alongside GitHub/Discord/Telegram, so community members can reach each other professionally. Open question: a linked account via OAuth like Discord/Telegram, or a typed profile-URL field — LinkedIn's OAuth (OpenID Connect) readily proves account ownership, but its API is restrictive, so the typed field may be the pragmatic start.
 
 Notes:
 Creating the LinkedIn application itself (developer-portal app, OAuth credentials for the deploy env) is a companion task owned by vzhuman: https://github.com/constructorfabric/fabric-pass/issues/8.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/10 (merged; landed as 478867e..c97db50). Feature stays hidden on a deploy until LINKEDIN_CLIENT_ID/SECRET are both set (issue #8).
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/7
 

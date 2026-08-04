@@ -31,6 +31,7 @@ test('applies pending migrations and records them', async () => {
   expect(columns).toContain('github_id')
   expect(columns).toContain('telegram_phone')
   expect(columns).toContain('discord_username')
+  expect(columns).toContain('linkedin_id')
 })
 
 test('is idempotent — a second run applies nothing', async () => {
@@ -66,10 +67,10 @@ test('the name backfill combines first and last name, and leaves both-blank as N
   )
 
   // 003 (telegram_id -> text), 004 (provider profile fields), 005
-  // (contributor status), 006 (alias/agent fields), and 007 (email
-  // confirmation) are also pending from this pre-002 starting point and
-  // apply right behind 002 — irrelevant to what this test checks, but
-  // `migrate` returns every file it applied.
+  // (contributor status), 006 (alias/agent fields), 007 (email
+  // confirmation), and 008 (linkedin fields) are also pending from this
+  // pre-002 starting point and apply right behind 002 — irrelevant to what
+  // this test checks, but `migrate` returns every file it applied.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '002_contributor_name_and_nullable_fields.sql',
@@ -78,6 +79,7 @@ test('the name backfill combines first and last name, and leaves both-blank as N
     '005_contributor_status.sql',
     '006_alias_and_agent_fields.sql',
     '007_email_confirmation.sql',
+    '008_linkedin_fields.sql',
   ])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
@@ -113,8 +115,9 @@ test('the telegram_id migration carries an existing value across to text and acc
   await pool.query(`INSERT INTO contributors (github_id, github_login, telegram_id) VALUES (1, 'has-telegram', 555)`)
 
   // 004 (provider profile fields), 005 (contributor status), 006
-  // (alias/agent fields), and 007 (email confirmation) are also pending from
-  // this pre-003 starting point and apply right behind 003.
+  // (alias/agent fields), 007 (email confirmation), and 008 (linkedin
+  // fields) are also pending from this pre-003 starting point and apply
+  // right behind 003.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '003_telegram_id_as_text.sql',
@@ -122,6 +125,7 @@ test('the telegram_id migration carries an existing value across to text and acc
     '005_contributor_status.sql',
     '006_alias_and_agent_fields.sql',
     '007_email_confirmation.sql',
+    '008_linkedin_fields.sql',
   ])
 
   const { rows: columnRows } = await pool.query(

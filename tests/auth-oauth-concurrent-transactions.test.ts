@@ -11,7 +11,10 @@ const { fakeSession, authRequestResult, callbackResult, contributorsState } = vi
   fakeSession: {
     oauth: undefined as
       | Partial<
-          Record<'github' | 'discord' | 'telegram', { codeVerifier: string; state: string; variant?: 'phone' }>
+          Record<
+            'github' | 'discord' | 'telegram' | 'linkedin',
+            { codeVerifier: string; state: string; variant?: 'phone' }
+          >
         >
       | undefined,
     github: undefined as { id: string; login: string } | undefined,
@@ -47,7 +50,8 @@ vi.mock('@/lib/contributors', async () => {
 })
 
 vi.mock('@/lib/providers', () => ({
-  isProviderName: (value: string) => value === 'github' || value === 'discord' || value === 'telegram',
+  isProviderName: (value: string) =>
+    value === 'github' || value === 'discord' || value === 'telegram' || value === 'linkedin',
   providers: {
     github: {
       name: 'github',
@@ -68,6 +72,15 @@ vi.mock('@/lib/providers', () => ({
       authRequest: async (_redirectUri: string) => authRequestResult.telegram,
       callback: async () => {
         throw new Error('not used in this test — only discord is completed here')
+      },
+    },
+    linkedin: {
+      name: 'linkedin',
+      authRequest: async () => {
+        throw new Error('not used in this test')
+      },
+      callback: async () => {
+        throw new Error('not used in this test')
       },
     },
   },
@@ -145,8 +158,7 @@ test('completing a link after a different github identity has signed in over it 
   )
 
   const location = response.headers.get('location')
-  expect(location).toContain('notice=identity-changed')
-  expect(location).toContain('provider=discord')
+  expect(location).toBe('http://localhost:3000/profile?notice=identity-changed&provider=discord')
   expect(contributorsState.linkCalls).toEqual([])
   // The stale transaction must not be left around for a further retry.
   expect(fakeSession.oauth?.discord).toBeUndefined()

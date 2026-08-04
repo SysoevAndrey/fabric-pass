@@ -309,8 +309,9 @@ different `<DOMAIN>` values.
 the bot, then its Mini App (not the chat commands) → Bot Settings → Web
 Login → add `https://<DOMAIN>/auth/telegram/callback` as an allowed URL.
 
-**LinkedIn** (optional — credentials only, the provider integration itself
-is separate work not yet in this app, see IDEA-024) — via
+**LinkedIn** (optional — this app's only optional provider; leave both
+values unset below to skip it entirely, see the main README's LinkedIn
+section) — via
 [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps) →
 Create app:
 - Requires an existing LinkedIn Company Page to attach the app to.
@@ -381,10 +382,14 @@ RESEND_FROM_ADDRESS=
 # Optional — only needed for the registry sync, see Step 12
 CONTRIBUTORS_EXPORT_SECRET=
 CONTRIBUTORS_SYNC_SECRET=
-# Optional — from Step 9, staged ahead of the LinkedIn provider integration
-# itself (IDEA-024), which doesn't exist in this app yet
+# Optional — from Step 9. This app's only optional provider: leave both
+# unset to skip LinkedIn entirely (no row on the profile form, /auth/linkedin
+# 404s)
 LINKEDIN_CLIENT_ID=
 LINKEDIN_CLIENT_SECRET=
+# Optional — the numeric GitHub id of this deployment's single root user;
+# unset means no root user at all. Staged ahead of IDEA-011's roles work.
+ROOT_GITHUB_ID=
 EOF
 chmod 600 <APP_DIR>/.env
 ```
@@ -474,9 +479,10 @@ done once, by hand, in the web UI.
 - `curl -I https://<DOMAIN>/` → `200`, serving the real sign-in page.
 - `ssh <SSH_HOST_ALIAS> "cd <APP_DIR> && docker compose logs app"` shows
   every migration applied and `next start` ready.
-- Sign in through all three providers (GitHub, Discord, Telegram) at least
-  once each, end to end, not just "the page loads."
-- Trigger a real confirmation email (fill in an email address, click
+- Sign in with GitHub at least once: a fresh contributor has no Name/Email
+  yet, so sign-in lands on `/profile` already open in edit mode — link
+  Discord and Telegram from there, end to end, not just "the page loads."
+- Fill in Name and Email, then trigger a real confirmation email (click
   Confirm) and check it actually arrives — this is the one piece Step 13's
   curl checks can't cover, since it depends on Resend's domain verification
   from Step 10 having actually completed.
