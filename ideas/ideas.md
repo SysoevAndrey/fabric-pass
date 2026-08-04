@@ -388,19 +388,3 @@ Expected outcome:
 Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constructorfabric/fabric-pass/commit/eab2d08
 
 By: vzhuman · 2026-08-04
-
-## [TAKEN] [frontgeeks] IDEA-027 — Main redirects to Profile until the main page is ready
-Idea: Main's signed-in view is still the "Main Form" placeholder; until the real main page exists, redirect signed-in visitors to /profile (carrying any notice params along) instead of showing the stub.
-By: frontgeeks · 2026-08-05
-
-## [TAKEN] [frontgeeks] IDEA-028 — Pin the footer to the bottom of the viewport
-Idea: On pages shorter than the screen the footer sits right under the content, mid-screen; it should stay at the bottom of the viewport (classic sticky-footer layout), without becoming fixed/overlapping on long pages.
-By: frontgeeks · 2026-08-05
-
-## [TAKEN] [frontgeeks] IDEA-029 — Profile: Close control only in edit mode, sized like its neighbors
-Idea: The profile header shows the Close (X) control at all times and it visibly differs in size from Edit/Save (it's an <a> next to <button>s). Show it only in edit mode as a way to leave editing, rendered the same size as the other header actions.
-By: frontgeeks · 2026-08-05
-
-## [TAKEN] [frontgeeks] IDEA-030 — Fix LinkedIn linking failing in production
-Idea: Linking LinkedIn on the deployed app ends in the generic "Linking linkedin did not complete" notice — the token exchange or its validation fails after LinkedIn redirects back. Root cause lives in the app container's logs (`auth callback error (linkedin)`); prime suspects are a wrong LINKEDIN_CLIENT_SECRET in the deploy env (handover in issue #8 shows an empty secret line) and LinkedIn's lack of declared PKCE support.
-By: frontgeeks · 2026-08-05
