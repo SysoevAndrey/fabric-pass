@@ -41,8 +41,9 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/2
 By: frontgeeks · 2026-07-31
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [frontgeeks] IDEA-002 — Review of the database–git data exchange process
+## [DONE] [frontgeeks] IDEA-002 — Review of the database–git data exchange process
 Idea: Review how data flows between the Postgres database and git (the cf-internal registry sync): what is exported, what is imported back, and whether the process holds up.
+Result: review report on the task issue — https://github.com/constructorfabric/fabric-pass/issues/3#issuecomment-5176740537 (single-writer model sound; main risks: export silently reverts admin edits after a missed/partial sync, and sync can clobber app-set aliases)
 Task: https://github.com/constructorfabric/fabric-pass/issues/3
 By: frontgeeks · 2026-07-31
 
