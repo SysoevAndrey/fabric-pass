@@ -388,3 +388,34 @@ Expected outcome:
 Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constructorfabric/fabric-pass/commit/eab2d08
 
 By: vzhuman · 2026-08-04
+
+## [DRAFT] [vzhuman] IDEA-027 — Droplet operational metrics, sourced
+Idea:
+Expose the production droplet's CPU, RAM, disk usage, and disk I/O to the app server-side, so IDEA-028's footer section has something real to display.
+
+Expected outcome:
+- CPU, RAM, disk usage, and disk I/O utilization are readable from the app as percentages, refreshed periodically rather than fetched live on every page load.
+- Disk usage is read as a current snapshot, not averaged — it moves slowly and steadily (today's IDEA-026 incident was a gradual fill, not a spike), so an hourly average would blur exactly the moment it matters, crossing a threshold.
+- CPU, RAM, and disk I/O are averaged over the last hour — all three genuinely fluctuate minute to minute, and an hourly average smooths that noise without going so long (e.g. 24h) that a real, ongoing spike gets diluted into invisibility.
+
+Notes:
+Recommended source: DigitalOcean's Droplet Monitoring API, via a read-only DO API token (a new deploy secret, staged the same optional way as RESEND_API_KEY/LINKEDIN_CLIENT_ID). Open prerequisite to verify: DO's monitoring metrics require the `do-agent` installed on the droplet — unconfirmed whether it's already present on this one (not part of cfabric-pass-setup.md's server-base-setup steps).
+Alternative considered and rejected: reading `/proc`, `/sys`, or Docker stats directly from inside the app container, which would need mounting host paths or the Docker socket into the app — the same "host-root-equivalent power" already flagged as a real risk for the webhook container (cfabric-pass-setup.md's Implementation notes under Step 6), and the app is the public-facing, larger-attack-surface service, not a narrow bearer-token-gated one. Calling out to the DO API instead keeps the app itself unprivileged.
+Depends on nothing existing in this app yet; IDEA-028 depends on this.
+
+By: vzhuman · 2026-08-04
+
+## [DRAFT] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
+Idea:
+A section in the app's footer, visible only to Organization Admins, showing the production droplet's operational status — CPU, RAM, disk, and disk I/O (IDEA-027) — as four independent color-coded boxes (green/yellow/red), each with a hint on hover/tap showing its exact percentage.
+
+Expected outcome:
+- Only visible to a signed-in Admin (IDEA-011) — a plain Contributor or Track Admin never sees it.
+- Four boxes: CPU, RAM, Disk, Disk I/O — each colored independently by its own value against its own threshold, not one blended overall status.
+- Hovering (or tapping, on touch) a box shows its exact percentage.
+
+Notes:
+Suggested thresholds, not confirmed: green < 60%, yellow 60–85%, red > 85% — reasonable defaults, but worth agreeing on deliberately rather than treating these as settled.
+Depends on IDEA-027 for real data to show, and IDEA-011 for the Admin role to gate on.
+
+By: vzhuman · 2026-08-04
