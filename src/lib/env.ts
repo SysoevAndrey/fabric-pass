@@ -34,7 +34,14 @@ export const envSchema = z
     // contributors.ts's Row#github_id). Unset means no root user at all.
     // Groundwork for IDEA-011's roles work — nothing consults this yet except
     // isRootUser (lib/root-user.ts).
-    ROOT_GITHUB_ID: z.string().regex(/^\d+$/, 'ROOT_GITHUB_ID must be numeric').optional(),
+    // A blank value counts as unset too: both .env.example and the setup guide
+    // ship `ROOT_GITHUB_ID=` as the no-op default, and Next's env loader (like
+    // `node --env-file`) delivers that line as `''`, not undefined — so the
+    // regex below would otherwise reject the documented default at boot.
+    ROOT_GITHUB_ID: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().regex(/^\d+$/, 'ROOT_GITHUB_ID must be numeric').optional(),
+    ),
   })
   .refine((data) => Boolean(data.LINKEDIN_CLIENT_ID) === Boolean(data.LINKEDIN_CLIENT_SECRET), {
     // Independently optional fields would otherwise let exactly one of the
