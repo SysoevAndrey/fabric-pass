@@ -31,11 +31,11 @@ export type NoticeCode =
 
 /**
  * The one message shown for a session that outlives its row — from the
- * OAuth-callback notice below (`reauth-required`, hit when a Discord/Telegram
- * link callback lands against an already-deleted row) and, identically, from
- * `saveField` when an autosave hits the same condition mid-visit (see
- * app/actions.ts). One underlying cause gets one copy of the wording, not two
- * that could drift apart.
+ * OAuth-callback notice below (`reauth-required`, hit when a Discord/Telegram/
+ * LinkedIn link callback lands against an already-deleted row) and,
+ * identically, from `saveField` when an autosave hits the same condition
+ * mid-visit (see app/actions.ts). One underlying cause gets one copy of the
+ * wording, not two that could drift apart.
  */
 export const REAUTH_REQUIRED_MESSAGE = 'Your session no longer matches a saved contributor. Please sign in with GitHub again.'
 
@@ -83,11 +83,11 @@ export function noticeMessage(
     case 'telegram-no-contact':
       return 'Your Telegram account has no username, and no phone number was shared, so it could not be linked.'
     case 'identity-changed':
-      // Discord/Telegram transactions are bound to the GitHub identity that
-      // started them (see session.ts). A mismatch here means someone signed
-      // in as a different GitHub account in the same browser before this
-      // callback landed — retrying under the account that's signed in now
-      // works fine, it just has to be started over.
+      // Discord/Telegram/LinkedIn transactions are bound to the GitHub
+      // identity that started them (see session.ts). A mismatch here means
+      // someone signed in as a different GitHub account in the same browser
+      // before this callback landed — retrying under the account that's
+      // signed in now works fine, it just has to be started over.
       return provider
         ? `You signed in as a different GitHub account while linking ${provider}. Please start the ${provider} link again.`
         : 'You signed in as a different GitHub account partway through. Please try again.'
