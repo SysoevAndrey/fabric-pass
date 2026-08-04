@@ -388,3 +388,7 @@ Expected outcome:
 Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constructorfabric/fabric-pass/commit/eab2d08
 
 By: vzhuman · 2026-08-04
+
+## [TAKEN] [frontgeeks] IDEA-027 — Main redirects to Profile until the main page is ready
+Idea: Main's signed-in view is still the "Main Form" placeholder; until the real main page exists, redirect signed-in visitors to /profile (carrying any notice params along) instead of showing the stub.
+By: frontgeeks · 2026-08-05
