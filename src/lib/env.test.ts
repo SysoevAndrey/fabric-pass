@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { envSchema } from '@/lib/env'
+import { envSchema } from './env.ts'
 
 // A minimal object satisfying every required field, so each test below only
 // has to vary the LinkedIn pair or ROOT_GITHUB_ID it's actually checking.
@@ -45,4 +45,9 @@ test('parses with a numeric ROOT_GITHUB_ID', () => {
 
 test('rejects a non-numeric ROOT_GITHUB_ID', () => {
   expect(() => envSchema.parse({ ...baseEnv, ROOT_GITHUB_ID: 'not-a-number' })).toThrow()
+})
+
+test('treats a blank ROOT_GITHUB_ID as unset', () => {
+  const result = envSchema.parse({ ...baseEnv, ROOT_GITHUB_ID: '' })
+  expect(result.ROOT_GITHUB_ID).toBeUndefined()
 })

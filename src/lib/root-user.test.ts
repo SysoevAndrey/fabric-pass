@@ -13,6 +13,13 @@ afterEach(() => {
 })
 
 test('is false for any id when ROOT_GITHUB_ID is unset', async () => {
+  vi.stubEnv('ROOT_GITHUB_ID', undefined)
+  const { isRootUser } = await import('./root-user.ts')
+  expect(isRootUser('12345')).toBe(false)
+})
+
+test('is false for any id when ROOT_GITHUB_ID is blank', async () => {
+  vi.stubEnv('ROOT_GITHUB_ID', '')
   const { isRootUser } = await import('./root-user.ts')
   expect(isRootUser('12345')).toBe(false)
 })
