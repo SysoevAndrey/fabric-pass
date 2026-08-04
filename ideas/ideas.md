@@ -376,3 +376,15 @@ Alternative considered and rejected: a second stack on the *same* droplet. Produ
 Alternative considered and rejected: true per-PR ephemeral environments (a fresh subdomain per PR, torn down on merge). Doesn't fit this app's OAuth-gated design — every provider requires an exact, pre-registered redirect URL, so a genuinely ephemeral per-PR domain can't complete an OAuth flow without registering (and cleaning up) an app per PR, which is more overhead than it saves.
 
 By: vzhuman · 2026-08-04
+
+## [DONE] [vzhuman] IDEA-026 — Fix silently-broken redeploys from a full disk
+Idea:
+Production had been stuck 24 hours behind despite ~15 successful CI runs in between — every pull was failing with "no space left on device" (disk 99% full, 32 dangling images from five days of un-pruned deploys, 17.47GB reclaimable). The webhook logged the failure but nothing surfaced it, and the app container just kept serving whatever it already had, so the outage was invisible until someone actually compared "workflows completed" against "what's actually live."
+
+Expected outcome:
+- Disk freed and today's actual latest commit deployed to production immediately.
+- The webhook prunes dangling images after every successful deploy, so this can't silently recur.
+
+Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constructorfabric/fabric-pass/commit/eab2d08
+
+By: vzhuman · 2026-08-04
