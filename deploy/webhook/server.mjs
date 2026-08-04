@@ -20,8 +20,18 @@ function redeploy() {
   execFile('docker', [...COMPOSE_ARGS, 'pull', 'app'], (pullError, _stdout, pullStderr) => {
     if (pullError) return console.error('pull failed:', pullStderr)
     execFile('docker', [...COMPOSE_ARGS, 'up', '-d', 'app'], (upError, upStdout, upStderr) => {
-      if (upError) console.error('up failed:', upStderr)
-      else console.log('deployed:', upStdout.trim())
+      if (upError) return console.error('up failed:', upStderr)
+      console.log('deployed:', upStdout.trim())
+      // Every pull retags the previous image to <none> instead of removing
+      // it. With no cleanup those accumulate on every deploy and eventually
+      // fill the disk — which then makes every future pull fail with "no
+      // space left on device", silently, days after the image that actually
+      // filled it shipped. Pruning only after a successful deploy (not
+      // before pulling) means a failed pull never loses the still-good
+      // image a rollback might need.
+      execFile('docker', ['image', 'prune', '-f'], (pruneError, _pruneStdout, pruneStderr) => {
+        if (pruneError) console.error('prune failed:', pruneStderr)
+      })
     })
   })
 }
