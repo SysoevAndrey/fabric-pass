@@ -294,7 +294,7 @@ Step 6 needs the same value to authenticate its webhook call.
 
 Each redirect/callback URL must match `<DOMAIN>` exactly, so a fork or a
 second environment (staging, a personal dev deploy) needs its own
-registration at all three providers — credentials can't be shared across
+registration at every provider — credentials can't be shared across
 different `<DOMAIN>` values.
 
 **GitHub** — [github.com/settings/developers](https://github.com/settings/developers)
@@ -308,6 +308,17 @@ different `<DOMAIN>` values.
 **Telegram** — via [@BotFather](https://t.me/botfather): `/newbot` to create
 the bot, then its Mini App (not the chat commands) → Bot Settings → Web
 Login → add `https://<DOMAIN>/auth/telegram/callback` as an allowed URL.
+
+**LinkedIn** (optional — credentials only, the provider integration itself
+is separate work not yet in this app, see IDEA-024) — via
+[linkedin.com/developers/apps](https://www.linkedin.com/developers/apps) →
+Create app:
+- Requires an existing LinkedIn Company Page to attach the app to.
+- Products tab → request **"Sign In with LinkedIn using OpenID Connect"**
+  (typically auto-approved, no manual review).
+- Auth tab → Authorized redirect URLs → add
+  `https://<DOMAIN>/auth/linkedin/callback`.
+- Note the Client ID and Client Secret from the same tab.
 
 Note each provider's client ID and secret — they go into the server's
 `.env` in [Step 11](#step-11--write-the-servers-env-file).
@@ -370,6 +381,10 @@ RESEND_FROM_ADDRESS=
 # Optional — only needed for the registry sync, see Step 12
 CONTRIBUTORS_EXPORT_SECRET=
 CONTRIBUTORS_SYNC_SECRET=
+# Optional — from Step 9, staged ahead of the LinkedIn provider integration
+# itself (IDEA-024), which doesn't exist in this app yet
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
 EOF
 chmod 600 <APP_DIR>/.env
 ```

@@ -17,6 +17,11 @@ const schema = z.object({
   // all — see lib/email.ts, which logs instead of sending when unset.
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_ADDRESS: z.string().min(1).optional(),
+  // Optional for the same reason: staged ahead of the LinkedIn provider
+  // integration itself (IDEA-024, github.com/constructorfabric/fabric-pass/issues/7),
+  // which doesn't exist in this app yet — nothing reads these two yet.
+  LINKEDIN_CLIENT_ID: z.string().min(1).optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().min(1).optional(),
 })
 
 export const env = schema.parse(process.env)
