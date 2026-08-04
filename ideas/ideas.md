@@ -8,7 +8,7 @@
      form genuinely won't carry the information, otherwise split into multiple ideas.
      Format and rules: .claude/skills/ideas/SKILL.md -->
 
-## [TAKEN] [frontgeeks] IDEA-000 — Improve profile view & editing logic
+## [DONE] [frontgeeks] IDEA-000 — Improve profile view & editing logic
 Idea:
 Default the profile form to a locked, view-only mode instead of always-editable, to avoid accidental edits. A pencil-icon "Edit" button ("Modify profile" hint), top-right of the form on the same line as the "Contributor Profile" title, switches it into edit mode — today's always-editable behavior, unchanged autosave, unchanged title. A "Save" button, shown only in edit mode, switches the form back to view-only mode.
 
@@ -17,6 +17,8 @@ Expected outcome:
 - Edit button (pencil icon + "Modify profile" hint) sits top-right, same line as the title, and switches to edit mode.
 - Save button (edit mode only) switches back to view-only mode.
 - Pressing Save enforces the mandatory fields — Name and Email must be filled in, or Save is blocked and the contributor is prompted to fill them in.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/9 (merged; IDEA-000 landed as fd7537c)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/1
 
