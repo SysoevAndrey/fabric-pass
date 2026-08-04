@@ -396,3 +396,7 @@ By: frontgeeks · 2026-08-05
 ## [TAKEN] [frontgeeks] IDEA-028 — Pin the footer to the bottom of the viewport
 Idea: On pages shorter than the screen the footer sits right under the content, mid-screen; it should stay at the bottom of the viewport (classic sticky-footer layout), without becoming fixed/overlapping on long pages.
 By: frontgeeks · 2026-08-05
+
+## [TAKEN] [frontgeeks] IDEA-029 — Profile: Close control only in edit mode, sized like its neighbors
+Idea: The profile header shows the Close (X) control at all times and it visibly differs in size from Edit/Save (it's an <a> next to <button>s). Show it only in edit mode as a way to leave editing, rendered the same size as the other header actions.
+By: frontgeeks · 2026-08-05
