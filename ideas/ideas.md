@@ -24,7 +24,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/1
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [frontgeeks] IDEA-001 — Dedicated profile page
+## [DONE] [frontgeeks] IDEA-001 — Dedicated profile page
 Idea:
 The profile view/edit form becomes its own page, opened via "Profile" in the top-right menu, and closed via a new Close button (an "X" with a "Close" hint), placed near the Edit (pencil) button. A new static Main page (placeholder content only, "Main Form", for now) is what closing the Profile page returns to, shown in its already-saved state.
 
@@ -37,6 +37,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-000's view/edit mode split — "view mode disallows editing" only means something once that mode exists.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/9 (merged; IDEA-001 landed as 353bf08)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/2
 
