@@ -51,7 +51,7 @@ Result: review report on the task issue — https://github.com/constructorfabric
 Task: https://github.com/constructorfabric/fabric-pass/issues/3
 By: frontgeeks · 2026-07-31
 
-## [TODO] IDEA-003 — Root user configured via env by GitHub ID
+## [TAKEN] [frontgeeks] IDEA-003 — Root user configured via env by GitHub ID
 Idea: A root user for the app, designated by GitHub ID through an environment variable.
 Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
