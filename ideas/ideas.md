@@ -181,6 +181,8 @@ Expected outcome:
 Notes:
 Depends on IDEA-010 for tracks to scope Track Admin against.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/14
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
@@ -195,6 +197,8 @@ Notes:
 `status` (draft/confirmed) is currently owned entirely by the cf-internal registry file — the app only ever reads it, never writes it (see README's "Contributors registry sync"). Confirm changing it from the app UI, and Block being a new status value at all, both need reconciling with that single-writer model before implementation: either this action becomes a second writer (and the sync direction for `status` has to change), or "Confirm"/"Block" here mean proposing a change that flows back out through the existing export instead of writing directly. Worth deciding before implementation.
 Depends on IDEA-011 for the Admin role itself.
 IDEA-021 (leave the community) hits this same single-writer question, from a different angle (self-service vs. admin-triggered) — worth deciding both together.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/15
 
 By: vzhuman · 2026-07-31
 
