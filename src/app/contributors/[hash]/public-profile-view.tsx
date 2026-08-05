@@ -66,9 +66,16 @@ export function PublicProfileView({ profile }: { profile: PublicProfile }) {
           </li>
         ) : null}
         {profile.linkedinLabel ? (
-          <li className="contact-static">
-            <LinkedInMark size={16} />
-            {profile.linkedinLabel}
+          <li>
+            {/* Styled and sized like the other contact rows, but not a real
+                link — LinkedIn's OIDC payload carries no username/vanity-URL
+                claim (see PublicProfile's doc comment), so there's nowhere
+                to send a click. `.static` drops the pointer cursor the
+                shared `.link-button` rule otherwise implies. */}
+            <span className="link-button brand linkedin static">
+              <LinkedInMark size={16} />
+              {profile.linkedinLabel}
+            </span>
           </li>
         ) : null}
       </ul>

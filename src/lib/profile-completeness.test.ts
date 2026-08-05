@@ -1,18 +1,33 @@
 import { expect, test } from 'vitest'
 import { missingMandatoryFields } from './profile-completeness.ts'
 
-test('nothing is missing when both mandatory fields are filled in', () => {
-  expect(missingMandatoryFields({ name: 'Ada Lovelace', email: 'ada@example.com' })).toEqual([])
+const complete = { name: 'Ada Lovelace', email: 'ada@example.com', company: 'Constructor', discordUsername: 'ada' }
+
+test('nothing is missing when every mandatory field is filled in', () => {
+  expect(missingMandatoryFields(complete)).toEqual([])
 })
 
-test('a blank name is reported as missing', () => {
-  expect(missingMandatoryFields({ name: '  ', email: 'ada@example.com' })).toEqual(['Name'])
+test('a blank name is reported as missing, as Full Name', () => {
+  expect(missingMandatoryFields({ ...complete, name: '  ' })).toEqual(['Full Name'])
 })
 
 test('a blank email is reported as missing', () => {
-  expect(missingMandatoryFields({ name: 'Ada Lovelace', email: '' })).toEqual(['Email'])
+  expect(missingMandatoryFields({ ...complete, email: '' })).toEqual(['Email'])
 })
 
-test('both blank are reported together, name first', () => {
-  expect(missingMandatoryFields({ name: '', email: '' })).toEqual(['Name', 'Email'])
+test('a blank company is reported as missing', () => {
+  expect(missingMandatoryFields({ ...complete, company: '  ' })).toEqual(['Company'])
+})
+
+test('an unlinked discord is reported as missing', () => {
+  expect(missingMandatoryFields({ ...complete, discordUsername: undefined })).toEqual(['Discord'])
+})
+
+test('every blank field is reported together, in field order', () => {
+  expect(missingMandatoryFields({ name: '', email: '', company: '', discordUsername: undefined })).toEqual([
+    'Full Name',
+    'Email',
+    'Company',
+    'Discord',
+  ])
 })

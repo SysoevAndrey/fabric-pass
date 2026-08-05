@@ -31,7 +31,7 @@ const { fakeSession, githubCallbackResult, discordCallbackResult, contributorsSt
     // Overrides the name/email the mocked ensureContributor returns, so a
     // test can drive the redirect decision (Main vs. Profile-in-edit-mode)
     // without a real database row.
-    ensureResult: {} as { name?: string; email?: string },
+    ensureResult: {} as { name?: string; email?: string; company?: string; discordUsername?: string },
   },
 }))
 
@@ -184,13 +184,18 @@ test('a successful github sign-in creates the contributor row the same instant i
 })
 
 // IDEA-001: sign-in lands on Main if the profile is already complete
-// (Name and Email both filled in), otherwise on Profile — which opens
-// straight into edit mode on its own (see profile/page.tsx), keyed off the
-// same isProfileComplete check.
+// (Full Name, Email, Company, and Discord all filled in), otherwise on
+// Profile — which opens straight into edit mode on its own (see
+// profile/page.tsx), keyed off the same isProfileComplete check.
 
 test('a successful github sign-in with a complete profile redirects to Main', async () => {
   githubCallbackResult.current = { providerId: '583231', username: 'octocat' }
-  contributorsState.ensureResult = { name: 'Ada Lovelace', email: 'ada@example.com' }
+  contributorsState.ensureResult = {
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    company: 'Constructor',
+    discordUsername: 'ada',
+  }
   const request = new Request('http://localhost:3000/auth/github/callback?code=abc&state=state-123')
   const context = { params: Promise.resolve({ provider: 'github' }) }
 

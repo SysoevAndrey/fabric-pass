@@ -380,6 +380,70 @@ button,
   background: var(--panel);
 }
 
+/* View mode's Edit/Close pair — icon-only and square, unlike .icon-button's
+   icon+text pill, so the two read as a matched set of controls rather than
+   one CTA-shaped button. The hint (what each icon means) lives in the
+   title/aria-label instead of visible text. */
+.icon-button-square {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ground);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-button-square:hover {
+  background: var(--panel);
+}
+
+/* Edit mode's Save/Cancel pair, at the bottom of the form. flex: 1 on both
+   buttons (rather than a fixed width) keeps them equal-width without
+   hardcoding a value that would drift out of sync with the form's own
+   width if that ever changes. */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.button-primary,
+.button-secondary {
+  flex: 1;
+  margin: 0;
+  padding: 0.65rem 1.25rem;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.button-primary {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.button-primary:hover {
+  background: #000;
+}
+
+.button-secondary {
+  border: 1px solid var(--line);
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.button-secondary:hover {
+  background: var(--panel);
+}
+
 /* Telegram/Discord's field: same border, radius, and full width as `input`
    above, so the two read as one consistent list of fields — the current
    value sits where typed text would, the action button where a clear
@@ -586,9 +650,15 @@ button,
   gap: 0.5rem;
 }
 
+/* Overrides both the large sign-in-CTA sizing from .link-button.brand and
+   the compact form-field sizing from .link-button.telegram/.discord/etc —
+   this is neither of those contexts, just a plain list of contact rows, so
+   every row (regardless of service) gets the same height/padding/font. */
 .contact-list .link-button.brand {
   margin: 0;
   width: fit-content;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
 }
 
 .contact-static {
@@ -596,6 +666,14 @@ button,
   align-items: center;
   gap: 0.6rem;
   color: var(--muted);
+}
+
+/* A .link-button styled row with nothing to click through to (LinkedIn on
+   the public profile — see public-profile-view.tsx) — same size and look
+   as the real buttons around it, just without the pointer cursor that
+   would falsely promise a click does something. */
+.link-button.static {
+  cursor: default;
 }
 
 /* IDEA-012's admin table. Scrolls horizontally within the page's normal

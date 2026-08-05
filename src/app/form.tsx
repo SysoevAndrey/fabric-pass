@@ -88,14 +88,18 @@ export function ContributorForm({
   const [editing, setEditing] = useState(initialEditing)
   const [name, setName] = useState(defaults.name)
   const [email, setEmail] = useState(defaults.email)
+  const [company, setCompany] = useState(defaults.company)
   const [saveMessage, setSaveMessage] = useState<string>()
 
   // Save leaves Profile entirely, back to Main — unlike Close (below), which
   // only backs out of edit mode without navigating anywhere. Every field has
   // already autosaved by the time Save is pressed; this is "I'm done," not
-  // "commit my changes" (there's nothing left to commit).
+  // "commit my changes" (there's nothing left to commit). Discord has no
+  // live client-side state of its own (it only changes via a full-page OAuth
+  // redirect back to this same page), so discordLabel — the prop, already
+  // current as of the last render — stands in directly.
   function handleSave() {
-    const missing = missingMandatoryFields({ name, email })
+    const missing = missingMandatoryFields({ name, email, company, discordUsername: discordLabel ?? undefined })
     if (missing.length > 0) {
       setSaveMessage(`Please fill in: ${missing.join(', ')}.`)
       return
@@ -117,27 +121,32 @@ export function ContributorForm({
     <>
       <div className="profile-header">
         <h2>Contributor Profile</h2>
-        <div className="profile-header-actions">
-          {editing ? (
-            <button type="button" className="icon-button" onClick={handleSave}>
-              Save
-            </button>
-          ) : (
-            <button type="button" className="icon-button" title="Modify profile" onClick={() => setEditing(true)}>
+        {/* View mode only — edit mode's actions live at the bottom of the
+            form instead (Save/Cancel, below). Icon-only so the pair reads
+            as a matched set of squared controls rather than one CTA-shaped
+            button; the title/aria-label carry the "Edit"/"Close" hint. */}
+        {editing ? null : (
+          <div className="profile-header-actions">
+            <button
+              type="button"
+              className="icon-button-square"
+              title="Edit"
+              aria-label="Edit"
+              onClick={() => setEditing(true)}
+            >
               <PencilMark size={16} />
-              Edit
             </button>
-          )}
-          {/* Only shown in edit mode — in view mode there's no edit to back
-              out of. A mode switch like Save, not a navigation (Main
-              redirects straight back to Profile now, so sending Close there
-              would be pointless), so it's a <button> rather than an <a>. */}
-          {editing ? (
-            <button type="button" className="icon-button" title="Close" aria-label="Close" onClick={handleClose}>
+            <button
+              type="button"
+              className="icon-button-square"
+              title="Close"
+              aria-label="Close"
+              onClick={() => router.push('/')}
+            >
               <CloseMark size={16} />
             </button>
-          ) : null}
-        </div>
+          </div>
+        )}
       </div>
       <p className="subtitle">Please share your contact details below to make it easier for other community members to reach you and for us to grant you access to relevant community resources.</p>
 
@@ -151,7 +160,7 @@ export function ContributorForm({
         <AutosaveField
           id="name"
           field="name"
-          label="Name"
+          label="Full Name"
           placeholder="e.g. John Doe"
           defaultValue={defaults.name}
           disabled={!editing}
@@ -165,7 +174,7 @@ export function ContributorForm({
           disabled={!editing}
           onValueChange={setEmail}
         />
-        <CompanyField defaultValue={defaults.company} disabled={!editing} />
+        <CompanyField defaultValue={defaults.company} disabled={!editing} onValueChange={setCompany} />
         <ProviderField
           label="Discord"
           value={discordLabel}
@@ -193,6 +202,20 @@ export function ContributorForm({
           />
         ) : null}
       </form>
+
+      {/* Bottom of the form rather than the header (view mode's spot) —
+          these commit/discard the whole editing session, so they read as
+          the form's own actions rather than a page-level toggle. */}
+      {editing ? (
+        <div className="form-actions">
+          <button type="button" className="button-primary" onClick={handleSave}>
+            Save
+          </button>
+          <button type="button" className="button-secondary" onClick={handleClose}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
 
       <Collected />
     </>

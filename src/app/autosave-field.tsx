@@ -166,7 +166,18 @@ export function EmailField({
  * and unlike a <select> this degrades without JavaScript. Autosave only
  * changes how the value reaches the database, not this field's shape.
  */
-export function CompanyField({ defaultValue, disabled }: { defaultValue: string; disabled?: boolean }) {
+export function CompanyField({
+  defaultValue,
+  disabled,
+  onValueChange,
+}: {
+  defaultValue: string
+  disabled?: boolean
+  /** Mirrors every keystroke up to the parent, same as AutosaveField's own
+   * `onValueChange` — Company is now mandatory too, so the Save gate needs
+   * its live value alongside Name and Email's. */
+  onValueChange?: (value: string) => void
+}) {
   const { value, status, message, reauthRequired, onChange, onBlur, commit } = useAutosaveField('company', defaultValue)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -185,7 +196,10 @@ export function CompanyField({ defaultValue, disabled }: { defaultValue: string;
           ref={inputRef}
           value={value}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value)
+            onValueChange?.(e.target.value)
+          }}
           onBlur={onBlur}
         />
         {/* Hidden in view mode, same as the field itself: a clear commits
@@ -198,6 +212,7 @@ export function CompanyField({ defaultValue, disabled }: { defaultValue: string;
             aria-label="Clear company"
             onClick={() => {
               commit('')
+              onValueChange?.('')
               inputRef.current?.focus()
             }}
           >

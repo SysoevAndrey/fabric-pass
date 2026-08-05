@@ -48,19 +48,24 @@ afterAll(async () => {
   await pool.end()
 })
 
-test('a contributor with both name and email is complete', () => {
-  expect(isProfileComplete({ name: 'Ada Lovelace', email: 'ada@example.com' })).toBe(true)
+const completeProfile = { name: 'Ada Lovelace', email: 'ada@example.com', company: 'Constructor', discordUsername: 'ada' }
+
+test('a contributor with every mandatory field is complete', () => {
+  expect(isProfileComplete(completeProfile)).toBe(true)
 })
 
-test('a contributor missing either mandatory field is incomplete', () => {
-  expect(isProfileComplete({ name: 'Ada Lovelace', email: undefined })).toBe(false)
-  expect(isProfileComplete({ name: undefined, email: 'ada@example.com' })).toBe(false)
-  expect(isProfileComplete({ name: undefined, email: undefined })).toBe(false)
+test('a contributor missing any mandatory field is incomplete', () => {
+  expect(isProfileComplete({ ...completeProfile, name: undefined })).toBe(false)
+  expect(isProfileComplete({ ...completeProfile, email: undefined })).toBe(false)
+  expect(isProfileComplete({ ...completeProfile, company: undefined })).toBe(false)
+  expect(isProfileComplete({ ...completeProfile, discordUsername: undefined })).toBe(false)
+  expect(isProfileComplete({ name: undefined, email: undefined, company: undefined, discordUsername: undefined })).toBe(false)
 })
 
-test('whitespace-only name or email does not count as filled in', () => {
-  expect(isProfileComplete({ name: '   ', email: 'ada@example.com' })).toBe(false)
-  expect(isProfileComplete({ name: 'Ada Lovelace', email: '  ' })).toBe(false)
+test('whitespace-only name, email, or company does not count as filled in', () => {
+  expect(isProfileComplete({ ...completeProfile, name: '   ' })).toBe(false)
+  expect(isProfileComplete({ ...completeProfile, email: '  ' })).toBe(false)
+  expect(isProfileComplete({ ...completeProfile, company: '  ' })).toBe(false)
 })
 
 test('signing in with GitHub creates a row with no other field filled in yet', async () => {
