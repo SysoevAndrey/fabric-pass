@@ -1,6 +1,12 @@
 'use server'
 
-import { ContributorNotFoundError, isDetailField, saveField as persistField } from '@/lib/contributors'
+import {
+  ContributorNotFoundError,
+  isDetailField,
+  saveField as persistField,
+  searchContributors,
+  type ContributorSearchResult,
+} from '@/lib/contributors'
 import { getSession } from '@/lib/session'
 import { REAUTH_REQUIRED_MESSAGE } from '@/app/auth/notice'
 import { validateField } from '@/app/form-schema'
@@ -70,4 +76,17 @@ export async function saveField(field: string, raw: string, phase: 'typing' | 'f
     console.error(`saveField(${field}) failed:`, error)
     return { ok: false, message: 'Could not save right now. Please try again in a moment.' }
   }
+}
+
+/**
+ * IDEA-005's search, gated the same way every other server action here is —
+ * signed out gets nothing rather than an error, since a search box has no
+ * business being usable before sign-in in the first place (Main redirects
+ * a signed-out visitor to the sign-in prompt before this could ever be
+ * called, but the action itself doesn't trust that).
+ */
+export async function searchContributorsAction(query: string): Promise<ContributorSearchResult[]> {
+  const session = await getSession()
+  if (!session.github) return []
+  return searchContributors(query)
 }

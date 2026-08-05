@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import { findByGithubId } from '@/lib/contributors'
+import { isProfileComplete } from '@/lib/profile-completeness'
 import { getSession } from '@/lib/session'
 import { noticeKind, noticeMessage, REAUTH_REQUIRED_MESSAGE, type Notice } from './auth/notice'
+import { ContributorSearch } from './contributor-search'
 import { SignInPrompt } from './sign-in-prompt'
 
 interface PageProps {
@@ -9,14 +11,15 @@ interface PageProps {
 }
 
 /**
- * Main — IDEA-001's static root page. Signed-out visitors (or a session
- * naming a github_id with no row — see README's "session outlives its row")
- * still get the same GitHub sign-in prompt this page always showed. A
- * signed-in contributor with a row has nothing of its own to show yet, so
- * this redirects to `/profile` — carrying over `notice`/`provider` when
- * present, since a one-shot notice from the GitHub sign-in itself
- * (`?notice=expired`/`link-failed` etc.) is still routed at Main and needs
- * somewhere to land. Once Main has real content this redirect goes away.
+ * Main — IDEA-001's root page, restored to its originally-designed
+ * conditional redirect now that IDEA-005 gives it real content (search) to
+ * show: a contributor whose profile isn't complete yet has nothing useful
+ * to search with, so they still land on /profile in edit mode first, same
+ * as right after signing in. Only once the profile is complete does Main
+ * actually render instead of redirecting — carrying over `notice`/
+ * `provider` on the redirect either way, since a one-shot notice from the
+ * GitHub sign-in itself (`?notice=expired`/`link-failed` etc.) is routed at
+ * Main and needs somewhere to land.
  */
 export default async function Page({ searchParams }: PageProps) {
   const session = await getSession()
@@ -33,8 +36,18 @@ export default async function Page({ searchParams }: PageProps) {
     return <SignInPrompt notice={{ message: REAUTH_REQUIRED_MESSAGE, kind: 'error' }} />
   }
 
-  const query = new URLSearchParams()
-  if (typeof params.notice === 'string') query.set('notice', params.notice)
-  if (typeof params.provider === 'string') query.set('provider', params.provider)
-  redirect(query.size > 0 ? `/profile?${query.toString()}` : '/profile')
+  if (!isProfileComplete(existing)) {
+    const query = new URLSearchParams()
+    if (typeof params.notice === 'string') query.set('notice', params.notice)
+    if (typeof params.provider === 'string') query.set('provider', params.provider)
+    redirect(query.size > 0 ? `/profile?${query.toString()}` : '/profile')
+  }
+
+  return (
+    <>
+      <h2>Constructor Fabric Pass</h2>
+      {notice ? <p className={notice.kind}>{notice.message}</p> : null}
+      <ContributorSearch />
+    </>
+  )
 }

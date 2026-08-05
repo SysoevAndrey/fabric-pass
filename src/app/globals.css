@@ -521,3 +521,67 @@ button,
   font-size: 0.9rem;
   white-space: nowrap;
 }
+
+.contributor-search {
+  margin-top: 0.5rem;
+}
+
+.search-results {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.search-results li {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.search-results a {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.search-results a:hover {
+  background: var(--panel);
+}
+
+.search-result-company {
+  color: var(--muted);
+}
+
+.search-empty {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* A public profile's contact methods — one .link-button per row rather than
+   .provider-field's input-shaped box, since there's no value/action pair
+   here, just a link (or, for a Telegram phone or a LinkedIn name, plain
+   text — see public-profile-view.tsx for when each applies). */
+.contact-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.contact-list .link-button.brand {
+  margin: 0;
+  width: fit-content;
+}
+
+.contact-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+}

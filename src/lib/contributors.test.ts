@@ -5,11 +5,13 @@ import {
   ContributorNotFoundError,
   ensureContributor,
   findByGithubId,
+  getPublicProfile,
   linkProvider,
   listContributorsForRegistry,
   resendConfirmationEmail,
   resolveProviderLabels,
   saveField,
+  searchContributors,
   syncContributorAdminFields,
 } from './contributors.ts'
 import { pool } from './db.ts'
@@ -572,4 +574,147 @@ test('resendConfirmationEmail is a no-op for a contributor with no email at all'
   await resendConfirmationEmail('1001')
 
   expect(await confirmationToken('1001')).toBeNull()
+})
+
+async function confirm(githubId: string): Promise<void> {
+  await syncContributorAdminFields([adminUpdate({ githubId })])
+}
+
+test('searchContributors returns nothing for fewer than 3 characters', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await confirm('1001')
+
+  expect(await searchContributors('Ad')).toEqual([])
+})
+
+test('searchContributors matches a confirmed contributor by name', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await confirm('1001')
+
+  const results = await searchContributors('lovelace')
+  expect(results).toHaveLength(1)
+  expect(results[0].name).toBe('Ada Lovelace')
+})
+
+// The registry sync's whole point is that `draft` isn't a real directory
+// entry yet — search must honor that, not just the profile page.
+test('searchContributors never returns a draft contributor', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+
+  expect(await searchContributors('lovelace')).toEqual([])
+})
+
+test('searchContributors matches email, github login, github email, discord, telegram, and linkedin', async () => {
+  await ensureContributor('1001', 'octocat', 'The Octocat', 'octocat@github.com')
+  await saveField('1001', 'email', 'ada@example.com')
+  await linkProvider('1001', 'discord', { providerId: '555', username: 'ada-discord' })
+  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg' })
+  await linkProvider('1001', 'linkedin', { providerId: '999', name: 'Ada L.' })
+  await confirm('1001')
+
+  await expect(searchContributors('ada@example')).resolves.toHaveLength(1)
+  await expect(searchContributors('octocat')).resolves.toHaveLength(1)
+  await expect(searchContributors('octocat@github')).resolves.toHaveLength(1)
+  await expect(searchContributors('ada-discord')).resolves.toHaveLength(1)
+  await expect(searchContributors('ada-tg')).resolves.toHaveLength(1)
+  await expect(searchContributors('Ada L.')).resolves.toHaveLength(1)
+})
+
+test('searchContributors caps at 5 results', async () => {
+  for (let i = 0; i < 7; i++) {
+    await ensureContributor(String(1000 + i), `contributor${i}`)
+    await saveField(String(1000 + i), 'name', `Zebra Contributor ${i}`)
+    await confirm(String(1000 + i))
+  }
+
+  expect(await searchContributors('Zebra')).toHaveLength(5)
+})
+
+test('searchContributors ranks a match at the start of a field above one only inside it', async () => {
+  // Alphabetically "Abigail..." sorts before "Andy...", so this only passes
+  // if the rank actually overrides plain alphabetical order, not merely
+  // agrees with it.
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Abigail Anderson') // "and" only inside "Anderson", not at the start
+  await confirm('1001')
+  await ensureContributor('1002', 'grace')
+  await saveField('1002', 'name', 'Andy Baker') // "and" at the very start
+  await confirm('1002')
+
+  const results = await searchContributors('and')
+  expect(results.map((r) => r.name)).toEqual(['Andy Baker', 'Abigail Anderson'])
+})
+
+test('getPublicProfile returns null for a hash matching nothing', async () => {
+  expect(await getPublicProfile('not-a-real-hash')).toBeNull()
+})
+
+test('getPublicProfile returns null for a draft contributor — no public page until confirmed', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1001'")
+
+  expect(await getPublicProfile(rows[0].hash)).toBeNull()
+})
+
+test('getPublicProfile returns a confirmed contributor by hash', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await saveField('1001', 'company', 'Acronis')
+  await confirm('1001')
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1001'")
+
+  const profile = await getPublicProfile(rows[0].hash)
+  expect(profile?.name).toBe('Ada Lovelace')
+  expect(profile?.company).toBe('Acronis')
+  expect(profile?.githubLogin).toBe('octocat')
+})
+
+// IDEA-004's "merges in everything recorded under any of that contributor's
+// aliases, not just the row that was opened" — both directions.
+test('getPublicProfile merges in an alias row Discord when opening the primary', async () => {
+  await ensureContributor('1001', 'octocat') // primary
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await confirm('1001')
+  await ensureContributor('1002', 'ada-work') // alias of 1001
+  await linkProvider('1002', 'discord', { providerId: '555', username: 'ada-discord' })
+  await syncContributorAdminFields([adminUpdate({ githubId: '1002', aliasOfGithubId: '1001' })])
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1001'")
+
+  const profile = await getPublicProfile(rows[0].hash)
+  expect(profile?.discordLabel).toBe('ada-discord')
+})
+
+test('getPublicProfile merges in the primary Telegram when opening an alias', async () => {
+  await ensureContributor('1001', 'octocat') // primary
+  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg' })
+  await ensureContributor('1002', 'ada-work') // alias of 1001
+  await saveField('1002', 'name', 'Ada at Work')
+  await syncContributorAdminFields([
+    adminUpdate({ githubId: '1001' }),
+    adminUpdate({ githubId: '1002', aliasOfGithubId: '1001' }),
+  ])
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1002'")
+
+  const profile = await getPublicProfile(rows[0].hash)
+  expect(profile?.name).toBe('Ada at Work') // the opened row's own name wins
+  expect(profile?.telegramUsername).toBe('ada-tg') // merged in from the primary
+})
+
+test('getPublicProfile only shows email once confirmed', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'email', 'ada@example.com')
+  await confirm('1001')
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1001'")
+
+  expect((await getPublicProfile(rows[0].hash))?.emailLabel).toBeUndefined()
+
+  await resendConfirmationEmail('1001')
+  const token = await confirmationToken('1001')
+  await confirmEmail(token!)
+
+  expect((await getPublicProfile(rows[0].hash))?.emailLabel).toBe('ada@example.com')
 })

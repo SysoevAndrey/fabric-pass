@@ -336,6 +336,129 @@ export async function resolveProviderLabels(
   }
 }
 
+/**
+ * The whole "same real person" cluster around a contributor — the row
+ * itself, whichever row it's an alias of (if any), and every other row
+ * that's an alias of that same primary. IDEA-004's "merges in everything
+ * recorded under any of that contributor's aliases" needs both directions:
+ * opening an alias's own page should show the primary's providers, and
+ * opening the primary's page should show an alias's providers too —
+ * resolveProviderLabels above only ever handles the first direction, for
+ * the signed-in contributor's own page.
+ */
+async function resolveProfileCluster(contributor: Contributor): Promise<Contributor[]> {
+  const primaryId = contributor.aliasOfGithubId ?? contributor.githubId
+  const { rows } = await pool.query<Row>('SELECT * FROM contributors WHERE github_id = $1 OR alias_of_github_id = $1', [
+    primaryId,
+  ])
+  return rows.map(toContributor)
+}
+
+export interface PublicProfile {
+  hash: string
+  /** Not displayed — only used to detect "this is the signed-in viewer's
+   * own row" and redirect to the editable /profile instead. */
+  githubId: string
+  githubLogin: string
+  name: string
+  company?: string
+  /** Only set when the contributing row's email is confirmed — an
+   * unconfirmed, self-typed address might not even belong to this person,
+   * so it's never handed out as a contact link. */
+  emailLabel?: string
+  discordId?: string
+  discordLabel?: string
+  telegramUsername?: string
+  telegramPhone?: string
+  /** Name only — LinkedIn's OIDC profile carries no username or vanity-URL
+   * claim (see providers/linkedin.ts), so there's nothing to link to. */
+  linkedinLabel?: string
+}
+
+/**
+ * A contributor's public, read-only profile, keyed by `md5(id)` rather than
+ * `id` itself or `github_id` — short, and stable even if the underlying row
+ * is ever looked up a different way. Computed at query time (no stored
+ * column, no migration): this table is small enough that a plain scan costs
+ * nothing worth optimizing for. `confirmed` only — a `draft` signup has no
+ * public page yet, matching how the registry sync already treats
+ * `confirmed` as the "real directory entry" status.
+ */
+export async function getPublicProfile(hash: string): Promise<PublicProfile | null> {
+  const { rows } = await pool.query<Row>(`SELECT * FROM contributors WHERE md5(id::text) = $1 AND status = 'confirmed'`, [
+    hash,
+  ])
+  const row = rows[0]
+  if (!row) return null
+
+  const contributor = toContributor(row)
+  const cluster = await resolveProfileCluster(contributor)
+  // The opened row's own values win first — its own name/company, if it has
+  // one, over the primary's — falling back to the rest of the cluster only
+  // when it doesn't.
+  const candidates = [contributor, ...cluster.filter((c) => c.githubId !== contributor.githubId)]
+
+  const name = candidates.map((c) => c.name).find(Boolean) ?? contributor.githubLogin
+  const company = candidates.map((c) => c.company).find(Boolean)
+  const emailSource = candidates.find((c) => c.email && c.emailConfirmedAt)
+  const discordSource = candidates.find((c) => c.discordUsername)
+  const telegramSource = candidates.find((c) => c.telegramUsername || c.telegramPhone)
+  const linkedinSource = candidates.find((c) => c.linkedinName)
+
+  return {
+    hash,
+    githubId: contributor.githubId,
+    githubLogin: contributor.githubLogin,
+    name,
+    company,
+    emailLabel: emailSource?.email,
+    discordId: discordSource?.discordId,
+    discordLabel: discordSource?.discordUsername,
+    telegramUsername: telegramSource?.telegramUsername,
+    telegramPhone: telegramSource?.telegramPhone,
+    linkedinLabel: linkedinSource?.linkedinName,
+  }
+}
+
+export interface ContributorSearchResult {
+  hash: string
+  name: string
+  company?: string
+}
+
+/**
+ * `confirmed` contributors only, same reasoning as getPublicProfile above.
+ * Ranked so a match at the *start* of a field sorts above one merely
+ * containing the query somewhere inside it; alphabetical by display name
+ * breaks ties. Capped at 5 — a quick "which of these did you mean," not a
+ * full results page. Below `MIN_QUERY_LENGTH` characters this returns
+ * nothing rather than the whole (small but growing) contributor table.
+ */
+const MIN_SEARCH_QUERY_LENGTH = 3
+
+export async function searchContributors(query: string): Promise<ContributorSearchResult[]> {
+  const trimmed = query.trim()
+  if (trimmed.length < MIN_SEARCH_QUERY_LENGTH) return []
+
+  const contains = `%${trimmed}%`
+  const startsWith = `${trimmed}%`
+  const { rows } = await pool.query<{ hash: string; name: string | null; github_login: string; company: string | null }>(
+    `SELECT md5(id::text) AS hash, name, github_login, company
+       FROM contributors
+      WHERE status = 'confirmed'
+        AND (name ILIKE $1 OR email ILIKE $1 OR github_login ILIKE $1 OR github_email ILIKE $1
+             OR discord_username ILIKE $1 OR telegram_username ILIKE $1 OR linkedin_name ILIKE $1)
+      ORDER BY
+        CASE WHEN name ILIKE $2 OR email ILIKE $2 OR github_login ILIKE $2 OR github_email ILIKE $2
+                  OR discord_username ILIKE $2 OR telegram_username ILIKE $2 OR linkedin_name ILIKE $2
+             THEN 0 ELSE 1 END,
+        COALESCE(name, github_login)
+      LIMIT 5`,
+    [contains, startsWith],
+  )
+  return rows.map((r) => ({ hash: r.hash, name: r.name ?? r.github_login, company: r.company ?? undefined }))
+}
+
 function randomConfirmationToken(): string {
   return randomBytes(32).toString('hex')
 }
