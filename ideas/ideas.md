@@ -447,3 +447,14 @@ Suggested thresholds, not confirmed: green < 60%, yellow 60–85%, red > 85% —
 Depends on IDEA-027 for real data to show, and IDEA-011 for the Admin role to gate on.
 
 By: vzhuman · 2026-08-04
+
+## [DONE] [vzhuman] IDEA-029 — Fix production 500 from a new required env var never added to the droplet
+Idea:
+IDEA-010/011/012's deploy (commit 3cb589c) added `TRACKS_SYNC_SECRET` as a required environment variable but the value was never added to the production droplet's `.env` before pushing — every request 500'd immediately after deploy, since `env.ts` validates the whole environment at module load and fails the entire app, not just the tracks routes, on one missing required variable.
+
+Expected outcome:
+- Production serving 200s again, with `TRACKS_SYNC_SECRET` actually present on the droplet.
+
+Result: generated the secret directly on the droplet (`openssl rand -hex 32` appended to `/opt/fabric-pass/.env`) and force-recreated `app` — confirmed `/`, `/admin`, and `/profile` all back to 200 with no errors in `docker compose logs app`. Self-inflicted and caught within minutes of the deploy, not an independent discovery — recorded so the brief production 500 has a paper trail, and as a reminder: a new *required* env var needs to land on the target environment before the commit that requires it ships, not after.
+
+By: vzhuman · 2026-08-05
