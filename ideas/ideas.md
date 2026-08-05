@@ -153,7 +153,7 @@ Depends on IDEA-007 for the directory to attach to. Whether schedules link out t
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-010 — Tracks data & cf-internal sync
+## [DONE] [vzhuman] IDEA-010 — Tracks data & cf-internal sync
 Idea:
 A `tracks` concept in the database, mirrored to and from a new file in cf-internal (`pass/tracks.yaml`), following the same pattern as the existing contributors registry sync.
 
@@ -165,13 +165,15 @@ Expected outcome:
 Notes:
 The per-repository description/issue-tracker-link fields go beyond the source request's bare "list of repositories" — added because IDEA-007 already promised to display them, and they need somewhere to live. Confirm before building.
 Prerequisite for IDEA-007/008/009 (nothing to display until this data exists) and for IDEA-011's Track Admin role, IDEA-013's join requests, and IDEA-014's per-track membership.
-Pulled in as a direct prerequisite while implementing IDEA-011 — Track Admin has nothing to scope against otherwise.
+Pulled in as a direct prerequisite while implementing IDEA-011 — Track Admin has nothing to scope against otherwise. One-way sync only (file -> DB) — unlike contributors, nothing about a track is self-reported, so there's no export direction.
+
+Result: commit 3cb589c — https://github.com/constructorfabric/fabric-pass/commit/3cb589c
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/16
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
+## [DONE] [vzhuman] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
 Idea:
 Three levels of access: Contributor (default), Track Admin (scoped to one or more specific tracks), and Admin (internally "Organization Admin," but just "Admin" in the UI).
 
@@ -183,12 +185,15 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-010 for tracks to scope Track Admin against.
+Track Admin gates nothing yet — IDEA-014 (the page that would consult it) isn't built; the role and its data (track_admins) exist as groundwork, same as isRootUser was before this.
+
+Result: commit 3cb589c — https://github.com/constructorfabric/fabric-pass/commit/3cb589c
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/14
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
+## [DONE] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
 Idea:
 A page, visible only to Admins, listing every contributor — unlike the plain-Contributor view, which only gets search (IDEA-005) with no full table. Admins can Confirm or Block a contributor from this list, changing their status.
 
@@ -200,6 +205,9 @@ Notes:
 `status` (draft/confirmed) is currently owned entirely by the cf-internal registry file — the app only ever reads it, never writes it (see README's "Contributors registry sync"). Confirm changing it from the app UI, and Block being a new status value at all, both need reconciling with that single-writer model before implementation: either this action becomes a second writer (and the sync direction for `status` has to change), or "Confirm"/"Block" here mean proposing a change that flows back out through the existing export instead of writing directly. Worth deciding before implementation.
 Depends on IDEA-011 for the Admin role itself.
 IDEA-021 (leave the community) hits this same single-writer question, from a different angle (self-service vs. admin-triggered) — worth deciding both together.
+Decided: the app writes `status` directly (setContributorStatus) — simplest, matches the request literally. It folds back through the registry file on the next scheduled export; the accepted risk is a registry-file edit landing between an Admin's click and that export, which would overwrite the in-app change back on the following import. Blocked behaves exactly like draft everywhere status already gates something (search, public profile) — no additional restriction on signing in or editing your own profile.
+
+Result: commit 3cb589c — https://github.com/constructorfabric/fabric-pass/commit/3cb589c
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/15
 
