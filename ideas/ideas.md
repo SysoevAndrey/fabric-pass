@@ -57,7 +57,7 @@ Result: PR https://github.com/constructorfabric/fabric-pass/pull/11
 Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-004 — Public contributor profile view
+## [TAKEN] [frontgeeks] IDEA-004 — Public contributor profile view
 Idea:
 A read-only page for viewing another contributor's public details — reachable by direct link now, and from search once IDEA-005 lands. Merges in everything recorded under any of that contributor's aliases, not just the row that was opened.
 
@@ -71,6 +71,7 @@ Expected outcome:
 
 Notes:
 Feeds IDEA-005 (contributor search) as its destination page.
+Transferred from vzhuman to frontgeeks · 2026-08-05, with vzhuman's agreement.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/12
 
