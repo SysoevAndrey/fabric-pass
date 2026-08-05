@@ -72,6 +72,8 @@ Expected outcome:
 Notes:
 Feeds IDEA-005 (contributor search) as its destination page.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/12
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-005 — Contributor search on Main page
@@ -85,6 +87,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-004 for the destination page.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/13
 
 By: vzhuman · 2026-07-31
 
