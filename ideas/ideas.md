@@ -57,7 +57,7 @@ Result: PR https://github.com/constructorfabric/fabric-pass/pull/11
 Task: https://github.com/constructorfabric/fabric-pass/issues/4
 By: frontgeeks · 2026-07-31
 
-## [TODO] IDEA-004 — Public contributor profile view
+## [TAKEN] [vzhuman] IDEA-004 — Public contributor profile view
 Idea:
 A read-only page for viewing another contributor's public details — reachable by direct link now, and from search once IDEA-005 lands. Merges in everything recorded under any of that contributor's aliases, not just the row that was opened.
 
@@ -74,7 +74,7 @@ Feeds IDEA-005 (contributor search) as its destination page.
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-005 — Contributor search on Main page
+## [TAKEN] [vzhuman] IDEA-005 — Contributor search on Main page
 Idea:
 A search box on the Main page for finding other contributors, opening the matching one in the profile view (IDEA-004).
 
