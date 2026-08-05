@@ -15,6 +15,7 @@ const baseEnv = {
   TELEGRAM_CLIENT_SECRET: 'telegram-secret',
   CONTRIBUTORS_EXPORT_SECRET: 'export-secret',
   CONTRIBUTORS_SYNC_SECRET: 'sync-secret',
+  TRACKS_SYNC_SECRET: 'tracks-sync-secret',
 }
 
 test('parses with both LinkedIn credentials unset', () => {

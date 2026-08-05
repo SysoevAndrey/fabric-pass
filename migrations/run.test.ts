@@ -12,7 +12,10 @@ const url = process.env.DATABASE_URL!
 const pool = new pg.Pool({ connectionString: url })
 
 beforeEach(async () => {
-  await pool.query('DROP TABLE IF EXISTS contributors, schema_migrations')
+  // track_admins/tracks (migrations/010_tracks.sql) FK-reference contributors,
+  // so they have to be listed for the drop too, or Postgres refuses to drop
+  // contributors out from under them.
+  await pool.query('DROP TABLE IF EXISTS track_admins, tracks, contributors, schema_migrations')
 })
 
 afterAll(async () => {
@@ -68,9 +71,10 @@ test('the name backfill combines first and last name, and leaves both-blank as N
 
   // 003 (telegram_id -> text), 004 (provider profile fields), 005
   // (contributor status), 006 (alias/agent fields), 007 (email
-  // confirmation), and 008 (linkedin fields) are also pending from this
-  // pre-002 starting point and apply right behind 002 — irrelevant to what
-  // this test checks, but `migrate` returns every file it applied.
+  // confirmation), 008 (linkedin fields), 009 (admin role), 010 (tracks),
+  // and 011 (blocked status) are also pending from this pre-002 starting
+  // point and apply right behind 002 — irrelevant to what this test checks,
+  // but `migrate` returns every file it applied.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '002_contributor_name_and_nullable_fields.sql',
@@ -80,6 +84,9 @@ test('the name backfill combines first and last name, and leaves both-blank as N
     '006_alias_and_agent_fields.sql',
     '007_email_confirmation.sql',
     '008_linkedin_fields.sql',
+    '009_admin_role.sql',
+    '010_tracks.sql',
+    '011_blocked_status.sql',
   ])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
@@ -115,9 +122,9 @@ test('the telegram_id migration carries an existing value across to text and acc
   await pool.query(`INSERT INTO contributors (github_id, github_login, telegram_id) VALUES (1, 'has-telegram', 555)`)
 
   // 004 (provider profile fields), 005 (contributor status), 006
-  // (alias/agent fields), 007 (email confirmation), and 008 (linkedin
-  // fields) are also pending from this pre-003 starting point and apply
-  // right behind 003.
+  // (alias/agent fields), 007 (email confirmation), 008 (linkedin fields),
+  // 009 (admin role), 010 (tracks), and 011 (blocked status) are also
+  // pending from this pre-003 starting point and apply right behind 003.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '003_telegram_id_as_text.sql',
@@ -126,6 +133,9 @@ test('the telegram_id migration carries an existing value across to text and acc
     '006_alias_and_agent_fields.sql',
     '007_email_confirmation.sql',
     '008_linkedin_fields.sql',
+    '009_admin_role.sql',
+    '010_tracks.sql',
+    '011_blocked_status.sql',
   ])
 
   const { rows: columnRows } = await pool.query(

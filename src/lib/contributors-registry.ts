@@ -4,16 +4,18 @@ import { isContributorStatus, type AdminFieldsUpdate, type Contributor } from '@
 
 /**
  * The full shape written to and read from cf-internal's pass/contributors.yaml
- * — every column of the `contributors` table. Three fields are owned by the
- * file (`status`, `alias_of_github_id`, `is_agent` — an admin's judgment
- * call, not something a contributor sets about themselves); everything else
- * is owned by this app and overwritten on each export. See the module doc
- * below for exactly which fields flow which way. `github_id` and
- * `alias_of_github_id` are quoted on the way out (explicit strings, not bare
- * YAML ints) for the same reason both are `text` in Postgres: a real
- * production id has already overflowed a 64-bit integer once (see
- * migrations/003_telegram_id_as_text.sql's telegram_id, the same shape of
- * bug).
+ * — every column of the `contributors` table. Four fields are owned by the
+ * file (`status`, `alias_of_github_id`, `is_agent`, `is_admin` — an admin's
+ * judgment call, not something a contributor sets about themselves);
+ * everything else is owned by this app and overwritten on each export. See
+ * the module doc below for exactly which fields flow which way. `status`
+ * specifically also has a second writer — see contributors.ts's
+ * setContributorStatus — but round-trips through this same file either way.
+ * `github_id` and `alias_of_github_id` are quoted on the way out (explicit
+ * strings, not bare YAML ints) for the same reason both are `text` in
+ * Postgres: a real production id has already overflowed a 64-bit integer
+ * once (see migrations/003_telegram_id_as_text.sql's telegram_id, the same
+ * shape of bug).
  */
 interface RegistryRow {
   id: string
@@ -41,6 +43,7 @@ interface RegistryRow {
   status: string
   alias_of_github_id: string | null
   is_agent: boolean
+  is_admin: boolean
   created_at: string
   updated_at: string
 }
@@ -76,6 +79,7 @@ export function toRegistryYaml(contributors: Contributor[]): string {
     status: contributor.status,
     alias_of_github_id: contributor.aliasOfGithubId ?? null,
     is_agent: contributor.isAgent,
+    is_admin: contributor.isAdmin,
     created_at: contributor.createdAt.toISOString(),
     updated_at: contributor.updatedAt.toISOString(),
   }))
@@ -95,6 +99,7 @@ const registryRowSchema = z.object({
   // treating "missing" differently from "explicitly the default".
   alias_of_github_id: z.union([z.string(), z.number()]).transform(String).nullish(),
   is_agent: z.boolean().nullish(),
+  is_admin: z.boolean().nullish(),
 })
 
 const registryFileSchema = z.object({
@@ -103,7 +108,7 @@ const registryFileSchema = z.object({
 
 /**
  * YAML → admin field updates. Only `github_id`, `status`, `alias_of_github_id`,
- * and `is_agent` are read — every other column in the file is this app's own
+ * `is_agent`, and `is_admin` are read — every other column in the file is this app's own
  * last export, round-tripped by whatever wrote the file, and not a value
  * this app should ever adopt back in (see the module doc above). A row
  * failing validation (missing `github_id`, or a `status` outside
@@ -129,6 +134,7 @@ export function parseRegistryYaml(content: string): { updates: AdminFieldsUpdate
       status: row.data.status,
       aliasOfGithubId: row.data.alias_of_github_id ?? null,
       isAgent: row.data.is_agent ?? false,
+      isAdmin: row.data.is_admin ?? false,
     })
   }
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { findByGithubId } from '@/lib/contributors'
+import { isAdmin } from '@/lib/roles'
 import { getSession } from '@/lib/session'
 import { Footer } from './footer'
 import { Header } from './header'
@@ -14,7 +15,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // back to its own sign-in prompt in that case, and the header agreeing
   // with it matters more than either guessing independently.
   const contributor = session.github ? await findByGithubId(session.github.id) : null
-  const user = session.github && contributor ? { login: session.github.login, name: contributor.name ?? null } : null
+  const user =
+    session.github && contributor
+      ? { login: session.github.login, name: contributor.name ?? null, isAdmin: isAdmin(contributor) }
+      : null
 
   return (
     <html lang="en">

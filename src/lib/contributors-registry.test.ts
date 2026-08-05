@@ -9,6 +9,7 @@ function contributor(overrides: Partial<Contributor> = {}): Contributor {
     githubLogin: 'octocat',
     status: 'draft',
     isAgent: false,
+    isAdmin: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     ...overrides,
@@ -25,6 +26,7 @@ test('renders a contributor as a registry row, contact fields and admin fields a
       status: 'confirmed',
       aliasOfGithubId: '2002',
       isAgent: true,
+      isAdmin: true,
       linkedinId: 'li-555',
       linkedinName: 'Ada Lovelace',
     }),
@@ -40,6 +42,7 @@ test('renders a contributor as a registry row, contact fields and admin fields a
   expect(yaml).toContain('status: confirmed')
   expect(yaml).toContain('alias_of_github_id: "2002"')
   expect(yaml).toContain('is_agent: true')
+  expect(yaml).toContain('is_admin: true')
   expect(yaml).toContain('created_at:')
   expect(yaml).toContain('linkedin_id: li-555')
   expect(yaml).toContain('linkedin_name: Ada Lovelace')
@@ -60,13 +63,14 @@ test('an unset contact field renders as null, not omitted or empty-string', () =
   expect(yaml).toContain('email: null')
   expect(yaml).toContain('alias_of_github_id: null')
   expect(yaml).toContain('is_agent: false')
+  expect(yaml).toContain('is_admin: false')
   expect(yaml).toContain('linkedin_id: null')
   expect(yaml).toContain('linkedin_name: null')
 })
 
 test('round-trips admin field updates back out of what it just rendered', () => {
   const yaml = toRegistryYaml([
-    contributor({ githubId: '1001', status: 'confirmed', isAgent: true }),
+    contributor({ githubId: '1001', status: 'confirmed', isAgent: true, isAdmin: true }),
     contributor({ githubId: '2002', status: 'draft', aliasOfGithubId: '1001' }),
   ])
 
@@ -74,19 +78,19 @@ test('round-trips admin field updates back out of what it just rendered', () => 
 
   expect(invalidRowCount).toBe(0)
   expect(updates).toEqual([
-    { githubId: '1001', status: 'confirmed', aliasOfGithubId: null, isAgent: true },
-    { githubId: '2002', status: 'draft', aliasOfGithubId: '1001', isAgent: false },
+    { githubId: '1001', status: 'confirmed', aliasOfGithubId: null, isAgent: true, isAdmin: true },
+    { githubId: '2002', status: 'draft', aliasOfGithubId: '1001', isAgent: false, isAdmin: false },
   ])
 })
 
 test('accepts a bare YAML integer github_id, the same as a quoted one', () => {
   const { updates } = parseRegistryYaml('contributors:\n  - github_id: 1001\n    status: confirmed\n')
-  expect(updates).toEqual([{ githubId: '1001', status: 'confirmed', aliasOfGithubId: null, isAgent: false }])
+  expect(updates).toEqual([{ githubId: '1001', status: 'confirmed', aliasOfGithubId: null, isAgent: false, isAdmin: false }])
 })
 
-test('a row with no alias_of_github_id or is_agent defaults to not-an-alias, not-an-agent', () => {
+test('a row with no alias_of_github_id, is_agent, or is_admin defaults to not-an-alias, not-an-agent, not-an-admin', () => {
   const { updates } = parseRegistryYaml('contributors:\n  - github_id: "1001"\n    status: draft\n')
-  expect(updates).toEqual([{ githubId: '1001', status: 'draft', aliasOfGithubId: null, isAgent: false }])
+  expect(updates).toEqual([{ githubId: '1001', status: 'draft', aliasOfGithubId: null, isAgent: false, isAdmin: false }])
 })
 
 test('drops a row with an out-of-set status rather than throwing', () => {
@@ -94,7 +98,7 @@ test('drops a row with an out-of-set status rather than throwing', () => {
     'contributors:\n  - github_id: "1001"\n    status: banned\n  - github_id: "2002"\n    status: confirmed\n',
   )
   expect(invalidRowCount).toBe(1)
-  expect(updates).toEqual([{ githubId: '2002', status: 'confirmed', aliasOfGithubId: null, isAgent: false }])
+  expect(updates).toEqual([{ githubId: '2002', status: 'confirmed', aliasOfGithubId: null, isAgent: false, isAdmin: false }])
 })
 
 test('drops a row missing github_id entirely', () => {
@@ -107,7 +111,13 @@ test('email_confirmed_at in the file is ignored on import, same as every other n
   const { updates } = parseRegistryYaml(
     'contributors:\n  - github_id: "1001"\n    status: draft\n    email_confirmed_at: "2026-01-01T00:00:00.000Z"\n',
   )
-  expect(updates).toEqual([{ githubId: '1001', status: 'draft', aliasOfGithubId: null, isAgent: false }])
+  expect(updates).toEqual([{ githubId: '1001', status: 'draft', aliasOfGithubId: null, isAgent: false, isAdmin: false }])
+})
+
+test('accepts a `blocked` status — the one value this app itself writes, not the registry file', () => {
+  const { updates, invalidRowCount } = parseRegistryYaml('contributors:\n  - github_id: "1001"\n    status: blocked\n')
+  expect(invalidRowCount).toBe(0)
+  expect(updates).toEqual([{ githubId: '1001', status: 'blocked', aliasOfGithubId: null, isAgent: false, isAdmin: false }])
 })
 
 test('an empty or missing contributors list parses to no updates, not an error', () => {

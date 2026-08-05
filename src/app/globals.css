@@ -597,3 +597,60 @@ button,
   gap: 0.6rem;
   color: var(--muted);
 }
+
+/* IDEA-012's admin table. Scrolls horizontally within the page's normal
+   narrow column rather than widening `main` just for this one page — every
+   other page here is a single fixed-width column, and a table with six
+   columns doesn't earn redesigning that. */
+.admin-table-wrapper {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-status-draft {
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.admin-status-confirmed {
+  background: #e6f4ea;
+  color: #1a7f37;
+}
+
+.admin-status-blocked {
+  background: #fbe9e9;
+  color: #c33;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.admin-actions button {
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}

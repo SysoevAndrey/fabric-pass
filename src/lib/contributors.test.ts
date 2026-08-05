@@ -3,6 +3,7 @@ import {
   type AdminFieldsUpdate,
   confirmEmail,
   ContributorNotFoundError,
+  CONTRIBUTOR_STATUSES,
   ensureContributor,
   findByGithubId,
   getPublicProfile,
@@ -12,6 +13,7 @@ import {
   resolveProviderLabels,
   saveField,
   searchContributors,
+  setContributorStatus,
   syncContributorAdminFields,
 } from './contributors.ts'
 import { pool } from './db.ts'
@@ -30,14 +32,16 @@ async function confirmationToken(githubId: string): Promise<string | null> {
 }
 
 /** `status` is the only field every caller of syncContributorAdminFields
- * actually varies test to test; the other two default the same way an
+ * actually varies test to test; the other three default the same way an
  * absent registry-file value does (see contributors-registry.ts). */
 function adminUpdate(overrides: Partial<AdminFieldsUpdate> & { githubId: string }): AdminFieldsUpdate {
-  return { status: 'confirmed', aliasOfGithubId: null, isAgent: false, ...overrides }
+  return { status: 'confirmed', aliasOfGithubId: null, isAgent: false, isAdmin: false, ...overrides }
 }
 
 beforeEach(async () => {
-  await pool.query('TRUNCATE contributors')
+  // CASCADE: track_admins/tracks (migrations/010_tracks.sql) FK-reference
+  // contributors, so a plain TRUNCATE contributors is refused outright.
+  await pool.query('TRUNCATE contributors CASCADE')
 })
 
 afterAll(async () => {
@@ -717,4 +721,58 @@ test('getPublicProfile only shows email once confirmed', async () => {
   await confirmEmail(token!)
 
   expect((await getPublicProfile(rows[0].hash))?.emailLabel).toBe('ada@example.com')
+})
+
+test('a new contributor is never an admin by default', async () => {
+  await ensureContributor('1001', 'octocat')
+  expect((await findByGithubId('1001'))?.isAdmin).toBe(false)
+})
+
+test('syncContributorAdminFields grants and revokes is_admin, same as it does status/isAgent', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  await syncContributorAdminFields([adminUpdate({ githubId: '1001', isAdmin: true })])
+  expect((await findByGithubId('1001'))?.isAdmin).toBe(true)
+
+  await syncContributorAdminFields([adminUpdate({ githubId: '1001', isAdmin: false })])
+  expect((await findByGithubId('1001'))?.isAdmin).toBe(false)
+})
+
+test('CONTRIBUTOR_STATUSES includes blocked alongside draft and confirmed', () => {
+  expect(CONTRIBUTOR_STATUSES).toEqual(['draft', 'confirmed', 'blocked'])
+})
+
+test('setContributorStatus writes status directly, IDEA-012\'s Confirm/Block', async () => {
+  await ensureContributor('1001', 'octocat')
+
+  await setContributorStatus('1001', 'confirmed')
+  expect((await findByGithubId('1001'))?.status).toBe('confirmed')
+
+  await setContributorStatus('1001', 'blocked')
+  expect((await findByGithubId('1001'))?.status).toBe('blocked')
+})
+
+test('setContributorStatus fails loud when the github id names no row', async () => {
+  await expect(setContributorStatus('999999', 'blocked')).rejects.toThrow(ContributorNotFoundError)
+})
+
+// Blocked reads exactly like draft everywhere status already gates
+// something — hidden, not additionally restricted (see the confirmed-only
+// tests above/below for the same assertions against draft).
+test('a blocked contributor is excluded from search, same as a draft one', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await confirm('1001')
+  await setContributorStatus('1001', 'blocked')
+
+  expect(await searchContributors('lovelace')).toEqual([])
+})
+
+test('a blocked contributor has no public profile, same as a draft one', async () => {
+  await ensureContributor('1001', 'octocat')
+  await confirm('1001')
+  const { rows } = await pool.query<{ hash: string }>("SELECT md5(id::text) AS hash FROM contributors WHERE github_id = '1001'")
+  await setContributorStatus('1001', 'blocked')
+
+  expect(await getPublicProfile(rows[0].hash)).toBeNull()
 })

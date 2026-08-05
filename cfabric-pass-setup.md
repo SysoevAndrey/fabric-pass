@@ -285,6 +285,7 @@ tool, or committed to git:
 | `DEPLOY_WEBHOOK_SECRET` | `openssl rand -hex 32` | Bearer token the deploy webhook checks |
 | `CONTRIBUTORS_EXPORT_SECRET` | `openssl rand -hex 32` | Only if using the registry sync — see [Step 12](#step-12--optional-contributors-registry-sync) |
 | `CONTRIBUTORS_SYNC_SECRET` | `openssl rand -hex 32` | Only if using the registry sync |
+| `TRACKS_SYNC_SECRET` | `openssl rand -hex 32` | Required — guards `/internal/tracks/sync`, see README's "Tracks" |
 
 Also set `DEPLOY_WEBHOOK_SECRET`'s value as a GitHub Actions secret on
 `<GITHUB_REPO>` (`gh secret set DEPLOY_WEBHOOK_SECRET`) — the workflow in
@@ -382,6 +383,7 @@ RESEND_FROM_ADDRESS=
 # Optional — only needed for the registry sync, see Step 12
 CONTRIBUTORS_EXPORT_SECRET=
 CONTRIBUTORS_SYNC_SECRET=
+TRACKS_SYNC_SECRET=<from Step 8>
 # Optional — from Step 9. This app's only optional provider: leave both
 # unset to skip LinkedIn entirely (no row on the profile form, /auth/linkedin
 # 404s)

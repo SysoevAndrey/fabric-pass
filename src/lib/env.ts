@@ -16,6 +16,11 @@ export const envSchema = z
     TELEGRAM_CLIENT_SECRET: z.string().min(1),
     CONTRIBUTORS_EXPORT_SECRET: z.string().min(1),
     CONTRIBUTORS_SYNC_SECRET: z.string().min(1),
+    // IDEA-010's one-way sync (pass/tracks.yaml -> DB) — its own secret,
+    // not a reuse of CONTRIBUTORS_SYNC_SECRET, so either can be rotated or
+    // revoked without touching the other even though both originate from
+    // the same cf-internal repo.
+    TRACKS_SYNC_SECRET: z.string().min(1),
     // Optional, unlike everything above: this app must still boot (and did,
     // in production, before these existed) with no Resend key configured at
     // all — see lib/email.ts, which logs instead of sending when unset.

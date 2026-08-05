@@ -10,7 +10,9 @@ const EXPORT_SECRET = 'test-contributors-export-secret'
 const SYNC_SECRET = 'test-contributors-sync-secret'
 
 beforeEach(async () => {
-  await pool.query('TRUNCATE contributors')
+  // CASCADE: track_admins/tracks (migrations/010_tracks.sql) FK-reference
+  // contributors, so a plain TRUNCATE contributors is refused outright.
+  await pool.query('TRUNCATE contributors CASCADE')
 })
 
 afterAll(async () => {

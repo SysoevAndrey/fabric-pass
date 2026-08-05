@@ -4,12 +4,16 @@ import { EMAIL_CONFIRMATION_TTL_MS, sendConfirmationEmail } from '@/lib/email'
 import type { Identity, ProviderName } from '@/lib/providers/types'
 
 /**
- * Owned by cf-internal's pass/contributors.yaml, not by this app — see
- * migrations/005_contributor_status.sql. A contributor reaches 'draft' on
- * their own, the moment they sign in with GitHub; only an admin editing the
- * registry file can promote one to 'confirmed', via /internal/contributors/sync.
+ * `draft`/`confirmed` are owned by cf-internal's pass/contributors.yaml, not
+ * by this app — see migrations/005_contributor_status.sql. A contributor
+ * reaches 'draft' on their own, the moment they sign in with GitHub; only an
+ * admin editing the registry file can promote one to 'confirmed', via
+ * /internal/contributors/sync. `blocked` (migrations/011_blocked_status.sql)
+ * is different: an Admin sets it directly from /admin (see
+ * setContributorStatus below), not via the registry file — the one status
+ * value this app itself writes.
  */
-export const CONTRIBUTOR_STATUSES = ['draft', 'confirmed'] as const
+export const CONTRIBUTOR_STATUSES = ['draft', 'confirmed', 'blocked'] as const
 export type ContributorStatus = (typeof CONTRIBUTOR_STATUSES)[number]
 
 export function isContributorStatus(value: string): value is ContributorStatus {
@@ -54,6 +58,10 @@ export interface Contributor {
   /** A bot/agent account rather than a human. Owned by the registry file,
    * same as `status`. */
   isAgent: boolean
+  /** Grants the global Admin role (see lib/roles.ts) — owned by the
+   * registry file, same as `status`/`isAgent`. `isRootUser` (lib/root-user.ts)
+   * is a separate, env-configured admin that isn't stored here at all. */
+  isAdmin: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -109,6 +117,7 @@ interface Row {
   status: ContributorStatus
   alias_of_github_id: string | null
   is_agent: boolean
+  is_admin: boolean
   created_at: Date
   updated_at: Date
 }
@@ -138,6 +147,7 @@ function toContributor(row: Row): Contributor {
     status: row.status,
     aliasOfGithubId: row.alias_of_github_id ?? undefined,
     isAgent: row.is_agent,
+    isAdmin: row.is_admin,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -604,6 +614,7 @@ export interface AdminFieldsUpdate {
   status: ContributorStatus
   aliasOfGithubId: string | null
   isAgent: boolean
+  isAdmin: boolean
 }
 
 export interface SyncResult {
@@ -617,29 +628,35 @@ export interface SyncResult {
 }
 
 /**
- * Applies the registry file's three admin-owned columns (status,
- * aliasOfGithubId, isAgent), one row at a time — this app's whole
- * contributor set fits comfortably in a loop, and a plain per-row UPDATE is
- * far easier to reason about than a bulk statement for something this
- * infrequent (an hourly sync at most). A `github_id` with no matching row is
- * reported back rather than silently dropped: the registry file can
- * describe a contributor this app doesn't know about (a typo, a stale
- * entry), and the caller decides what to log. Likewise a row whose
- * `aliasOfGithubId` violates the FK or the not-self CHECK (see
+ * Applies the registry file's admin-owned columns (status, aliasOfGithubId,
+ * isAgent, isAdmin), one row at a time — this app's whole contributor set
+ * fits comfortably in a loop, and a plain per-row UPDATE is far easier to
+ * reason about than a bulk statement for something this infrequent (an
+ * hourly sync at most). A `github_id` with no matching row is reported back
+ * rather than silently dropped: the registry file can describe a
+ * contributor this app doesn't know about (a typo, a stale entry), and the
+ * caller decides what to log. Likewise a row whose `aliasOfGithubId`
+ * violates the FK or the not-self CHECK (see
  * migrations/006_alias_and_agent_fields.sql) is reported rather than
  * aborting every other row's update.
+ *
+ * This is also the path setContributorStatus's direct writes (below) get
+ * folded back through the registry file: an export reads `status` straight
+ * from the DB (contributors-registry.ts's toRegistryYaml), so an Admin's
+ * Confirm/Block shows up in the file on the next scheduled export, and
+ * round-trips back in here unchanged on the sync that follows.
  */
 export async function syncContributorAdminFields(updates: AdminFieldsUpdate[]): Promise<SyncResult> {
   const updated: string[] = []
   const notFound: string[] = []
   const rejected: string[] = []
 
-  for (const { githubId, status, aliasOfGithubId, isAgent } of updates) {
+  for (const { githubId, status, aliasOfGithubId, isAgent, isAdmin } of updates) {
     let result
     try {
       result = await pool.query(
-        'UPDATE contributors SET status = $2, alias_of_github_id = $3, is_agent = $4, updated_at = now() WHERE github_id = $1',
-        [githubId, status, aliasOfGithubId, isAgent],
+        'UPDATE contributors SET status = $2, alias_of_github_id = $3, is_agent = $4, is_admin = $5, updated_at = now() WHERE github_id = $1',
+        [githubId, status, aliasOfGithubId, isAgent, isAdmin],
       )
     } catch (error) {
       const violation = error as { code?: string }
@@ -655,4 +672,21 @@ export async function syncContributorAdminFields(updates: AdminFieldsUpdate[]): 
   }
 
   return { updated, notFound, rejected }
+}
+
+/**
+ * IDEA-012's Confirm/Block, called from /admin — the one place this app
+ * writes `status` directly rather than only through the registry-file sync
+ * above. `blocked` behaves exactly like `draft` everywhere status already
+ * gates something (search, the public profile — both already require
+ * `confirmed`): hidden, not additionally locked out of signing in or
+ * editing their own profile. See syncContributorAdminFields's doc comment
+ * for how this folds back through the registry file on the next export.
+ */
+export async function setContributorStatus(githubId: string, status: ContributorStatus): Promise<void> {
+  const result = await pool.query('UPDATE contributors SET status = $2, updated_at = now() WHERE github_id = $1', [
+    githubId,
+    status,
+  ])
+  if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
 }
