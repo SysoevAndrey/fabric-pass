@@ -98,6 +98,15 @@ export function ContributorForm({
     setEditing(false)
   }
 
+  // Unlike Save, Close skips missingMandatoryFields — every field autosaves
+  // individually as it's typed, so there is nothing to lose by backing out
+  // of edit mode without validating, and clears saveMessage so a stale
+  // validation error from a prior Save attempt doesn't linger into view mode.
+  function handleClose() {
+    setSaveMessage(undefined)
+    setEditing(false)
+  }
+
   return (
     <>
       <div className="profile-header">
@@ -113,12 +122,15 @@ export function ContributorForm({
               Edit
             </button>
           )}
-          {/* Returns to Main (IDEA-001) — a real navigation, not a mode
-              switch, so it's an <a> like the sign-in/provider-link actions
-              above rather than a button. */}
-          <a className="icon-button" title="Close" aria-label="Close" href="/">
-            <CloseMark size={16} />
-          </a>
+          {/* Only shown in edit mode — in view mode there's no edit to back
+              out of. A mode switch like Save, not a navigation (Main
+              redirects straight back to Profile now, so sending Close there
+              would be pointless), so it's a <button> rather than an <a>. */}
+          {editing ? (
+            <button type="button" className="icon-button" title="Close" aria-label="Close" onClick={handleClose}>
+              <CloseMark size={16} />
+            </button>
+          ) : null}
         </div>
       </div>
       <p className="subtitle">Please share your contact details below to make it easier for other community members to reach you and for us to grant you access to relevant community resources.</p>
