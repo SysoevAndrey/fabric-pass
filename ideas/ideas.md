@@ -71,6 +71,7 @@ Expected outcome:
 
 Notes:
 Feeds IDEA-005 (contributor search) as its destination page.
+Access-gated: visible only to contributors whose status is `internal` — a status value that doesn't exist yet and will be added later. Until it exists, the page is effectively hidden for everyone.
 Transferred from vzhuman to frontgeeks · 2026-08-05, with vzhuman's agreement.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/12
@@ -88,6 +89,7 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-004 for the destination page.
+Access-gated: search is visible only to contributors whose status is `internal` — a status value that doesn't exist yet and will be added later. Until it exists, the search is effectively hidden for everyone.
 Transferred from vzhuman to frontgeeks · 2026-08-05, with vzhuman's agreement.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/13
