@@ -153,7 +153,7 @@ Depends on IDEA-007 for the directory to attach to. Whether schedules link out t
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-010 — Tracks data & cf-internal sync
+## [TAKEN] [vzhuman] IDEA-010 — Tracks data & cf-internal sync
 Idea:
 A `tracks` concept in the database, mirrored to and from a new file in cf-internal (`pass/tracks.yaml`), following the same pattern as the existing contributors registry sync.
 
