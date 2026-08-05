@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { AutosaveField, CompanyField, EmailField } from './autosave-field'
@@ -83,11 +84,16 @@ export function ContributorForm({
   // `name`/`email` mirror the two mandatory fields' live values, kept only so
   // Save can check them; they never drive persistence themselves (each
   // field's own autosave does that, unchanged).
+  const router = useRouter()
   const [editing, setEditing] = useState(initialEditing)
   const [name, setName] = useState(defaults.name)
   const [email, setEmail] = useState(defaults.email)
   const [saveMessage, setSaveMessage] = useState<string>()
 
+  // Save leaves Profile entirely, back to Main — unlike Close (below), which
+  // only backs out of edit mode without navigating anywhere. Every field has
+  // already autosaved by the time Save is pressed; this is "I'm done," not
+  // "commit my changes" (there's nothing left to commit).
   function handleSave() {
     const missing = missingMandatoryFields({ name, email })
     if (missing.length > 0) {
@@ -95,7 +101,7 @@ export function ContributorForm({
       return
     }
     setSaveMessage(undefined)
-    setEditing(false)
+    router.push('/')
   }
 
   // Unlike Save, Close skips missingMandatoryFields — every field autosaves

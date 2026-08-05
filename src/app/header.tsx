@@ -11,7 +11,11 @@ export function Header({ user }: Props) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <div className="site-header-brand">
+        {/* The one persistent way back to Main from anywhere — Profile's own
+            Save already returns there, but there was previously no path back
+            for someone who opens Profile from a bookmark, a public
+            contributor link, or just changes their mind partway through. */}
+        <a className="site-header-brand" href="/">
           {/* A plain <img> rather than next/image: the avatar is one fixed
               remote asset, and next/image would need an images.remotePatterns
               entry for avatars.githubusercontent.com to earn nothing here. */}
@@ -26,7 +30,7 @@ export function Header({ user }: Props) {
             <h1>Constructor Fabric Pass</h1>
             <p className="brand-tagline">Welcome to the Constructor Fabric contributors community.</p>
           </div>
-        </div>
+        </a>
         {user ? <UserMenu login={user.login} name={user.name} /> : null}
       </div>
     </header>
