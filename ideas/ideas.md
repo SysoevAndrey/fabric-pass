@@ -168,7 +168,7 @@ Prerequisite for IDEA-007/008/009 (nothing to display until this data exists) an
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
+## [TAKEN] [vzhuman] IDEA-011 — Contributor roles: Contributor / Track Admin / Admin
 Idea:
 Three levels of access: Contributor (default), Track Admin (scoped to one or more specific tracks), and Admin (internally "Organization Admin," but just "Admin" in the UI).
 
@@ -183,7 +183,7 @@ Depends on IDEA-010 for tracks to scope Track Admin against.
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-012 — Admin: full contributor list with Confirm/Block
+## [TAKEN] [vzhuman] IDEA-012 — Admin: full contributor list with Confirm/Block
 Idea:
 A page, visible only to Admins, listing every contributor — unlike the plain-Contributor view, which only gets search (IDEA-005) with no full table. Admins can Confirm or Block a contributor from this list, changing their status.
 
