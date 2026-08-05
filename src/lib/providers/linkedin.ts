@@ -84,31 +84,40 @@ function configuration(): Promise<client.Configuration> {
 export const linkedin: Provider = {
   name: 'linkedin',
 
+  /**
+   * No PKCE — unlike every other provider here. LinkedIn's real discovery
+   * document advertises neither `token_endpoint_auth_methods_supported` nor
+   * `code_challenge_methods_supported` (confirmed by fetching it directly),
+   * and sending a `code_verifier` to its token endpoint anyway produced a
+   * flat `invalid_client: Client authentication failed` — LinkedIn's own
+   * client credentials, confirmed valid by hitting the token endpoint
+   * directly with both client_secret_post and client_secret_basic, sent with
+   * no PKCE parameters at all, worked. `codeVerifier` is still generated and
+   * threaded through session storage exactly like every other provider — the
+   * shared `Provider`/`AuthRequest` contract requires it — it's simply never
+   * put on the wire to LinkedIn.
+   */
   async authRequest(redirectUri: string): Promise<AuthRequest> {
     const config = await configuration()
     const codeVerifier = client.randomPKCECodeVerifier()
-    const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
     const state = client.randomState()
 
     const url = client.buildAuthorizationUrl(config, {
       redirect_uri: redirectUri,
       scope: 'openid profile email',
       state,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
     })
 
     return { url, codeVerifier, state }
   },
 
-  async callback(currentUrl, redirectUri, codeVerifier, state): Promise<Identity> {
+  async callback(currentUrl, redirectUri, _codeVerifier, state): Promise<Identity> {
     const config = await configuration()
     // `configuration()` is memoised across calls (see above), so the
     // customFetch override is applied here, right before use, rather than
     // baked into the cached instance at discovery time.
     config[client.customFetch] = tokenFetch(redirectUri)
     const tokens = await client.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
       expectedState: state,
     })
 
