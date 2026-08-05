@@ -71,8 +71,8 @@ Expected outcome:
 
 Notes:
 Feeds IDEA-005 (contributor search) as its destination page.
-Access-gated: visible only to contributors whose status is `internal` — a status value that doesn't exist yet and will be added later. Until it exists, the page is effectively hidden for everyone.
-Transfer to frontgeeks on 2026-08-05 was made in error and reverted the next day — vzhuman remains the owner.
+Visible only to `confirmed` contributors (both as search results and as viewable profiles) — a `draft` contributor is neither searchable nor has a viewable profile page yet.
+Transfer to frontgeeks on 2026-08-05 was made in error and reverted the next day — vzhuman remains the owner. An `internal`-status-gating note added at the same time was also a mistake — this page is gated on `confirmed`, not a not-yet-existing `internal` status.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/12
 
@@ -89,8 +89,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-004 for the destination page.
-Access-gated: search is visible only to contributors whose status is `internal` — a status value that doesn't exist yet and will be added later. Until it exists, the search is effectively hidden for everyone.
-Transfer to frontgeeks on 2026-08-05 was made in error and reverted the next day — vzhuman remains the owner.
+Only searches, and only returns, `confirmed` contributors — a `draft` contributor doesn't show up as a search result.
+Transfer to frontgeeks on 2026-08-05 was made in error and reverted the next day — vzhuman remains the owner. An `internal`-status-gating note added at the same time was also a mistake — this searches `confirmed` contributors, not a not-yet-existing `internal` status.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/13
 
