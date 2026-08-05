@@ -76,7 +76,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/12
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-005 — Contributor search on Main page
+## [TAKEN] [frontgeeks] IDEA-005 — Contributor search on Main page
 Idea:
 A search box on the Main page for finding other contributors, opening the matching one in the profile view (IDEA-004).
 
@@ -87,6 +87,7 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-004 for the destination page.
+Transferred from vzhuman to frontgeeks · 2026-08-05, with vzhuman's agreement.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/13
 
