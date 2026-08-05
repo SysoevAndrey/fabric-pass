@@ -165,6 +165,9 @@ Expected outcome:
 Notes:
 The per-repository description/issue-tracker-link fields go beyond the source request's bare "list of repositories" — added because IDEA-007 already promised to display them, and they need somewhere to live. Confirm before building.
 Prerequisite for IDEA-007/008/009 (nothing to display until this data exists) and for IDEA-011's Track Admin role, IDEA-013's join requests, and IDEA-014's per-track membership.
+Pulled in as a direct prerequisite while implementing IDEA-011 — Track Admin has nothing to scope against otherwise.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/16
 
 By: vzhuman · 2026-07-31
 
