@@ -91,6 +91,12 @@ Prerequisites: a running PostgreSQL 18 server, [pnpm](https://pnpm.io), and Node
 
    The app is at [http://localhost:3000](http://localhost:3000).
 
+### Signing in locally without OAuth
+
+Registering the OAuth applications below is only necessary when working on the sign-in flows themselves — the environment variables they fill still have to exist (see [Environment variables](#environment-variables)), but placeholder values are enough for everything else. A development server serves **`/dev-login`** instead: it lists the contributors already in the local database and signs the browser in as the one picked, no provider round-trip involved. The picker only offers what the `contributors` table holds, so on an empty database seed a row first — a plain `INSERT` with `github_id` and `github_login` is enough.
+
+The route exists only in development, twice over. Its file is `route.dev.ts`, and `.dev.ts` is a page extension only in development builds (see `next.config.ts`) — a production build has no `/dev-login` route at all, not even a stub. Inside the file, a second, independent guard refuses any request that isn't served by a development build on a loopback host — the Host check is what keeps `pnpm dev --hostname 0.0.0.0` from offering sign-in-as-anyone to the whole LAN.
+
 ### Testing
 
 ```bash
