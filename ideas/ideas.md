@@ -469,4 +469,6 @@ Expected outcome:
 - `TRACKS_SYNC_SECRET` is set as a cf-internal Actions secret, matching the value already on the production droplet.
 - The tracks table in production reflects the file after the first sync.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/17
+
 By: vzhuman · 2026-08-06
