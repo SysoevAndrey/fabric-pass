@@ -481,8 +481,10 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/17
 
 By: vzhuman · 2026-08-06
 
-## [TAKEN] [frontgeeks] IDEA-031 — Local dev sign-in without OAuth
+## [DONE] [frontgeeks] IDEA-031 — Local dev sign-in without OAuth
 Idea: Signing in on a local checkout currently needs its own registrations at GitHub, Discord and Telegram, since each redirect URI must match `APP_URL` exactly — a route that puts an existing contributor's `github_id` straight into the session, refusing to run anywhere but a local development server, would let a developer reach the signed-in and Admin views without any of that.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/19 (merged; landed as 4a1602d)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/18
 
