@@ -514,7 +514,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/20
 
 By: frontgeeks · 2026-08-06
 
-## [TODO] IDEA-034 — Profile completeness status (Incomplete / Good Enough / Completed)
+## [TAKEN] [vzhuman] IDEA-034 — Profile completeness status (Incomplete / Good Enough / Completed)
 Idea:
 A three-state completeness status for a contributor's own profile — proposed as Incomplete (default), Good Enough, and Completed, names open to something better — stored as a column on `contributors` and exported to `pass/contributors.yaml`, shown on the Profile view page to the profile's own owner, with an info icon explaining what's missing whenever it isn't fully Completed.
 
@@ -552,7 +552,7 @@ Marked DRAFT rather than TODO specifically because of the IDEA-007 overlap above
 
 By: vzhuman · 2026-08-06
 
-## [TODO] IDEA-036 — Admin contributor list: status/completeness filters, disabled-state buttons, tile layout
+## [TAKEN] [vzhuman] IDEA-036 — Admin contributor list: status/completeness filters, disabled-state buttons, tile layout
 Idea:
 A follow-up to IDEA-012's Admin contributor list (DONE): a status filter (so an Admin can filter out already-`confirmed` contributors), a completeness column (IDEA-034) with its own filter, Confirm/Block buttons that grey out once already in that state instead of staying clickable, and replacing the current wide, horizontally-scrolling table with tiles that fit the screen width.
 
