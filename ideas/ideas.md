@@ -467,7 +467,7 @@ Result: generated the secret directly on the droplet (`openssl rand -hex 32` app
 
 By: vzhuman · 2026-08-05
 
-## [TAKEN] [vzhuman] IDEA-030 — Wire up cf-internal's tracks.yaml and populate initial tracks
+## [DONE] [vzhuman] IDEA-030 — Wire up cf-internal's tracks.yaml and populate initial tracks
 Idea:
 IDEA-010 built the app-side one-way tracks sync (`/internal/tracks/sync`), but cf-internal never got the operational half: `pass/tracks.yaml` doesn't exist, the push-triggered workflow only watches `pass/contributors.yaml`, and `TRACKS_SYNC_SECRET` isn't set as a cf-internal Actions secret. This wires all three up and populates the initial set of real tracks (Studio, Insight, Gears, Gears BSS, Gears OSS, Research, Governance) with their leaders, admins, and repositories from the Constructor Fabric GitHub org.
 
@@ -476,6 +476,8 @@ Expected outcome:
 - The workflow notifies fabric-pass on a `pass/tracks.yaml` push, same as contributors.
 - `TRACKS_SYNC_SECRET` is set as a cf-internal Actions secret, matching the value already on the production droplet.
 - The tracks table in production reflects the file after the first sync.
+
+Result: no fabric-pass code change — cf-internal commits 80f691e (`pass/tracks.yaml` + sync workflow), f3874da (null out leader slots for people not yet in Fabric Pass), and 9f2ed7d (switch leaders/admins to GitHub logins). Verified live: 7 tracks in the production `tracks` table, matching the file.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/17
 
