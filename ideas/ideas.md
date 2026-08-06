@@ -531,6 +531,8 @@ Derived, not self-reported — computed from fields autosave already tracks, not
 "Optional field" needs a concrete list before implementation — every non-mandatory field on the profile (LinkedIn, Telegram), or a specific subset.
 Feeds IDEA-036's Admin-page completeness column/filter. Could later replace IDEA-015's simpler binary completeness check for the onboarding checklist, though that's not required for this idea itself.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/23
+
 By: vzhuman · 2026-08-06
 
 ## [DRAFT] [vzhuman] IDEA-035 — Track page rendered from a markdown template
@@ -565,5 +567,7 @@ Follow-up to IDEA-012 rather than an edit to it, since IDEA-012 is DONE.
 Depends on IDEA-034 (profile completeness) for the completeness column/filter specifically — the rest (status filter, disabled buttons, tile layout) doesn't depend on it and could ship first if IDEA-034 isn't ready yet.
 Four changes bundled into one idea rather than split, since they're all the same page's UX and land together naturally as one pass over `admin-contributor-table.tsx` — flag if a split into smaller ideas is actually wanted before implementation.
 Tile content (which fields show on a tile vs. only on click-through, if any) isn't specified — needs a quick design pass before implementation.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/24
 
 By: vzhuman · 2026-08-06
