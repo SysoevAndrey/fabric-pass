@@ -514,7 +514,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/20
 
 By: frontgeeks · 2026-08-06
 
-## [TAKEN] [vzhuman] IDEA-034 — Profile completeness status (Incomplete / Good Enough / Completed)
+## [DONE] [vzhuman] IDEA-034 — Profile completeness status (Incomplete / Good Enough / Completed)
 Idea:
 A three-state completeness status for a contributor's own profile — proposed as Incomplete (default), Good Enough, and Completed, names open to something better — stored as a column on `contributors` and exported to `pass/contributors.yaml`, shown on the Profile view page to the profile's own owner, with an info icon explaining what's missing whenever it isn't fully Completed.
 
@@ -530,6 +530,9 @@ Naming as given by the requester — open to a better set of names before implem
 Derived, not self-reported — computed from fields autosave already tracks, not something anyone hand-edits in the registry file. Should be app-owned and export-only into `pass/contributors.yaml`, the same one-way pattern `email_confirmed_at` already uses (README's single-writer model) — never read back in from the file.
 "Optional field" needs a concrete list before implementation — every non-mandatory field on the profile (LinkedIn, Telegram), or a specific subset.
 Feeds IDEA-036's Admin-page completeness column/filter. Could later replace IDEA-015's simpler binary completeness check for the onboarding checklist, though that's not required for this idea itself.
+Named Incomplete/Ready/Complete — "Ready" chosen over "Good Enough" per the alternative above. Optional fields are Telegram and LinkedIn (LinkedIn only counted when enabled on the deploy — see profile-completeness.ts's computeProfileCompleteness).
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/25 (merged as 05c999d)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/23
 
@@ -552,7 +555,7 @@ Marked DRAFT rather than TODO specifically because of the IDEA-007 overlap above
 
 By: vzhuman · 2026-08-06
 
-## [TAKEN] [vzhuman] IDEA-036 — Admin contributor list: status/completeness filters, disabled-state buttons, tile layout
+## [DONE] [vzhuman] IDEA-036 — Admin contributor list: status/completeness filters, disabled-state buttons, tile layout
 Idea:
 A follow-up to IDEA-012's Admin contributor list (DONE): a status filter (so an Admin can filter out already-`confirmed` contributors), a completeness column (IDEA-034) with its own filter, Confirm/Block buttons that grey out once already in that state instead of staying clickable, and replacing the current wide, horizontally-scrolling table with tiles that fit the screen width.
 
@@ -567,6 +570,9 @@ Follow-up to IDEA-012 rather than an edit to it, since IDEA-012 is DONE.
 Depends on IDEA-034 (profile completeness) for the completeness column/filter specifically — the rest (status filter, disabled buttons, tile layout) doesn't depend on it and could ship first if IDEA-034 isn't ready yet.
 Four changes bundled into one idea rather than split, since they're all the same page's UX and land together naturally as one pass over `admin-contributor-table.tsx` — flag if a split into smaller ideas is actually wanted before implementation.
 Tile content (which fields show on a tile vs. only on click-through, if any) isn't specified — needs a quick design pass before implementation.
+Shipped alongside IDEA-034 in the same PR, since the completeness column/filter depends on it directly.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/25 (merged as 05c999d)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/24
 
