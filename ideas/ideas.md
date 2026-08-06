@@ -502,3 +502,8 @@ Schema beyond the shape above is undecided: whether "scope" is a free-form track
 Depends on IDEA-010 (`tracks.yaml` already exists) for the per-track scoping to key against.
 
 By: vzhuman · 2026-08-06
+
+## [TAKEN] [frontgeeks] IDEA-033 — MR step in the ideas flow: PR opens → In Test, merge → DONE
+Idea: The ideas skill and CONTRIBUTING describe finishing as "set DONE, commit, push", skipping how the implementation itself lands — all development goes through a PR. Record the missing step: when an idea's implementation PR opens, its board item moves to **In Test**; only after the PR merges does the idea become `DONE` (with the merged PR as `Result`) and the item move to Done.
+
+By: frontgeeks · 2026-08-06
