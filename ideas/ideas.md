@@ -112,6 +112,8 @@ Expected outcome:
 Notes:
 Open question, not yet decided: does a link navigate straight to the document (e.g. on GitHub), or open it rendered inside this app, in a new tab, with a link back to the source repository?
 Track-specific policy links, if any, are out of scope until IDEA-007's track directory exists to hang them off of.
+Approach: the list of links comes from IDEA-032's artifact-links registry (cf-internal `pass/`), not hardcoded or scraped from the governance repository directly — the registry holds the label and URL, the governance repository still holds the actual policy documents.
+Depends on IDEA-032 for where these links are sourced from.
 
 By: vzhuman · 2026-07-31
 
@@ -126,6 +128,8 @@ Notes:
 Proposed addition, beyond what was asked — confirm before including: a link to the track's own community/discussion channel (e.g. its Discord channel), and a short "how to get involved" pointer. Both are cheap to add alongside the rest of this directory and squarely useful for a new contributor.
 Roadmap diagrams (IDEA-008) and call schedules (IDEA-009) build on this directory rather than being part of it.
 Depends on IDEA-010 for the underlying tracks data — nothing to display until that exists.
+A track's entry can also surface its own artifact links (e.g. vision doc, contributing guide) from IDEA-032's registry, scoped to that track's slug — the same mechanism IDEA-006/008/009 use for their own links.
+Depends on IDEA-032 for any artifact links shown alongside the rest of a track's entry.
 
 By: vzhuman · 2026-07-31
 
@@ -138,6 +142,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-007 for the directory to attach to. Diagram source/format (static image, embedded tool, generated from a tracked file) is undecided.
+Approach: a diagram is a link into IDEA-032's artifact-links registry, pointing at wherever it's actually maintained (any repository under `constructorfabric`, or elsewhere) — this app never stores or generates the diagram itself, only the link to it.
+Depends on IDEA-032 for where this link is sourced from.
 
 By: vzhuman · 2026-07-31
 
@@ -150,6 +156,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-007 for the directory to attach to. Whether schedules link out to an external calendar or are entered/maintained here directly is undecided.
+Approach: a schedule is a link into IDEA-032's artifact-links registry (e.g. to an external calendar or a scheduling doc), not data entered/maintained directly in this app — consistent with IDEA-006/008 using the same registry for their own links.
+Depends on IDEA-032 for where this link is sourced from.
 
 By: vzhuman · 2026-07-31
 
@@ -479,3 +487,18 @@ Idea: Signing in on a local checkout currently needs its own registrations at Gi
 Task: https://github.com/constructorfabric/fabric-pass/issues/18
 
 By: frontgeeks · 2026-08-06
+
+## [DRAFT] [vzhuman] IDEA-032 — Community & track artifact links registry (cf-internal pass/*.yaml)
+Idea:
+A one-way-synced registry file in cf-internal's `pass/` folder, alongside `tracks.yaml`/`contributors.yaml`, listing links to interesting artifacts — both community-wide (e.g. policies) and per-track (e.g. vision, roadmap, meeting schedule) — without storing the artifacts themselves. Each entry is a label plus a URL pointing at wherever the real content actually lives: the governance repository for community policies, any repository under the `constructorfabric` org for a track's vision or roadmap, an external calendar for a meeting schedule, and so on.
+
+Expected outcome:
+- A synced table (mirroring `tracks`' one-way, file → DB, "file is the whole set" design from IDEA-010) holding entries with at minimum a label, a URL, and a scope (community-wide, or a specific track's slug).
+- IDEA-006 (community policies), IDEA-007 (per-track links), IDEA-008 (roadmap diagrams), and IDEA-009 (meeting schedules) all read from this one registry instead of each inventing its own storage.
+
+Notes:
+Split out as its own idea rather than folded into IDEA-006/008/009 individually — it's one shared mechanism, not four separate storage designs.
+Schema beyond the shape above is undecided: whether "scope" is a free-form track slug or an enum, whether entries carry a category (policy/vision/roadmap/schedule/etc.) for filtering or grouping, and whether one registry file covers everything or splits by concern (e.g. `pass/artifacts.yaml` vs. per-category files) are all open.
+Depends on IDEA-010 (`tracks.yaml` already exists) for the per-track scoping to key against.
+
+By: vzhuman · 2026-08-06
