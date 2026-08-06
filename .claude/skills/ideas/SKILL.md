@@ -186,7 +186,8 @@ one — update the existing item (convert, retitle, reassign) instead.
 
 **Board column follows the idea status.** After creating or updating an
 item, set its `Status` field: `DRAFT` → **Backlog**, `TODO` → **Todo**,
-`TAKEN` → **In Progress**, `DONE`/`DROPPED`/`PARKED` → **Done** (and the
+`TAKEN` → **In Progress** — or **In Test** once its implementation PR is
+open (see "Finishing"), `DONE`/`DROPPED`/`PARKED` → **Done** (and the
 issue is closed). Reading it back the same way: an item moved to Todo/In
 Progress/Done by a human on the board is a status signal for the sync below.
 
@@ -222,6 +223,8 @@ and reconcile:
   the idea back to `[TODO]`.
 - Task **reassigned**, idea `TAKEN` by someone else → record a transfer to
   the new assignee.
+- Task moved to **In Test**, idea `TAKEN` → consistent: it means the idea's
+  implementation PR is open (see "Finishing"). No registry change.
 - Task **closed** or moved to **Done**, idea not terminal → move the idea to
   `[DONE]` (take the `Result` from the issue) — or ask the human whether
   it's `DROPPED`/`PARKED` if no result is visible.
@@ -268,11 +271,27 @@ The claim commit must contain no code, tests, or unrelated registry edits.
 
 ## Finishing
 
+Implementation lands through a pull request, not a direct push to `main` —
+only registry edits (claims, links, syncs, completions) go straight to `main`.
+
+**When the implementation PR opens:**
+
+1. Open the PR from the idea's branch (branch name `idea-NNN-<short-slug>`).
+2. Move the linked task's board item to **In Test**. The idea itself stays
+   `[TAKEN]` — the registry has no in-test status; the board column carries it.
+
+**Only after the PR merges:**
+
 1. `git pull` and verify the heading is still `[TAKEN]` by you.
-2. Add the `Result` reference (PR / commit / version).
+2. Add the `Result` reference — the merged PR.
 3. Set `[TAKEN]` → `[DONE]`, keeping the owner token.
 4. Commit `ideas: complete IDEA-NNN` and push.
-5. Close the linked project task (see "Project tasks").
+5. Close the linked project task and move its board item to **Done**
+   (see "Project tasks").
+
+A PR closed without merging is not a completion: the idea stays `[TAKEN]`
+(or is released back to `[TODO]` — see below), and the board item goes back
+to **In Progress**.
 
 Same flow for `DROPPED` / `PARKED`: keep one sentence in the body that says
 why, and close the task with that sentence as a comment.

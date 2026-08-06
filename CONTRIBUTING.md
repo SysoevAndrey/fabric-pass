@@ -58,8 +58,13 @@ version:
 4. Commit **only** the registry change (`ideas: claim IDEA-NNN by <id>`) and
    push immediately. An unpushed claim is invisible to others.
 5. Start implementation only after that push is visible on the shared branch.
-6. When done, set the heading to `DONE`, add a `Result` reference, commit,
-   push.
+6. Implement on a branch (`idea-NNN-<short-slug>`) and land it through a
+   pull request — only registry edits go straight to `main`. The moment the
+   PR opens, move the idea's CF Board item to **In Test**; the heading stays
+   `TAKEN`.
+7. Only after the PR merges: set the heading to `DONE`, add the merged PR as
+   the `Result` reference, commit, push — and the board item moves to
+   **Done**.
 
 Each idea stays one short section. If an idea would need a long description,
 split it before recording it — the skill prefers many small ideas over one
