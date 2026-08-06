@@ -458,3 +458,15 @@ Expected outcome:
 Result: generated the secret directly on the droplet (`openssl rand -hex 32` appended to `/opt/fabric-pass/.env`) and force-recreated `app` — confirmed `/`, `/admin`, and `/profile` all back to 200 with no errors in `docker compose logs app`. Self-inflicted and caught within minutes of the deploy, not an independent discovery — recorded so the brief production 500 has a paper trail, and as a reminder: a new *required* env var needs to land on the target environment before the commit that requires it ships, not after.
 
 By: vzhuman · 2026-08-05
+
+## [TAKEN] [vzhuman] IDEA-030 — Wire up cf-internal's tracks.yaml and populate initial tracks
+Idea:
+IDEA-010 built the app-side one-way tracks sync (`/internal/tracks/sync`), but cf-internal never got the operational half: `pass/tracks.yaml` doesn't exist, the push-triggered workflow only watches `pass/contributors.yaml`, and `TRACKS_SYNC_SECRET` isn't set as a cf-internal Actions secret. This wires all three up and populates the initial set of real tracks (Studio, Insight, Gears, Gears BSS, Gears OSS, Research, Governance) with their leaders, admins, and repositories from the Constructor Fabric GitHub org.
+
+Expected outcome:
+- `pass/tracks.yaml` exists in cf-internal with the seven tracks above, repositories distributed across them, and descriptions drawn from constructorfabric.org.
+- The workflow notifies fabric-pass on a `pass/tracks.yaml` push, same as contributors.
+- `TRACKS_SYNC_SECRET` is set as a cf-internal Actions secret, matching the value already on the production droplet.
+- The tracks table in production reflects the file after the first sync.
+
+By: vzhuman · 2026-08-06
