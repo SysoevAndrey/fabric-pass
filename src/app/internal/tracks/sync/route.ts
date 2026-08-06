@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     console.warn(`tracks sync: ${invalidRowCount} row(s) skipped — missing/invalid slug or name`)
   }
   if (rejected.length > 0) {
-    console.warn(`tracks sync: unknown leader/admin github_id for track(s): ${rejected.join(', ')}`)
+    console.warn(`tracks sync: unknown leader/admin github login for track(s): ${rejected.join(', ')}`)
   }
 
   return NextResponse.json({ synced: synced.length, skipped: invalidRowCount + rejected.length })

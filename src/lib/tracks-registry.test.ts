@@ -12,11 +12,11 @@ tracks:
         description: The thing itself
         issue_tracker: https://github.com/constructorfabric/studio/issues
     leaders:
-      product_manager: "1001"
-      architect: "2002"
+      product_manager: octocat
+      architect: monalisa
     admins:
-      - "1001"
-      - "3003"
+      - octocat
+      - hubot
 `)
 
   expect(invalidRowCount).toBe(0)
@@ -32,12 +32,12 @@ tracks:
           issueTracker: 'https://github.com/constructorfabric/studio/issues',
         },
       ],
-      productManagerGithubId: '1001',
-      architectGithubId: '2002',
-      developerGithubId: undefined,
-      qualityGithubId: undefined,
-      researcherGithubId: undefined,
-      adminGithubIds: ['1001', '3003'],
+      productManagerGithubLogin: 'octocat',
+      architectGithubLogin: 'monalisa',
+      developerGithubLogin: undefined,
+      qualityGithubLogin: undefined,
+      researcherGithubLogin: undefined,
+      adminGithubLogins: ['octocat', 'hubot'],
     },
   ])
 })
@@ -50,22 +50,14 @@ test('a bare-minimum row defaults to no repositories, no leaders, no admins', ()
       name: 'Constructor Studio',
       description: undefined,
       repositories: [],
-      productManagerGithubId: undefined,
-      architectGithubId: undefined,
-      developerGithubId: undefined,
-      qualityGithubId: undefined,
-      researcherGithubId: undefined,
-      adminGithubIds: [],
+      productManagerGithubLogin: undefined,
+      architectGithubLogin: undefined,
+      developerGithubLogin: undefined,
+      qualityGithubLogin: undefined,
+      researcherGithubLogin: undefined,
+      adminGithubLogins: [],
     },
   ])
-})
-
-test('accepts a bare YAML integer leader/admin github_id, the same as a quoted one', () => {
-  const { tracks } = parseTracksYaml(
-    'tracks:\n  - slug: studio\n    name: Constructor Studio\n    leaders:\n      product_manager: 1001\n    admins:\n      - 1001\n',
-  )
-  expect(tracks[0].productManagerGithubId).toBe('1001')
-  expect(tracks[0].adminGithubIds).toEqual(['1001'])
 })
 
 test('drops a row missing slug or name rather than throwing', () => {

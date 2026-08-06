@@ -3,12 +3,12 @@ import { pool } from './db.ts'
 import { listTracks, syncTracks, type TrackSync } from './tracks.ts'
 
 function trackSync(overrides: Partial<TrackSync> & { slug: string; name: string }): TrackSync {
-  return { repositories: [], adminGithubIds: [], ...overrides }
+  return { repositories: [], adminGithubLogins: [], ...overrides }
 }
 
 beforeEach(async () => {
   // CASCADE: track_admins FK-references tracks; contributors is truncated
-  // too since every leader/admin github_id below is a real FK into it.
+  // too since every leader/admin login below resolves to a real row in it.
   await pool.query('TRUNCATE tracks, contributors CASCADE')
 })
 
@@ -56,18 +56,18 @@ test('stores repositories as given', async () => {
   ])
 })
 
-test('assigns leader slots to a real contributor', async () => {
+test('assigns leader slots to a real contributor, resolved by login', async () => {
   await pool.query("INSERT INTO contributors (github_id, github_login) VALUES (1001, 'octocat')")
 
-  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', productManagerGithubId: '1001' })])
+  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', productManagerGithubLogin: 'octocat' })])
 
   const [track] = await listTracks()
   expect(track.productManagerGithubId).toBe('1001')
 })
 
-test('rejects a track whose leader github_id is not a real contributor, without touching any other track', async () => {
+test('rejects a track whose leader login is not a real contributor, without touching any other track', async () => {
   const { synced, rejected } = await syncTracks([
-    trackSync({ slug: 'studio', name: 'Constructor Studio', productManagerGithubId: '999999' }),
+    trackSync({ slug: 'studio', name: 'Constructor Studio', productManagerGithubLogin: 'nobody-by-this-login' }),
     trackSync({ slug: 'insight', name: 'Constructor Insight' }),
   ])
 
@@ -76,20 +76,22 @@ test('rejects a track whose leader github_id is not a real contributor, without 
   expect(await listTracks()).toHaveLength(1)
 })
 
-test('assigns and fully replaces a track admins set on every sync', async () => {
+test('assigns and fully replaces a track admins set on every sync, resolved by login', async () => {
   await pool.query("INSERT INTO contributors (github_id, github_login) VALUES (1001, 'octocat'), (2002, 'grace')")
 
-  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubIds: ['1001'] })])
+  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubLogins: ['octocat'] })])
   let { rows } = await pool.query('SELECT github_id::text FROM track_admins')
   expect(rows.map((r) => r.github_id)).toEqual(['1001'])
 
-  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubIds: ['2002'] })])
+  await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubLogins: ['grace'] })])
   ;({ rows } = await pool.query('SELECT github_id::text FROM track_admins'))
   expect(rows.map((r) => r.github_id)).toEqual(['2002'])
 })
 
-test('rejects a track whose admin github_id is not a real contributor', async () => {
-  const { rejected } = await syncTracks([trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubIds: ['999999'] })])
+test('rejects a track whose admin login is not a real contributor', async () => {
+  const { rejected } = await syncTracks([
+    trackSync({ slug: 'studio', name: 'Constructor Studio', adminGithubLogins: ['nobody-by-this-login'] }),
+  ])
 
   expect(rejected).toEqual(['studio'])
   // The track itself still synced — only the admin assignment failed.

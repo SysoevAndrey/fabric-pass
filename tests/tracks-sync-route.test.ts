@@ -45,12 +45,12 @@ test('syncs tracks from the registry file', async () => {
   expect(tracks[0].slug).toBe('studio')
 })
 
-test('reports invalid rows and rejected FK references as skipped, without failing the request', async () => {
+test('reports invalid rows and unresolved logins as skipped, without failing the request', async () => {
   const response = await syncRoute(
     new Request('http://localhost/internal/tracks/sync', {
       method: 'POST',
       headers: { authorization: `Bearer ${SYNC_SECRET}` },
-      body: 'tracks:\n  - name: no slug here\n  - slug: studio\n    name: Constructor Studio\n    leaders:\n      product_manager: "999999"\n',
+      body: 'tracks:\n  - name: no slug here\n  - slug: studio\n    name: Constructor Studio\n    leaders:\n      product_manager: nobody-by-this-login\n',
     }),
   )
 

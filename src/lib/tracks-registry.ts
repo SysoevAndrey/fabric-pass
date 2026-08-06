@@ -8,10 +8,13 @@ const repositorySchema = z.object({
   issue_tracker: z.string().min(1).optional(),
 })
 
-// Leader github_ids accept a bare YAML integer too, same reasoning as
-// contributors-registry.ts's github_id: an admin hand-editing the file
-// isn't guaranteed to keep this app's own quoting.
-const leaderId = z.union([z.string(), z.number()]).transform(String).nullish()
+// A GitHub login, not a github_id — logins are what a human hand-editing
+// this file actually knows and can eyeball-verify, unlike an opaque numeric
+// id. syncTracks resolves each one to the matching contributor's github_id
+// at sync time (a login isn't stable enough to store as the real key —
+// GitHub accounts can rename — so github_id stays the identity everywhere
+// else in this app; only this file's human-facing format changes).
+const leaderLogin = z.string().min(1).nullish()
 
 const trackRowSchema = z.object({
   slug: z.string().min(1),
@@ -20,14 +23,14 @@ const trackRowSchema = z.object({
   repositories: z.array(repositorySchema).default([]),
   leaders: z
     .object({
-      product_manager: leaderId,
-      architect: leaderId,
-      developer: leaderId,
-      quality: leaderId,
-      researcher: leaderId,
+      product_manager: leaderLogin,
+      architect: leaderLogin,
+      developer: leaderLogin,
+      quality: leaderLogin,
+      researcher: leaderLogin,
     })
     .default({}),
-  admins: z.array(z.union([z.string(), z.number()]).transform(String)).default([]),
+  admins: z.array(z.string().min(1)).default([]),
 })
 
 const registryFileSchema = z.object({
@@ -38,7 +41,9 @@ const registryFileSchema = z.object({
  * pass/tracks.yaml -> TrackSync[]. A row failing validation (missing slug
  * or name) is dropped, not thrown on — same reasoning as
  * contributors-registry.ts's parseRegistryYaml: one malformed hand-edit
- * shouldn't block every other track from syncing.
+ * shouldn't block every other track from syncing. Login -> github_id
+ * resolution happens later, in tracks.ts's syncTracks — this function has
+ * no database connection to validate against.
  */
 export function parseTracksYaml(content: string): { tracks: TrackSync[]; invalidRowCount: number } {
   const parsed = registryFileSchema.parse(parse(content) ?? {})
@@ -60,12 +65,12 @@ export function parseTracksYaml(content: string): { tracks: TrackSync[]; invalid
         description: repo.description,
         issueTracker: repo.issue_tracker,
       })),
-      productManagerGithubId: row.data.leaders.product_manager ?? undefined,
-      architectGithubId: row.data.leaders.architect ?? undefined,
-      developerGithubId: row.data.leaders.developer ?? undefined,
-      qualityGithubId: row.data.leaders.quality ?? undefined,
-      researcherGithubId: row.data.leaders.researcher ?? undefined,
-      adminGithubIds: row.data.admins,
+      productManagerGithubLogin: row.data.leaders.product_manager ?? undefined,
+      architectGithubLogin: row.data.leaders.architect ?? undefined,
+      developerGithubLogin: row.data.leaders.developer ?? undefined,
+      qualityGithubLogin: row.data.leaders.quality ?? undefined,
+      researcherGithubLogin: row.data.leaders.researcher ?? undefined,
+      adminGithubLogins: row.data.admins,
     })
   }
 
