@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import { pool } from '@/lib/db'
 import { EMAIL_CONFIRMATION_TTL_MS, sendConfirmationEmail } from '@/lib/email'
+import { isProviderConfigured } from '@/lib/providers'
 import type { Identity, ProviderName } from '@/lib/providers/types'
+import { computeProfileCompleteness, type ProfileCompleteness } from '@/lib/profile-completeness'
 
 /**
  * `draft`/`confirmed` are owned by cf-internal's pass/contributors.yaml, not
@@ -62,6 +64,10 @@ export interface Contributor {
    * registry file, same as `status`/`isAgent`. `isRootUser` (lib/root-user.ts)
    * is a separate, env-configured admin that isn't stored here at all. */
   isAdmin: boolean
+  /** IDEA-034 — derived, not self-reported; see refreshProfileCompleteness.
+   * Exported to pass/contributors.yaml for visibility, same as
+   * emailConfirmedAt, but never read back in from the file. */
+  profileCompleteness: ProfileCompleteness
   createdAt: Date
   updatedAt: Date
 }
@@ -118,6 +124,7 @@ interface Row {
   alias_of_github_id: string | null
   is_agent: boolean
   is_admin: boolean
+  profile_completeness: ProfileCompleteness
   created_at: Date
   updated_at: Date
 }
@@ -148,6 +155,7 @@ function toContributor(row: Row): Contributor {
     aliasOfGithubId: row.alias_of_github_id ?? undefined,
     isAgent: row.is_agent,
     isAdmin: row.is_admin,
+    profileCompleteness: row.profile_completeness,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -286,6 +294,55 @@ export async function linkProvider(
     throw error
   }
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+  // Discord/Telegram/LinkedIn all factor into completeness (mandatory for
+  // Discord, optional for the other two) — not run in the alias-conflict
+  // branch above, since that path never touches this row's own provider
+  // columns, only alias_of_github_id (see missingForCompleteness's doc
+  // comment on why alias-inherited links don't count here, matching the
+  // existing mandatory-field check's own precedent).
+  await refreshProfileCompleteness(githubId)
+}
+
+/**
+ * IDEA-034's persisted `profile_completeness` recomputed from this row's own
+ * current columns — called after every write that could change it
+ * (saveField/saveEmail, confirmEmail, linkProvider). A plain re-read-then-
+ * write rather than folding the computation into each caller's own UPDATE:
+ * one place to keep in sync with computeProfileCompleteness, at the cost of
+ * one extra round-trip per write, which is fine at this app's scale (see
+ * syncTracks's own "a loop is fine here" reasoning). A no-op if the row
+ * doesn't exist — every caller already has its own ContributorNotFoundError
+ * check on the write that precedes this.
+ */
+async function refreshProfileCompleteness(githubId: string): Promise<void> {
+  const { rows } = await pool.query<{
+    name: string | null
+    email: string | null
+    email_confirmed_at: Date | null
+    company: string | null
+    discord_username: string | null
+    telegram_username: string | null
+    telegram_phone: string | null
+    linkedin_name: string | null
+  }>(
+    `SELECT name, email, email_confirmed_at, company, discord_username, telegram_username, telegram_phone, linkedin_name
+       FROM contributors WHERE github_id = $1`,
+    [githubId],
+  )
+  const row = rows[0]
+  if (!row) return
+
+  const completeness = computeProfileCompleteness({
+    name: row.name ?? undefined,
+    email: row.email ?? undefined,
+    company: row.company ?? undefined,
+    discordLinked: Boolean(row.discord_username),
+    emailConfirmed: Boolean(row.email_confirmed_at),
+    telegramLinked: Boolean(row.telegram_username || row.telegram_phone),
+    linkedinLinked: Boolean(row.linkedin_name),
+    linkedinEnabled: isProviderConfigured('linkedin'),
+  })
+  await pool.query('UPDATE contributors SET profile_completeness = $2 WHERE github_id = $1', [githubId, completeness])
 }
 
 /**
@@ -502,6 +559,7 @@ async function saveEmail(githubId: string, value: string | undefined): Promise<v
     [githubId, normalized],
   )
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+  await refreshProfileCompleteness(githubId)
 }
 
 /**
@@ -525,6 +583,7 @@ export async function saveField(githubId: string, field: DetailField, value: str
     value ?? null,
   ])
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+  await refreshProfileCompleteness(githubId)
 }
 
 export type EmailConfirmationResult = 'confirmed' | 'expired' | 'invalid'
@@ -565,6 +624,7 @@ export async function confirmEmail(token: string): Promise<EmailConfirmationResu
   await pool.query('UPDATE contributors SET email_confirmed_at = now(), updated_at = now() WHERE github_id = $1', [
     row.github_id,
   ])
+  await refreshProfileCompleteness(row.github_id)
   return 'confirmed'
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { missingMandatoryFields } from './profile-completeness.ts'
+import { computeProfileCompleteness, missingForCompleteness, missingMandatoryFields } from './profile-completeness.ts'
 
 const complete = { name: 'Ada Lovelace', email: 'ada@example.com', company: 'Constructor', discordUsername: 'ada' }
 
@@ -30,4 +30,62 @@ test('every blank field is reported together, in field order', () => {
     'Company',
     'Discord',
   ])
+})
+
+const completeInput = {
+  name: 'Ada Lovelace',
+  email: 'ada@example.com',
+  company: 'Constructor',
+  discordLinked: true,
+  emailConfirmed: true,
+  telegramLinked: true,
+  linkedinLinked: true,
+  linkedinEnabled: true,
+}
+
+test('a missing mandatory field is incomplete, even with everything optional filled in', () => {
+  expect(computeProfileCompleteness({ ...completeInput, company: '' })).toBe('incomplete')
+})
+
+test('every mandatory field filled but email unconfirmed is incomplete, not ready', () => {
+  expect(computeProfileCompleteness({ ...completeInput, emailConfirmed: false })).toBe('incomplete')
+})
+
+test('every mandatory field filled and confirmed, but telegram missing, is ready', () => {
+  expect(computeProfileCompleteness({ ...completeInput, telegramLinked: false })).toBe('ready')
+})
+
+test('every mandatory field filled and confirmed, but linkedin missing, is ready when linkedin is enabled', () => {
+  expect(computeProfileCompleteness({ ...completeInput, linkedinLinked: false })).toBe('ready')
+})
+
+test('linkedin missing does not block complete when linkedin is not enabled on this deploy', () => {
+  expect(computeProfileCompleteness({ ...completeInput, linkedinLinked: false, linkedinEnabled: false })).toBe('complete')
+})
+
+test('every mandatory and optional field filled in, confirmed, is complete', () => {
+  expect(computeProfileCompleteness(completeInput)).toBe('complete')
+})
+
+test('missingForCompleteness lists mandatory and optional gaps together', () => {
+  expect(
+    missingForCompleteness({
+      name: '',
+      email: 'ada@example.com',
+      company: '',
+      discordLinked: false,
+      emailConfirmed: true,
+      telegramLinked: false,
+      linkedinLinked: false,
+      linkedinEnabled: true,
+    }),
+  ).toEqual(['Full Name', 'Company', 'Discord', 'Telegram', 'LinkedIn'])
+})
+
+test('missingForCompleteness reports nothing for a complete profile', () => {
+  expect(missingForCompleteness(completeInput)).toEqual([])
+})
+
+test('missingForCompleteness reports email confirmation as missing separately from a blank email', () => {
+  expect(missingForCompleteness({ ...completeInput, emailConfirmed: false })).toEqual(['Email confirmation'])
 })

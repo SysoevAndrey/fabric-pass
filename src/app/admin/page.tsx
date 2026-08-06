@@ -7,7 +7,9 @@ import { AdminContributorTable } from './admin-contributor-table'
 /**
  * IDEA-012 — Admin-only. Reuses listContributorsForRegistry rather than a
  * new query: it already returns every column for every contributor
- * regardless of status, which is exactly "the full contributor table."
+ * regardless of status, which is exactly "the full contributor table" —
+ * including profileCompleteness (IDEA-034), which IDEA-036's table adds a
+ * column and filter for.
  */
 export default async function AdminPage() {
   const session = await getSession()
@@ -37,6 +39,7 @@ export default async function AdminPage() {
           email: c.email ?? null,
           company: c.company ?? null,
           status: c.status,
+          profileCompleteness: c.profileCompleteness,
         }))}
       />
     </>

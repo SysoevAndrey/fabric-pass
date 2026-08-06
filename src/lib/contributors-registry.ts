@@ -44,6 +44,10 @@ interface RegistryRow {
   alias_of_github_id: string | null
   is_agent: boolean
   is_admin: boolean
+  // IDEA-034 — derived, exported for visibility the same way
+  // email_confirmed_at is, and likewise never read back in (see
+  // registryRowSchema below and contributors.ts's refreshProfileCompleteness).
+  profile_completeness: string
   created_at: string
   updated_at: string
 }
@@ -80,6 +84,7 @@ export function toRegistryYaml(contributors: Contributor[]): string {
     alias_of_github_id: contributor.aliasOfGithubId ?? null,
     is_agent: contributor.isAgent,
     is_admin: contributor.isAdmin,
+    profile_completeness: contributor.profileCompleteness,
     created_at: contributor.createdAt.toISOString(),
     updated_at: contributor.updatedAt.toISOString(),
   }))

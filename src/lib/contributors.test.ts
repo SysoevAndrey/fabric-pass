@@ -299,6 +299,55 @@ test('saveField rejects a field name outside the closed set rather than building
   await expect(saveField('1001', 'is_admin', 'true')).rejects.toThrow(/not a recognized field/)
 })
 
+// IDEA-034's profile_completeness — derived and recomputed after every
+// write that could change it (see contributors.ts's refreshProfileCompleteness).
+// .env.test sets no LINKEDIN_CLIENT_ID/SECRET, so isProviderConfigured('linkedin')
+// is false here — Complete only requires Telegram, matching a deploy that
+// never enabled LinkedIn (see computeProfileCompleteness's doc comment).
+test('a fresh contributor starts incomplete', async () => {
+  await ensureContributor('1001', 'octocat')
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('incomplete')
+})
+
+test('profile_completeness tracks every write that could change it: mandatory fields, discord, then email confirmation', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await saveField('1001', 'email', 'ada@example.com')
+  await saveField('1001', 'company', 'Analytical Engines')
+  // Every mandatory field is filled except Discord, and the email isn't
+  // confirmed yet — still incomplete on both counts.
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('incomplete')
+
+  await linkProvider('1001', 'discord', { providerId: '555', username: 'ada-discord' })
+  // Discord's now linked, but the email still isn't confirmed.
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('incomplete')
+
+  await resendConfirmationEmail('1001')
+  const token = await confirmationToken('1001')
+  await confirmEmail(token!)
+  // Every mandatory field filled and confirmed, but Telegram isn't linked yet.
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('ready')
+
+  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg' })
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('complete')
+})
+
+test('changing the email back to unconfirmed drops a complete profile back to incomplete', async () => {
+  await ensureContributor('1001', 'octocat')
+  await saveField('1001', 'name', 'Ada Lovelace')
+  await saveField('1001', 'email', 'ada@example.com')
+  await saveField('1001', 'company', 'Analytical Engines')
+  await linkProvider('1001', 'discord', { providerId: '555', username: 'ada-discord' })
+  await linkProvider('1001', 'telegram', { providerId: '777', username: 'ada-tg' })
+  await resendConfirmationEmail('1001')
+  await confirmEmail((await confirmationToken('1001'))!)
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('complete')
+
+  // saveEmail clears email_confirmed_at whenever the address actually changes.
+  await saveField('1001', 'email', 'ada.new@example.com')
+  expect((await findByGithubId('1001'))?.profileCompleteness).toBe('incomplete')
+})
+
 test('syncContributorAdminFields applies status/alias/is_agent and reports an unmatched github_id back', async () => {
   await ensureContributor('1001', 'octocat')
   await ensureContributor('2002', 'grace')

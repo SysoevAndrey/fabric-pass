@@ -533,6 +533,49 @@ button,
   color: var(--muted);
 }
 
+/* IDEA-034's completeness badge, on the Profile page — shares the pill
+   shape of the Admin page's .admin-status (IDEA-012/036) but stays its own
+   class since the two track different concepts (org-membership status vs.
+   how filled-in a profile is) that only look alike, not the same thing. */
+.profile-completeness {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+}
+
+.completeness-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.completeness-badge-incomplete {
+  background: #fbe9e9;
+  color: #c33;
+}
+
+.completeness-badge-ready {
+  background: #fff4e0;
+  color: #a85d00;
+}
+
+.completeness-badge-complete {
+  background: #e6f4ea;
+  color: #1a7f37;
+}
+
+/* Hint lives in the title attribute (native tooltip, same pattern as the
+   Edit/Close icon buttons) — this is just the affordance that there's one. */
+.completeness-info {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  cursor: help;
+}
+
 .collected {
   margin-top: 3rem;
   padding-top: 1.5rem;
@@ -676,27 +719,56 @@ button,
   cursor: default;
 }
 
-/* IDEA-012's admin table. Scrolls horizontally within the page's normal
-   narrow column rather than widening `main` just for this one page — every
-   other page here is a single fixed-width column, and a table with six
-   columns doesn't earn redesigning that. */
-.admin-table-wrapper {
-  margin-top: 1rem;
-  overflow-x: auto;
+/* IDEA-036 — replaced IDEA-012's original table (which needed horizontal
+   scroll to see every column at once, see the since-removed
+   .admin-table-wrapper) with tiles that wrap and stay within the page's
+   normal fixed-width column. */
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.admin-table {
-  border-collapse: collapse;
-  width: 100%;
+.admin-filters input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.admin-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.admin-tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-tile-login {
+  font-weight: 600;
+}
+
+.admin-tile-name {
+  font-weight: 600;
+}
+
+.admin-tile-field {
+  color: var(--muted);
   font-size: 0.9rem;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .admin-status {

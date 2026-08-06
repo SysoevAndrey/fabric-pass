@@ -9,6 +9,7 @@ function contributor(overrides: Partial<Contributor> & { githubId: string }): Co
     status: 'confirmed',
     isAgent: false,
     isAdmin: false,
+    profileCompleteness: 'incomplete',
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     ...overrides,
