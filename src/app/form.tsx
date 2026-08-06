@@ -6,8 +6,13 @@ import type { ReactNode } from 'react'
 import { AutosaveField, CompanyField, EmailField } from './autosave-field'
 import type { Notice } from './auth/notice'
 import { Collected } from './collected'
-import { missingMandatoryFields } from '@/lib/profile-completeness'
-import { CloseMark, DiscordMark, LinkedInMark, PencilMark, TelegramMark } from './marks'
+import {
+  computeProfileCompleteness,
+  missingForCompleteness,
+  missingMandatoryFields,
+  PROFILE_COMPLETENESS_LABELS,
+} from '@/lib/profile-completeness'
+import { CloseMark, DiscordMark, InfoMark, LinkedInMark, PencilMark, TelegramMark } from './marks'
 
 interface Props {
   telegramLabel: string | null
@@ -91,6 +96,28 @@ export function ContributorForm({
   const [company, setCompany] = useState(defaults.company)
   const [saveMessage, setSaveMessage] = useState<string>()
 
+  // IDEA-034 — recomputed on every render from the same live state Save's
+  // gate already tracks, so the badge updates the instant a field autosaves
+  // rather than only after the next page load. discordLabel/telegramLabel/
+  // linkedinLabel and emailConfirmedAt aren't live state themselves (they
+  // only change via a full-page redirect back to this page — a provider
+  // OAuth flow, or the emailed confirmation link — same caveat already
+  // documented on handleSave and EmailField's confirmedAt/sentAt props), but
+  // that redirect always re-renders this component fresh, so they're never
+  // stale for longer than that round trip.
+  const completenessInput = {
+    name,
+    email,
+    company,
+    discordLinked: Boolean(discordLabel),
+    emailConfirmed: Boolean(emailConfirmedAt),
+    telegramLinked: Boolean(telegramLabel),
+    linkedinLinked: Boolean(linkedinLabel),
+    linkedinEnabled,
+  }
+  const completeness = computeProfileCompleteness(completenessInput)
+  const missingForBadge = missingForCompleteness(completenessInput)
+
   // Save leaves Profile entirely, back to Main — unlike Close (below), which
   // only backs out of edit mode without navigating anywhere. Every field has
   // already autosaved by the time Save is pressed; this is "I'm done," not
@@ -149,6 +176,22 @@ export function ContributorForm({
         )}
       </div>
       <p className="subtitle">Please share your contact details below to make it easier for other community members to reach you and for us to grant you access to relevant community resources.</p>
+
+      {/* IDEA-034 — owner-only (this form is never rendered for anyone but
+          the signed-in contributor's own profile; the public read-only view
+          is PublicProfileView, a separate component). Shown in both modes,
+          not just view, so it updates live as fields autosave in edit mode
+          rather than only after the next page load. */}
+      <div className="profile-completeness">
+        <span className={`completeness-badge completeness-badge-${completeness}`}>
+          {PROFILE_COMPLETENESS_LABELS[completeness]}
+        </span>
+        {missingForBadge.length > 0 ? (
+          <span className="completeness-info" title={`Still needed: ${missingForBadge.join(', ')}.`}>
+            <InfoMark size={14} />
+          </span>
+        ) : null}
+      </div>
 
       {notice ? <p className={notice.kind}>{notice.message}</p> : null}
       {saveMessage ? <p className="error" role="alert">{saveMessage}</p> : null}

@@ -41,3 +41,76 @@ export function isProfileComplete(values: {
 }): boolean {
   return missingMandatoryFields(values).length === 0
 }
+
+/**
+ * IDEA-034's three-state reading of a profile — Incomplete/Ready/Complete —
+ * layered on top of the mandatory-field check above rather than replacing
+ * it: Incomplete is exactly "not profile-complete, or complete but the
+ * email isn't confirmed yet"; Ready and Complete both require every
+ * mandatory field filled *and* the email confirmed, differing only in
+ * whether Telegram and LinkedIn (this app's two optional identity links)
+ * are also linked.
+ *
+ * Takes pre-resolved booleans (`discordLinked`, not `discordUsername`) so
+ * one function serves both callers identically: contributors.ts derives
+ * them from raw DB columns for the persisted `profile_completeness`
+ * column, form.tsx derives them from the same `discordLabel`/`telegramLabel`/
+ * `linkedinLabel` props it already renders with, for the live badge shown
+ * while editing.
+ *
+ * `linkedinEnabled` matters because LinkedIn is this app's one optional
+ * provider (see lib/env.ts, lib/providers/index.ts's isProviderConfigured)
+ * — on a deploy that never configured it, nobody could ever link it, so it
+ * must not be required for Complete there. It's passed in rather than
+ * imported here to keep this module client-safe (isProviderConfigured pulls
+ * in lib/env.ts, harmless server-side, but this file is also imported
+ * directly by form.tsx).
+ */
+export const PROFILE_COMPLETENESS_VALUES = ['incomplete', 'ready', 'complete'] as const
+export type ProfileCompleteness = (typeof PROFILE_COMPLETENESS_VALUES)[number]
+
+/** Shared between the Profile page's own badge and the Admin page's
+ * completeness column/filter (IDEA-036), so the two never drift apart. */
+export const PROFILE_COMPLETENESS_LABELS: Record<ProfileCompleteness, string> = {
+  incomplete: 'Incomplete',
+  ready: 'Ready',
+  complete: 'Complete',
+}
+
+export interface ProfileCompletenessInput {
+  name?: string
+  email?: string
+  company?: string
+  discordLinked: boolean
+  emailConfirmed: boolean
+  telegramLinked: boolean
+  linkedinLinked: boolean
+  linkedinEnabled: boolean
+}
+
+export function computeProfileCompleteness(input: ProfileCompletenessInput): ProfileCompleteness {
+  const mandatoryFilled =
+    Boolean(input.name?.trim()) && Boolean(input.email?.trim()) && Boolean(input.company?.trim()) && input.discordLinked
+  if (!mandatoryFilled || !input.emailConfirmed) return 'incomplete'
+  const optionalComplete = input.telegramLinked && (!input.linkedinEnabled || input.linkedinLinked)
+  return optionalComplete ? 'complete' : 'ready'
+}
+
+/** What's still missing, for the info-icon explanation next to the badge —
+ * covers both Incomplete (mandatory items) and Ready (optional items); for
+ * Complete this is always empty. Checks name/email/company directly rather
+ * than reusing missingMandatoryFields, which takes a `discordUsername`
+ * string this input doesn't have (only the resolved `discordLinked`
+ * boolean) — passing it undefined would report Discord missing even when
+ * `discordLinked` is true. */
+export function missingForCompleteness(input: ProfileCompletenessInput): string[] {
+  const missing: string[] = []
+  if (!input.name?.trim()) missing.push('Full Name')
+  if (!input.email?.trim()) missing.push('Email')
+  if (!input.company?.trim()) missing.push('Company')
+  if (!input.discordLinked) missing.push('Discord')
+  if (input.email?.trim() && !input.emailConfirmed) missing.push('Email confirmation')
+  if (!input.telegramLinked) missing.push('Telegram')
+  if (input.linkedinEnabled && !input.linkedinLinked) missing.push('LinkedIn')
+  return missing
+}

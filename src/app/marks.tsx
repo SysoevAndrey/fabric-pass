@@ -53,6 +53,19 @@ export function CloseMark({ size = 20 }: Props) {
   )
 }
 
+/** IDEA-034's completeness badge — a plain "i in a circle", the hint
+ * lives in the element's own title attribute rather than anything drawn
+ * here. */
+export function InfoMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10 9v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="10" cy="6.25" r="1" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function LinkedInMark({ size = 20 }: Props) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">

@@ -10,6 +10,7 @@ function contributor(overrides: Partial<Contributor> = {}): Contributor {
     status: 'draft',
     isAgent: false,
     isAdmin: false,
+    profileCompleteness: 'incomplete',
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     ...overrides,
@@ -29,6 +30,7 @@ test('renders a contributor as a registry row, contact fields and admin fields a
       isAdmin: true,
       linkedinId: 'li-555',
       linkedinName: 'Ada Lovelace',
+      profileCompleteness: 'complete',
     }),
   ])
 
@@ -43,6 +45,7 @@ test('renders a contributor as a registry row, contact fields and admin fields a
   expect(yaml).toContain('alias_of_github_id: "2002"')
   expect(yaml).toContain('is_agent: true')
   expect(yaml).toContain('is_admin: true')
+  expect(yaml).toContain('profile_completeness: complete')
   expect(yaml).toContain('created_at:')
   expect(yaml).toContain('linkedin_id: li-555')
   expect(yaml).toContain('linkedin_name: Ada Lovelace')
