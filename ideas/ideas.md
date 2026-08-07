@@ -382,7 +382,7 @@ Same single-writer concern as IDEA-012: `status` is currently owned by the cf-in
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-022 — Audit log for admin operations
+## [DONE] [vzhuman] IDEA-022 — Audit log for admin operations
 Idea:
 A record of every admin/Track-Admin action taken through the app — Confirm/Block (IDEA-012), Accept/Reject (IDEA-014) — so there's accountability for who changed what and when.
 
@@ -393,6 +393,8 @@ Expected outcome:
 Notes:
 Registry-file-driven changes (editing pass/contributors.yaml or pass/tracks.yaml directly) already have their own audit trail via git history — this idea covers only actions taken in-app, which don't.
 Depends on IDEA-012/014 existing as the actions being logged.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/47 (merged as c6eb9a8) — Admin-only, no Track Admin view.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/43
 
