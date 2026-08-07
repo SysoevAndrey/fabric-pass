@@ -649,7 +649,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/26
 
 By: vzhuman · 2026-08-07
 
-## [TAKEN] [vzhuman] IDEA-038 — Profile & public profile polish: consistent badges, Cancel→Close, inline email confirmation, public profile icons and Close button
+## [DONE] [vzhuman] IDEA-038 — Profile & public profile polish: consistent badges, Cancel→Close, inline email confirmation, public profile icons and Close button
 Idea:
 Six polish items across the signed-in Profile page/form and the public profile page: consistent capitalization for the status/completeness badges wherever shown; the same badge+icon format used everywhere a contributor's status or completeness appears; the Profile edit form's Cancel button renamed to Close; the Email field's always-clickable Confirm/Re-confirm button replaced with a static Confirmed/Confirmation-required tag in view mode; a company icon on the public profile page; and a Close button (→ Main) on the public profile page, matching the Profile page's own Edit/Close pair.
 
@@ -666,6 +666,8 @@ Item 2 is only partially decided: which of status/completeness actually belongs 
 Item 3's "preferred" option per the request — rename Cancel to Close — is what's recorded above. The alternative, an actual rollback of changes made since entering edit mode, is a materially bigger feature (autosave has already persisted each field individually as it was typed; "rollback" means tracking and reverting every field back to its value on entry) and isn't the default here.
 Item 4 only changes Profile *view* mode — edit mode keeps today's actionable Confirm/Re-confirm button, since sending a confirmation email is still something the contributor needs to be able to trigger.
 Items 5/6 reuse existing pieces — `CompanyMark`/`CloseMark` (added for IDEA-036/037 and IDEA-001 respectively) and the Profile page's own `icon-button-square` pattern — no new icon design needed.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/49 (merged as ed42ac8) — item 2 resolved as status-only (never completeness) on search results and public profiles.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/28
 
