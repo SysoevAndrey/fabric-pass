@@ -557,6 +557,15 @@ button,
   color: var(--muted);
 }
 
+/* IDEA-038 — the public profile's company line, paired with an icon
+   (.admin-tile-property's own inline-flex+gap shape, not shared directly
+   since that class also carries its own font-size). */
+.subtitle-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 /* IDEA-034's completeness badge, on the Profile page — shares the pill
    shape of the Admin page's .admin-status (IDEA-012/036) but stays its own
    class since the two track different concepts (org-membership status vs.
@@ -667,6 +676,17 @@ button,
   white-space: nowrap;
 }
 
+/* IDEA-038 item 4 — same spot/shape as .email-confirmed-status above, red
+   rather than green: view mode's static stand-in for the Confirm/Re-confirm
+   button, shown while there's an address on file but it isn't confirmed. */
+.email-unconfirmed-status {
+  padding: 0.4rem 0.85rem;
+  color: #c33;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 .contributor-search {
   margin-top: 0.5rem;
 }
@@ -690,6 +710,15 @@ button,
   padding: 0.6rem 0.75rem;
   color: var(--ink);
   text-decoration: none;
+}
+
+/* IDEA-038 — the status badge sits at the row's right edge, name/company on
+   the left, both vertically centered. */
+.search-result-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .search-results a:hover {

@@ -97,7 +97,11 @@ export function AutosaveField({ id, field, label, type = 'text', placeholder, de
  * an editable input on the left instead of a static value. Sending is a
  * deliberate click (see contributors.ts's saveEmail), never automatic. Once
  * confirmed, that same spot shows a plain "Confirmed" status instead — text,
- * not a button, since there's nothing left to click.
+ * not a button, since there's nothing left to click. IDEA-038 — the same
+ * button is also swapped for static text ("Confirmation required") whenever
+ * `disabled` is true (view mode): the input being read-only shouldn't leave
+ * a live, real-resend-triggering button sitting next to it. Edit mode keeps
+ * the actionable button either way.
  * `confirmedAt`/`sentAt` come from the server and don't update until the
  * page reloads — a save that changes the address won't flip this status or
  * the pending message below until then, consistent with the rest of this
@@ -141,6 +145,14 @@ export function EmailField({
         />
         {confirmedAt ? (
           <span className="email-confirmed-status">✓ Confirmed</span>
+        ) : value && disabled ? (
+          // IDEA-038 item 4 — view mode's spot for this is a static tag,
+          // not the Confirm/Re-confirm button below: that button triggers a
+          // real resend on click, which a read-only view shouldn't be able
+          // to do by accident. Edit mode (disabled=false) keeps the real
+          // button, since sending a confirmation email is still something
+          // the contributor needs to be able to trigger from there.
+          <span className="email-unconfirmed-status">Confirmation required</span>
         ) : value ? (
           <a className="link-button brand email" href="/auth/resend-confirmation">
             <EmailMark size={16} />
