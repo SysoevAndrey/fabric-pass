@@ -275,7 +275,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/40
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
+## [DONE] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
 Idea:
 A "getting started" checklist on the Main page for a contributor whose profile isn't yet complete, tying together pieces that already exist separately: fill in the profile, read the community policies, join a track.
 
@@ -286,6 +286,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-000 (mandatory-field/completeness concept), IDEA-006 (policies), and IDEA-013 (join request) all existing first — this is a thin layer tying them together, not a new capability on its own.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/48 (merged as c36e0bd) — visibility gated on IDEA-034's full completeness, not just IDEA-000's original mandatory-field check.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/41
 
