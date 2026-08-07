@@ -1,6 +1,13 @@
 import { afterAll, beforeEach, expect, test } from 'vitest'
 import { pool } from './db.ts'
-import { decideJoinRequest, getMyMembership, listTrackMembership, NotPendingError, requestToJoinTrack } from './track-members.ts'
+import {
+  anyMembershipSummary,
+  decideJoinRequest,
+  getMyMembership,
+  listTrackMembership,
+  NotPendingError,
+  requestToJoinTrack,
+} from './track-members.ts'
 
 beforeEach(async () => {
   await pool.query('TRUNCATE track_members, tracks, contributors CASCADE')
@@ -162,4 +169,52 @@ test('listTrackMembership scopes strictly to the given track', async () => {
 
   expect(members).toHaveLength(1)
   expect(members[0].trackId).toBe(trackId)
+})
+
+test('anyMembershipSummary reports none when the contributor has never requested anywhere', async () => {
+  await seedContributor('1', 'ada')
+  expect(await anyMembershipSummary('1')).toBe('none')
+})
+
+test('anyMembershipSummary reports pending while a request is awaiting review', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await requestToJoinTrack(trackId, '1')
+
+  expect(await anyMembershipSummary('1')).toBe('pending')
+})
+
+test('anyMembershipSummary reports approved once any track has accepted the contributor', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'approved', '2')
+
+  expect(await anyMembershipSummary('1')).toBe('approved')
+})
+
+test('anyMembershipSummary prefers approved over a pending request on a different track', async () => {
+  const trackId = await seedTrack()
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO tracks (slug, name) VALUES ('insight', 'Insight') RETURNING id`,
+  )
+  const otherTrackId = rows[0].id
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'approved', '2')
+  await requestToJoinTrack(otherTrackId, '1')
+
+  expect(await anyMembershipSummary('1')).toBe('approved')
+})
+
+test('anyMembershipSummary reports none for a rejected-only history, not stuck', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'rejected', '2')
+
+  expect(await anyMembershipSummary('1')).toBe('none')
 })

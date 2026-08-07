@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation'
 import { findByGithubId } from '@/lib/contributors'
 import { isProfileComplete } from '@/lib/profile-completeness'
 import { getSession } from '@/lib/session'
+import { anyMembershipSummary } from '@/lib/track-members'
 import { noticeKind, noticeMessage, REAUTH_REQUIRED_MESSAGE, type Notice } from './auth/notice'
 import { ContributorSearch } from './contributor-search'
+import { OnboardingChecklist } from './onboarding-checklist'
 import { SignInPrompt } from './sign-in-prompt'
 
 interface PageProps {
@@ -44,6 +46,20 @@ export default async function Page({ searchParams }: PageProps) {
     redirect(query.size > 0 ? `/profile?${query.toString()}` : '/profile')
   }
 
+  // IDEA-015's checklist stays visible until IDEA-034's full completeness
+  // (mandatory fields + confirmed email + optional Telegram/LinkedIn) —
+  // deliberately richer than the name+email check just above that gates
+  // reaching Main at all, since every viewer of this page already passes
+  // that narrower check and gating the checklist on it too would make it
+  // vanish immediately for everyone. IDEA-034's own notes explicitly
+  // anticipate this checklist reusing its richer completeness for exactly
+  // this. Its "complete profile" step, though, still reports the original,
+  // narrower isProfileComplete (name+email — literally what IDEA-015 asked
+  // for) — always true by the time this renders, which correctly shows a
+  // contributor they've already cleared that bar and have two steps left.
+  const showChecklist = existing.profileCompleteness !== 'complete'
+  const trackMembership = showChecklist ? await anyMembershipSummary(existing.githubId) : 'none'
+
   return (
     <>
       <h2>Constructor Fabric Pass</h2>
@@ -60,6 +76,7 @@ export default async function Page({ searchParams }: PageProps) {
           <Link href="/policies">Community policies →</Link>
         </li>
       </ul>
+      {showChecklist ? <OnboardingChecklist profileComplete={isProfileComplete(existing)} trackMembership={trackMembership} /> : null}
     </>
   )
 }
