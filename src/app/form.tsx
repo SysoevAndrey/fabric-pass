@@ -149,7 +149,7 @@ export function ContributorForm({
       <div className="profile-header">
         <h2>Contributor Profile</h2>
         {/* View mode only — edit mode's actions live at the bottom of the
-            form instead (Save/Cancel, below). Icon-only so the pair reads
+            form instead (Save/Close, below). Icon-only so the pair reads
             as a matched set of squared controls rather than one CTA-shaped
             button; the title/aria-label carry the "Edit"/"Close" hint. */}
         {editing ? null : (
@@ -255,7 +255,7 @@ export function ContributorForm({
             Save
           </button>
           <button type="button" className="button-secondary" onClick={handleClose}>
-            Cancel
+            Close
           </button>
         </div>
       ) : null}

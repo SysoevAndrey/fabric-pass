@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { searchContributorsAction } from './actions'
+import { CONTRIBUTOR_STATUS_LABELS } from '@/lib/contributor-status-labels'
 import type { ContributorSearchResult } from '@/lib/contributors'
+import { StatusMark } from './marks'
 
 /** Snappier than autosave's 600ms debounce (use-autosave-field.ts) — this is
  * read-as-you-type feedback, not a write that needs to avoid firing on
@@ -52,9 +54,20 @@ export function ContributorSearch() {
         <ul className="search-results">
           {results.map((result) => (
             <li key={result.hash}>
-              <Link href={`/contributors/${result.hash}`}>
-                {result.name}
-                {result.company ? <span className="search-result-company"> · {result.company}</span> : null}
+              <Link href={`/contributors/${result.hash}`} className="search-result-link">
+                <span>
+                  {result.name}
+                  {result.company ? <span className="search-result-company"> · {result.company}</span> : null}
+                </span>
+                {/* IDEA-038 item 2 — searchContributors only ever returns
+                    `confirmed` contributors (see its own doc comment), so
+                    this is always the same value; shown anyway for
+                    badge-shape consistency with the Admin table and public
+                    profile. */}
+                <span className="admin-status admin-status-confirmed">
+                  <StatusMark size={12} />
+                  {CONTRIBUTOR_STATUS_LABELS.confirmed}
+                </span>
               </Link>
             </li>
           ))}

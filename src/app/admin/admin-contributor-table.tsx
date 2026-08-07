@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ContributorStatus } from '@/lib/contributors'
+import { CONTRIBUTOR_STATUS_LABELS } from '@/lib/contributor-status-labels'
 import { PROFILE_COMPLETENESS_LABELS, PROFILE_COMPLETENESS_VALUES, type ProfileCompleteness } from '@/lib/profile-completeness'
 import { setContributorStatusAction } from './actions'
 import { CompanyMark, CompletenessMark, DiscordMark, EmailMark, GitHubMark, StatusMark } from '../marks'
@@ -89,7 +90,7 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
           <option value="all">Status</option>
           {CONTRIBUTOR_STATUS_VALUES.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {CONTRIBUTOR_STATUS_LABELS[status]}
             </option>
           ))}
         </select>
@@ -114,10 +115,10 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
               <h3 className="admin-tile-name">{row.name ?? `@${row.githubLogin}`}</h3>
               <span
                 className={`admin-status admin-status-${row.status}`}
-                title={`Status: ${row.status} — set by an Admin, not the contributor`}
+                title={`Status: ${CONTRIBUTOR_STATUS_LABELS[row.status]} — set by an Admin, not the contributor`}
               >
                 <StatusMark size={13} />
-                {row.status}
+                {CONTRIBUTOR_STATUS_LABELS[row.status]}
               </span>
             </div>
 

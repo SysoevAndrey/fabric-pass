@@ -1,4 +1,6 @@
-import { DiscordMark, EmailMark, GitHubMark, LinkedInMark, TelegramMark } from '@/app/marks'
+import Link from 'next/link'
+import { CloseMark, CompanyMark, DiscordMark, EmailMark, GitHubMark, LinkedInMark, StatusMark, TelegramMark } from '@/app/marks'
+import { CONTRIBUTOR_STATUS_LABELS } from '@/lib/contributor-status-labels'
 import type { PublicProfile } from '@/lib/contributors'
 
 /**
@@ -9,12 +11,34 @@ import type { PublicProfile } from '@/lib/contributors'
  * doc comment — no username/vanity-URL claim to build one from), and a
  * Telegram contact known only by phone shows as plain text rather than a
  * fake "open chat" link a phone number can't actually back.
+ *
+ * IDEA-038 — the status badge is hardcoded to 'confirmed' rather than a
+ * field on PublicProfile: getPublicProfile only ever returns a `confirmed`
+ * row (see its own doc comment), so there's no other value this could
+ * show, and adding a column just to carry a constant isn't worth it. Shown
+ * for badge-shape consistency with the Admin table and search results, per
+ * this session's item-2 decision (status only, never completeness, on
+ * anyone's profile but your own).
  */
 export function PublicProfileView({ profile }: { profile: PublicProfile }) {
   return (
     <>
-      <h2>{profile.name}</h2>
-      {profile.company ? <p className="subtitle">{profile.company}</p> : null}
+      <div className="profile-header">
+        <h2>{profile.name}</h2>
+        <Link href="/" className="icon-button-square" title="Close" aria-label="Close">
+          <CloseMark size={16} />
+        </Link>
+      </div>
+      <span className="admin-status admin-status-confirmed" title={`Status: ${CONTRIBUTOR_STATUS_LABELS.confirmed}`}>
+        <StatusMark size={13} />
+        {CONTRIBUTOR_STATUS_LABELS.confirmed}
+      </span>
+      {profile.company ? (
+        <p className="subtitle subtitle-with-icon">
+          <CompanyMark size={14} />
+          {profile.company}
+        </p>
+      ) : null}
 
       <ul className="contact-list">
         <li>
