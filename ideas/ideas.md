@@ -249,6 +249,8 @@ Expected outcome:
 Notes:
 Depends on IDEA-010 (tracks must exist) and IDEA-007 (the track page this is requested from).
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/39
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
@@ -265,6 +267,8 @@ Expected outcome:
 Notes:
 Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-010 (tracks and their membership).
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/40
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
@@ -278,6 +282,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-000 (mandatory-field/completeness concept), IDEA-006 (policies), and IDEA-013 (join request) all existing first — this is a thin layer tying them together, not a new capability on its own.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/41
 
 By: vzhuman · 2026-07-31
 
@@ -333,6 +339,8 @@ Expected outcome:
 Notes:
 Depends on IDEA-013/014 for the decision this reports. Notification channel (in-app only vs. also email) is undecided.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/42
+
 By: vzhuman · 2026-07-31
 
 ## [TODO] IDEA-020 — Discord announcements bell icon
@@ -379,6 +387,8 @@ Expected outcome:
 Notes:
 Registry-file-driven changes (editing pass/contributors.yaml or pass/tracks.yaml directly) already have their own audit trail via git history — this idea covers only actions taken in-app, which don't.
 Depends on IDEA-012/014 existing as the actions being logged.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/43
 
 By: vzhuman · 2026-07-31
 
@@ -455,6 +465,8 @@ Recommended source: DigitalOcean's Droplet Monitoring API, via a read-only DO AP
 Alternative considered and rejected: reading `/proc`, `/sys`, or Docker stats directly from inside the app container, which would need mounting host paths or the Docker socket into the app — the same "host-root-equivalent power" already flagged as a real risk for the webhook container (cfabric-pass-setup.md's Implementation notes under Step 6), and the app is the public-facing, larger-attack-surface service, not a narrow bearer-token-gated one. Calling out to the DO API instead keeps the app itself unprivileged.
 Depends on nothing existing in this app yet; IDEA-028 depends on this.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/44
+
 By: vzhuman · 2026-08-04
 
 ## [TAKEN] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
@@ -469,6 +481,8 @@ Expected outcome:
 Notes:
 Suggested thresholds, not confirmed: green < 60%, yellow 60–85%, red > 85% — reasonable defaults, but worth agreeing on deliberately rather than treating these as settled.
 Depends on IDEA-027 for real data to show, and IDEA-011 for the Admin role to gate on.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/45
 
 By: vzhuman · 2026-08-04
 
