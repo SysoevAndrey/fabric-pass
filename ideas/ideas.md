@@ -579,3 +579,20 @@ Result: PR https://github.com/constructorfabric/fabric-pass/pull/25 (merged as 0
 Task: https://github.com/constructorfabric/fabric-pass/issues/24
 
 By: vzhuman · 2026-08-06
+
+## [TAKEN] [vzhuman] IDEA-037 — Admin tiles: full-width single column, Full Name as primary identifier, labelled icons
+Idea:
+A follow-up to IDEA-036's Admin tiles (DONE): one tile per row instead of a multi-column grid, Full Name promoted to the visually primary identifier with everything else (GitHub, Email, Company, Discord) shown as icon-labelled secondary properties, the status and completeness badges each carrying a distinguishing icon so they're not mistaken for one another, and Confirm/Block restyled as primary/secondary buttons (reusing the profile form's own `.button-primary`/`.button-secondary`).
+
+Expected outcome:
+- `.admin-tiles` is a single column at any width — no multi-tile grid row.
+- A tile's Full Name renders larger/bolder than everything else on it; falls back to `@login` when no name is set, so the primary identifier is never blank.
+- GitHub, Email, Company, and Discord (new — not shown on the tile before this) each render with their own icon instead of a text label, flowing in a compact wrapped row.
+- The status badge (admin-set) and completeness badge (derived) each carry a distinct icon, with a title hint spelling out which is which.
+- Confirm is `.button-primary`, Block is `.button-secondary`; both already disabled once the row is already in that state (IDEA-036), now with an actually greyed-out look via a `:disabled` opacity rule.
+- Filter dropdowns' default option reads "Status"/"Completeness" instead of "Every status"/"Every completeness".
+
+Notes:
+Purely a UI pass over IDEA-036's own tiles — no data model or server-action change, aside from adding `discordUsername` to the row already fetched by `listContributorsForRegistry`.
+
+By: vzhuman · 2026-08-07
