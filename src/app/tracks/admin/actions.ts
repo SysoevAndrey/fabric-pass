@@ -1,5 +1,6 @@
 'use server'
 
+import { logAdminAction } from '@/lib/audit-log'
 import { findByGithubId } from '@/lib/contributors'
 import { sendTrackDecisionEmail } from '@/lib/email'
 import { isAdmin, isTrackAdmin } from '@/lib/roles'
@@ -51,6 +52,15 @@ export async function decideJoinRequestAction(
     console.error(`decideJoinRequestAction(${trackSlug}, ${requesterGithubId}, ${decision}) failed:`, error)
     return { ok: false, message: 'Could not record this decision right now. Please try again in a moment.' }
   }
+
+  // IDEA-022 — logged after the write succeeds, same discipline as
+  // admin/actions.ts's Confirm/Block.
+  await logAdminAction({
+    actorGithubId: caller.githubId,
+    action: decision === 'approved' ? 'accept' : 'reject',
+    targetGithubId: requesterGithubId,
+    trackId: track.id,
+  })
 
   const requester = await findByGithubId(requesterGithubId)
   if (requester?.email) await sendTrackDecisionEmail(requester.email, track.name, decision)

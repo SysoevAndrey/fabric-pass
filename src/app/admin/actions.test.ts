@@ -13,11 +13,22 @@ const { fakeSession, state } = vi.hoisted(() => ({
     caller: { githubId: '1001', isAdmin: true } as { githubId: string; isAdmin: boolean } | null,
     calls: [] as { githubId: string; status: string }[],
     shouldThrow: false,
+    loggedActions: [] as unknown[],
   },
 }))
 
 vi.mock('@/lib/session', () => ({
   getSession: async () => fakeSession,
+}))
+
+// IDEA-022's logAdminAction talks to the real database (via lib/db's pool)
+// and isn't the thing under test here — every other collaborator in this
+// file is already a double, so this one is too, rather than letting it hit
+// a real Postgres connection this test file has no other reason to need.
+vi.mock('@/lib/audit-log', () => ({
+  logAdminAction: async (input: unknown) => {
+    state.loggedActions.push(input)
+  },
 }))
 
 vi.mock('@/lib/contributors', async () => {
@@ -46,6 +57,7 @@ beforeEach(() => {
   state.caller = { githubId: '1001', isAdmin: true }
   state.calls = []
   state.shouldThrow = false
+  state.loggedActions = []
 })
 
 test('an Admin can confirm a contributor', async () => {
@@ -53,6 +65,7 @@ test('an Admin can confirm a contributor', async () => {
 
   expect(result).toEqual({ ok: true })
   expect(state.calls).toEqual([{ githubId: '2002', status: 'confirmed' }])
+  expect(state.loggedActions).toEqual([{ actorGithubId: '1001', action: 'confirm', targetGithubId: '2002' }])
 })
 
 test('an Admin can block a contributor', async () => {
@@ -60,6 +73,7 @@ test('an Admin can block a contributor', async () => {
 
   expect(result).toEqual({ ok: true })
   expect(state.calls).toEqual([{ githubId: '2002', status: 'blocked' }])
+  expect(state.loggedActions).toEqual([{ actorGithubId: '1001', action: 'block', targetGithubId: '2002' }])
 })
 
 test('refuses when nobody is signed in', async () => {
@@ -69,6 +83,7 @@ test('refuses when nobody is signed in', async () => {
 
   expect(result).toEqual({ ok: false, message: 'Please sign in with GitHub first.' })
   expect(state.calls).toEqual([])
+  expect(state.loggedActions).toEqual([])
 })
 
 // The page's own gate already keeps this button from ever rendering for a
@@ -81,6 +96,7 @@ test('refuses a signed-in contributor who is not an Admin', async () => {
 
   expect(result).toEqual({ ok: false, message: 'Not authorized.' })
   expect(state.calls).toEqual([])
+  expect(state.loggedActions).toEqual([])
 })
 
 // A session naming a githubId with no row (README's "session outlives its
@@ -92,6 +108,7 @@ test('refuses when the caller session names a row that no longer exists', async 
 
   expect(result).toEqual({ ok: false, message: 'Not authorized.' })
   expect(state.calls).toEqual([])
+  expect(state.loggedActions).toEqual([])
 })
 
 test('a database outage is reported without leaking the underlying error', async () => {
@@ -101,4 +118,5 @@ test('a database outage is reported without leaking the underlying error', async
 
   expect(result.ok).toBe(false)
   expect(result.message).toBe('Could not update this contributor right now. Please try again in a moment.')
+  expect(state.loggedActions).toEqual([])
 })

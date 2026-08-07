@@ -67,6 +67,11 @@ export function UserMenu({
               Admin
             </a>
           ) : null}
+          {isAdmin ? (
+            <a className="user-menu-item" href="/admin/audit-log" role="menuitem">
+              Audit log
+            </a>
+          ) : null}
           <a className="user-menu-item" href="/auth/sign-out" role="menuitem">
             Sign Out
           </a>
