@@ -56,10 +56,21 @@ function toTrack(row: TrackRow): Track {
   }
 }
 
-/** Groundwork for IDEA-007's track directory; nothing renders this yet. */
+/** IDEA-007's track directory reads this — every track, always live from
+ * the DB, never a hardcoded list, so it reflects whatever's currently in
+ * `pass/tracks.yaml` with no code change needed when a track is added,
+ * renamed, or removed. */
 export async function listTracks(): Promise<Track[]> {
   const { rows } = await pool.query<TrackRow>('SELECT * FROM tracks ORDER BY name')
   return rows.map(toTrack)
+}
+
+/** IDEA-035's track page looks up one track by its slug (the URL segment,
+ * `/tracks/[slug]`) — `null` for an unknown slug, same "not found" shape as
+ * `findByGithubId`. */
+export async function findTrackBySlug(slug: string): Promise<Track | null> {
+  const { rows } = await pool.query<TrackRow>('SELECT * FROM tracks WHERE slug = $1', [slug])
+  return rows[0] ? toTrack(rows[0]) : null
 }
 
 export interface TrackSync {

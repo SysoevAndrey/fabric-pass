@@ -25,7 +25,9 @@ ENV DATABASE_URL=postgresql://placeholder:5432/placeholder \
     TELEGRAM_CLIENT_SECRET=placeholder \
     CONTRIBUTORS_EXPORT_SECRET=placeholder \
     CONTRIBUTORS_SYNC_SECRET=placeholder \
-    TRACKS_SYNC_SECRET=placeholder
+    TRACKS_SYNC_SECRET=placeholder \
+    ARTIFACT_LINKS_SYNC_SECRET=placeholder \
+    TRACK_PAGE_TEMPLATE_SYNC_SECRET=placeholder
 RUN pnpm build
 
 FROM node:24-alpine AS run
