@@ -86,6 +86,22 @@ export async function requestToJoinTrack(trackId: string, githubId: string): Pro
   )
 }
 
+/** IDEA-015's onboarding checklist — "did I join a track" isn't scoped to
+ * one particular track the way getMyMembership is, so this checks across
+ * every track at once. 'approved' wins if the contributor has landed on
+ * even one track, regardless of pending/rejected rows elsewhere; otherwise
+ * 'pending' if any request is still awaiting review; a rejected-only
+ * history (or no requests at all) reads as 'none' — the checklist step
+ * isn't "done," but nothing stops trying again on some other track. */
+export async function anyMembershipSummary(githubId: string): Promise<'none' | 'pending' | 'approved'> {
+  const { rows } = await pool.query<{ status: TrackMemberStatus }>('SELECT status FROM track_members WHERE github_id = $1', [
+    githubId,
+  ])
+  if (rows.some((row) => row.status === 'approved')) return 'approved'
+  if (rows.some((row) => row.status === 'pending')) return 'pending'
+  return 'none'
+}
+
 export class NotPendingError extends Error {}
 
 /**

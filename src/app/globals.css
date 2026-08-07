@@ -903,6 +903,53 @@ button,
   padding-left: 1.25rem;
 }
 
+/* IDEA-015's Main-page checklist — a plain bordered panel, distinct from
+   .footer-links' plain inline row above it since this one carries per-step
+   status, not just a row of equal-weight links. */
+.onboarding-checklist {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.onboarding-checklist h3 {
+  margin: 0 0 0.75rem;
+}
+
+.onboarding-checklist ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.onboarding-step-done a {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* Amber by default (matches .admin-status-pending's color) — "Pending
+   approval" is the only status a not-yet-done step shows; .onboarding-step-done
+   overrides to green for "Done". */
+.onboarding-step-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a85d00;
+}
+
+.onboarding-step-done .onboarding-step-status {
+  color: #1a7f37;
+}
+
 .admin-actions {
   display: flex;
   gap: 0.5rem;
