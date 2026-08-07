@@ -101,7 +101,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/13
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-006 — Community rules & policies on Main page
+## [TAKEN] [vzhuman] IDEA-006 — Community rules & policies on Main page
 Idea:
 A section on the Main page listing Constructor Fabric's community-wide rules and policies, most likely as links into the public governance repository's markdown documents, possibly alongside links to individual tracks' own policies.
 
@@ -117,7 +117,7 @@ Depends on IDEA-032 for where these links are sourced from.
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-007 — Track directory on Main page
+## [TAKEN] [vzhuman] IDEA-007 — Track directory on Main page
 Idea:
 A directory of Constructor Fabric's tracks (Studio, Insight, Gears — with Gears Core/OSS/BSS/FrontX/Mobile as sub-tracks —, Research, Governance), each with a summary, its leaders and their roles, and links to its repositories.
 
@@ -133,7 +133,7 @@ Depends on IDEA-032 for any artifact links shown alongside the rest of a track's
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-008 — Track roadmap diagrams
+## [TAKEN] [vzhuman] IDEA-008 — Track roadmap diagrams
 Idea:
 A roadmap diagram for each track, shown on its entry in the track directory (IDEA-007).
 
@@ -147,7 +147,7 @@ Depends on IDEA-032 for where this link is sourced from.
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-009 — Track meeting schedules
+## [TAKEN] [vzhuman] IDEA-009 — Track meeting schedules
 Idea:
 Each track's recurring calls, shown on its entry in the track directory (IDEA-007): daily sync-up, regular community update/demo call, and regular planning call.
 
@@ -492,7 +492,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/18
 
 By: frontgeeks · 2026-08-06
 
-## [DRAFT] [vzhuman] IDEA-032 — Community & track artifact links registry (cf-internal pass/*.yaml)
+## [TAKEN] [vzhuman] IDEA-032 — Community & track artifact links registry (cf-internal pass/*.yaml)
 Idea:
 A one-way-synced registry file in cf-internal's `pass/` folder, alongside `tracks.yaml`/`contributors.yaml`, listing links to interesting artifacts — both community-wide (e.g. policies) and per-track (e.g. vision, roadmap, meeting schedule) — without storing the artifacts themselves. Each entry is a label plus a URL pointing at wherever the real content actually lives: the governance repository for community policies, any repository under the `constructorfabric` org for a track's vision or roadmap, an external calendar for a meeting schedule, and so on.
 
@@ -540,7 +540,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/23
 
 By: vzhuman · 2026-08-06
 
-## [DRAFT] [vzhuman] IDEA-035 — Track page rendered from a markdown template
+## [TAKEN] [vzhuman] IDEA-035 — Track page rendered from a markdown template
 Idea:
 A dedicated page per track, rendered from a markdown template stored in cf-internal with placeholders filled in from the tracks data (`pass/tracks.yaml`) — rather than a directory of inline summary cards, each track gets its own full page built from one shared, editable template.
 
