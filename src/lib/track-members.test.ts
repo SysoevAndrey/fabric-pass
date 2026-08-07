@@ -1,0 +1,165 @@
+import { afterAll, beforeEach, expect, test } from 'vitest'
+import { pool } from './db.ts'
+import { decideJoinRequest, getMyMembership, listTrackMembership, NotPendingError, requestToJoinTrack } from './track-members.ts'
+
+beforeEach(async () => {
+  await pool.query('TRUNCATE track_members, tracks, contributors CASCADE')
+})
+
+afterAll(async () => {
+  await pool.end()
+})
+
+async function seedTrack(): Promise<string> {
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO tracks (slug, name) VALUES ('studio', 'Studio') RETURNING id`,
+  )
+  return rows[0].id
+}
+
+async function seedContributor(githubId: string, githubLogin: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO contributors (github_id, github_login, name, email, status)
+     VALUES ($1, $2, $3, $2 || '@example.com', 'confirmed')`,
+    [githubId, githubLogin, `${githubLogin} Name`],
+  )
+}
+
+test('requestToJoinTrack inserts a fresh pending row', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+
+  await requestToJoinTrack(trackId, '1')
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('pending')
+  expect(membership?.decidedAt).toBeUndefined()
+})
+
+test('requestToJoinTrack is a no-op for an already-pending row', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await requestToJoinTrack(trackId, '1')
+  const first = await getMyMembership(trackId, '1')
+
+  await requestToJoinTrack(trackId, '1')
+  const second = await getMyMembership(trackId, '1')
+
+  expect(second?.requestedAt).toEqual(first?.requestedAt)
+})
+
+test('requestToJoinTrack is a no-op for an already-approved row', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'approved', '2')
+
+  await requestToJoinTrack(trackId, '1')
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('approved')
+})
+
+test('requestToJoinTrack resets a rejected row back to pending', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'rejected', '2')
+
+  await requestToJoinTrack(trackId, '1')
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('pending')
+  expect(membership?.decidedAt).toBeUndefined()
+  expect(membership?.decidedByGithubId).toBeUndefined()
+})
+
+test('getMyMembership returns null when the contributor never requested', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+
+  expect(await getMyMembership(trackId, '1')).toBeNull()
+})
+
+test('decideJoinRequest approves a pending request and stamps the decider', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+
+  await decideJoinRequest(trackId, '1', 'approved', '2')
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('approved')
+  expect(membership?.decidedByGithubId).toBe('2')
+  expect(membership?.decidedAt).toBeInstanceOf(Date)
+})
+
+test('decideJoinRequest rejects a pending request', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+
+  await decideJoinRequest(trackId, '1', 'rejected', '2')
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('rejected')
+})
+
+test('decideJoinRequest throws for a row that is not pending, and does not touch it', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await decideJoinRequest(trackId, '1', 'approved', '2')
+
+  await expect(decideJoinRequest(trackId, '1', 'rejected', '2')).rejects.toThrow(NotPendingError)
+
+  const membership = await getMyMembership(trackId, '1')
+  expect(membership?.status).toBe('approved')
+})
+
+test('decideJoinRequest throws for a row that never requested at all', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'admin')
+
+  await expect(decideJoinRequest(trackId, '1', 'approved', '2')).rejects.toThrow(NotPendingError)
+})
+
+test('listTrackMembership returns every row for a track, with contributor login/name joined in', async () => {
+  const trackId = await seedTrack()
+  await seedContributor('1', 'ada')
+  await seedContributor('2', 'grace')
+  await seedContributor('3', 'admin')
+  await requestToJoinTrack(trackId, '1')
+  await requestToJoinTrack(trackId, '2')
+  await decideJoinRequest(trackId, '2', 'approved', '3')
+
+  const members = await listTrackMembership(trackId)
+
+  expect(members).toHaveLength(2)
+  const byLogin = Object.fromEntries(members.map((m) => [m.githubLogin, m]))
+  expect(byLogin.ada.status).toBe('pending')
+  expect(byLogin.ada.name).toBe('ada Name')
+  expect(byLogin.grace.status).toBe('approved')
+})
+
+test('listTrackMembership scopes strictly to the given track', async () => {
+  const trackId = await seedTrack()
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO tracks (slug, name) VALUES ('insight', 'Insight') RETURNING id`,
+  )
+  const otherTrackId = rows[0].id
+  await seedContributor('1', 'ada')
+  await requestToJoinTrack(trackId, '1')
+  await requestToJoinTrack(otherTrackId, '1')
+
+  const members = await listTrackMembership(trackId)
+
+  expect(members).toHaveLength(1)
+  expect(members[0].trackId).toBe(trackId)
+})

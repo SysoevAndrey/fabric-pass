@@ -14,9 +14,9 @@ export function isAdmin(contributor: Contributor): boolean {
 }
 
 /**
- * IDEA-011's Track Admin — per-track, unlike isAdmin above. Groundwork for
- * IDEA-014's member-list/join-request-review page; nothing calls this yet,
- * same as isRootUser was before this. Membership lives in the track_admins
+ * IDEA-011's Track Admin — per-track, unlike isAdmin above. Used by
+ * IDEA-014's member-list/join-request-review page (tracks/admin/) to gate
+ * one specific track's review action. Membership lives in the track_admins
  * table (migrations/010_tracks.sql) rather than on the contributor row
  * itself, since it's a many-to-many relationship — one contributor can
  * admin more than one track, and one track can have more than one admin.
@@ -30,7 +30,9 @@ export async function isTrackAdmin(githubId: string, trackId: string): Promise<b
 }
 
 /** Every track a contributor administers — the reverse of isTrackAdmin
- * above. Also groundwork for IDEA-014; nothing calls this yet. */
+ * above. Used by IDEA-014's review page to pick which tracks' members to
+ * show a Track Admin (a global Admin sees every track instead — see
+ * tracks/admin/page.tsx). */
 export async function adminTrackIds(githubId: string): Promise<string[]> {
   const { rows } = await pool.query<{ track_id: string }>('SELECT track_id FROM track_admins WHERE github_id = $1', [
     githubId,

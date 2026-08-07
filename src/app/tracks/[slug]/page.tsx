@@ -2,9 +2,11 @@ import { notFound } from 'next/navigation'
 import { listArtifactLinks } from '@/lib/artifact-links'
 import { findByGithubId, type Contributor } from '@/lib/contributors'
 import { getSession } from '@/lib/session'
+import { getMyMembership } from '@/lib/track-members'
 import { findTrackBySlug, type Track } from '@/lib/tracks'
 import { getTrackPageTemplate, renderTrackPage, type TrackPageLeader } from '@/lib/track-page-template'
 import { SignInPrompt } from '@/app/sign-in-prompt'
+import { JoinTrack } from './join-track'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -54,10 +56,11 @@ export default async function TrackPage({ params }: PageProps) {
   const track = await findTrackBySlug(slug)
   if (!track) notFound()
 
-  const [leaders, artifactLinks, template] = await Promise.all([
+  const [leaders, artifactLinks, template, membership] = await Promise.all([
     resolveLeaders(track),
     listArtifactLinks(track.slug),
     getTrackPageTemplate(),
+    getMyMembership(track.id, contributor.githubId),
   ])
 
   if (!template) {
@@ -67,6 +70,7 @@ export default async function TrackPage({ params }: PageProps) {
         <p className="subtitle">
           This track's page hasn't been set up yet — cf-internal's <code>pass/track-page.md</code> hasn't synced.
         </p>
+        <JoinTrack trackSlug={track.slug} initialStatus={membership?.status ?? null} />
       </>
     )
   }
@@ -86,6 +90,7 @@ export default async function TrackPage({ params }: PageProps) {
           way pass/tracks.yaml already is (see track-page-template.ts's
           module doc). */}
       <div dangerouslySetInnerHTML={{ __html: html }} />
+      <JoinTrack trackSlug={track.slug} initialStatus={membership?.status ?? null} />
     </>
   )
 }

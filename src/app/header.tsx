@@ -1,7 +1,7 @@
 import { UserMenu } from './user-menu'
 
 interface Props {
-  user: { login: string; name: string | null; isAdmin: boolean } | null
+  user: { login: string; name: string | null; isAdmin: boolean; isTrackAdmin: boolean } | null
 }
 
 /** Full page width, unlike `main` below it — see globals.css's
@@ -31,7 +31,7 @@ export function Header({ user }: Props) {
             <p className="brand-tagline">Welcome to the Constructor Fabric contributors community.</p>
           </div>
         </a>
-        {user ? <UserMenu login={user.login} name={user.name} isAdmin={user.isAdmin} /> : null}
+        {user ? <UserMenu login={user.login} name={user.name} isAdmin={user.isAdmin} isTrackAdmin={user.isTrackAdmin} /> : null}
       </div>
     </header>
   )
