@@ -1,0 +1,45 @@
+import { COMMUNITY_SCOPE, listArtifactLinks } from '@/lib/artifact-links'
+import { findByGithubId } from '@/lib/contributors'
+import { getSession } from '@/lib/session'
+import { SignInPrompt } from '@/app/sign-in-prompt'
+
+/**
+ * IDEA-006 — community-wide, category: 'policy' links from the artifact
+ * links registry (IDEA-032). The registry only ever holds the label and
+ * URL; the documents themselves live in the governance repository (or
+ * wherever else a given policy is actually maintained).
+ *
+ * Reuses the footer's own link styling (.footer-links, see footer.tsx)
+ * rather than inventing a new list treatment — same muted colour, same
+ * trailing "→".
+ */
+export default async function PoliciesPage() {
+  const session = await getSession()
+  if (!session.github) return <SignInPrompt />
+
+  const contributor = await findByGithubId(session.github.id)
+  if (!contributor) return <SignInPrompt />
+
+  const links = await listArtifactLinks(COMMUNITY_SCOPE)
+  const policies = links.filter((link) => link.category === 'policy')
+
+  return (
+    <>
+      <h2>Community policies</h2>
+      <p className="subtitle">Constructor Fabric's community-wide rules and policies.</p>
+      {policies.length > 0 ? (
+        <ul className="footer-links">
+          {policies.map((policy) => (
+            <li key={policy.id}>
+              <a href={policy.url} target="_blank" rel="noreferrer">
+                {policy.label} →
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="search-empty">No policies published yet.</p>
+      )}
+    </>
+  )
+}

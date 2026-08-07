@@ -131,6 +131,12 @@ main {
   font-size: 0.9rem;
 }
 
+/* Same list, reused on Main (IDEA-006/007) and Policies — just needs space
+   above it there, unlike the footer's own placement. */
+.main-quick-links {
+  margin-top: 1.5rem;
+}
+
 .footer-links a {
   color: var(--muted);
 }
@@ -787,6 +793,28 @@ button,
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
+}
+
+/* IDEA-007's track directory links the name itself rather than adding a
+   separate "View track" button — reset so it reads as the heading it is,
+   not a browser-default underlined blue link (same fix .site-header-brand
+   already needed for the same reason). */
+.admin-tile-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-tile-name a:hover {
+  text-decoration: underline;
+}
+
+/* A track's one-line summary (IDEA-007) — prose, unlike the short property
+   chips below it, so it gets its own plain paragraph treatment rather than
+   being squeezed into the .admin-tile-property chip shape. */
+.admin-tile-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 /* Each property carries its own icon instead of a text label ("GitHub:",

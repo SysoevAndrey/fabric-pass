@@ -21,6 +21,11 @@ export const envSchema = z
     // revoked without touching the other even though both originate from
     // the same cf-internal repo.
     TRACKS_SYNC_SECRET: z.string().min(1),
+    // IDEA-032/035's own one-way syncs (pass/artifact-links.yaml and
+    // pass/track-page.md -> DB) — each gets its own secret for the same
+    // independent-rotation reason as TRACKS_SYNC_SECRET above.
+    ARTIFACT_LINKS_SYNC_SECRET: z.string().min(1),
+    TRACK_PAGE_TEMPLATE_SYNC_SECRET: z.string().min(1),
     // Optional, unlike everything above: this app must still boot (and did,
     // in production, before these existed) with no Resend key configured at
     // all — see lib/email.ts, which logs instead of sending when unset.

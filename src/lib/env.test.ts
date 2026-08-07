@@ -16,6 +16,8 @@ const baseEnv = {
   CONTRIBUTORS_EXPORT_SECRET: 'export-secret',
   CONTRIBUTORS_SYNC_SECRET: 'sync-secret',
   TRACKS_SYNC_SECRET: 'tracks-sync-secret',
+  ARTIFACT_LINKS_SYNC_SECRET: 'artifact-links-sync-secret',
+  TRACK_PAGE_TEMPLATE_SYNC_SECRET: 'track-page-template-sync-secret',
 }
 
 test('parses with both LinkedIn credentials unset', () => {

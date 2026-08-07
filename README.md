@@ -119,11 +119,13 @@ The test suite runs against `contributor_registry_test`, using the credentials a
 | `TELEGRAM_CLIENT_ID`, `TELEGRAM_CLIENT_SECRET` | From the Telegram bot |
 | `CONTRIBUTORS_EXPORT_SECRET`, `CONTRIBUTORS_SYNC_SECRET` | Shared secrets guarding the two `/internal/contributors/*` routes used by the cf-internal registry sync (see below); at least 32 characters each (`openssl rand -hex 32`) |
 | `TRACKS_SYNC_SECRET` | Shared secret guarding `/internal/tracks/sync` (see [Tracks](#tracks)) — its own secret, not a reuse of `CONTRIBUTORS_SYNC_SECRET`, so either can be rotated or revoked independently even though both originate from cf-internal |
+| `ARTIFACT_LINKS_SYNC_SECRET` | Shared secret guarding `/internal/artifact-links/sync` (see [Artifact links](#artifact-links)) |
+| `TRACK_PAGE_TEMPLATE_SYNC_SECRET` | Shared secret guarding `/internal/track-page-template/sync` (see [Track pages](#track-pages)) |
 | `RESEND_API_KEY`, `RESEND_FROM_ADDRESS` | **Optional** — see [Email confirmation](#email-confirmation). With `RESEND_API_KEY` unset, a confirmation email is logged instead of sent, so the app still boots and runs with neither of these set |
 | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | **Optional** — from the LinkedIn application, see [LinkedIn](#linkedin) below. This app's only optional *provider*: with both unset, the app still boots and runs, the LinkedIn row is left off the profile form, and `/auth/linkedin` (and its callback) respond 404 — setting just one of the two fails env validation at boot |
 | `ROOT_GITHUB_ID` | **Optional** — the numeric GitHub id of this app's single root user; unset means no root user at all. Always an Admin, on top of whatever `is_admin` says — see [Roles & Admin](#roles--admin) |
 
-The twelve above `RESEND_*` are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider. `RESEND_*`, `LINKEDIN_CLIENT_ID`/`LINKEDIN_CLIENT_SECRET`, and `ROOT_GITHUB_ID` are the exceptions, deliberately: this app needs to keep booting in an environment where email, LinkedIn, or a root user hasn't been configured yet.
+The fourteen above `RESEND_*` are required, not just for running the app: `src/lib/env.ts` validates the whole environment at import, and `next build` imports every route module while collecting page data, so `pnpm build` fails before it reaches any provider if even one variable is unset. Placeholder values satisfy this — the build never contacts a provider. `RESEND_*`, `LINKEDIN_CLIENT_ID`/`LINKEDIN_CLIENT_SECRET`, and `ROOT_GITHUB_ID` are the exceptions, deliberately: this app needs to keep booting in an environment where email, LinkedIn, or a root user hasn't been configured yet.
 
 ## Registering the OAuth applications
 
@@ -194,7 +196,26 @@ An Admin gets an **Admin** entry in the top-right menu, linking to `/admin` (`sr
 
 The `tracks` table (`migrations/010_tracks.sql`) and its `track_admins` join table are entirely owned by `pass/tracks.yaml` in cf-internal, synced one-way (file → DB only, `POST /internal/tracks/sync`, bearer-protected by `TRACKS_SYNC_SECRET`) — unlike contributors, nothing about a track is self-reported by any one person, so there's nothing here for this app to export back. Each track has a `slug` (its stable key), `name`, `description`, a `repositories` list (URL, description, issue-tracker link — stored as `jsonb`, always read/written as one small unit), and up to five named leader slots (Product Manager, Architect, Developer, Quality, Researcher — for display, distinct from Track Admin above, which is a permission grant the two will often but don't always share). Leaders and admins are written in the file as GitHub *logins* (`src/lib/tracks-registry.ts`), not the numeric `github_id`s the rest of this app keys on — a login is what a human hand-editing the file actually knows and can eyeball-verify. `src/lib/tracks.ts`'s `syncTracks` resolves each login to its contributor's `github_id` at sync time; the database itself still stores the id, the stable key, since a login can be renamed. A sync upserts by `slug` and fully replaces that track's `track_admins` to match the file exactly, the same "file is the whole set" reasoning the contributors sync uses for its own owned fields. A row whose leader or admin login doesn't resolve to a real contributor is skipped and logged — for a leader, that skips the *entire* track (repositories and every other leader/admin included), not just that one slot, so a typo'd or not-yet-registered login is worth checking for in the sync logs.
 
-No page reads this data yet — `src/lib/tracks.ts`'s `listTracks` is groundwork for a future track directory.
+`src/lib/tracks.ts`'s `listTracks`/`findTrackBySlug` back the track directory and track pages below.
+
+## Artifact links
+
+The `artifact_links` table (`migrations/013_artifact_links.sql`) is entirely owned by `pass/artifact-links.yaml` in cf-internal, synced one-way the same way `tracks` is (`POST /internal/artifact-links/sync`, bearer-protected by `ARTIFACT_LINKS_SYNC_SECRET`). It's a catalog, not the content: each row is a `label` and a `url` pointing at wherever the real artifact actually lives — the governance repository for a community policy, any repository under the `constructorfabric` org for a track's vision or roadmap, an external calendar for a meeting schedule — never the artifact itself.
+
+Each row has a `scope` (either `"community"`, or a track's `slug`) and a `category` (`policy` | `vision` | `roadmap` | `schedule` | `discord` | `guide` | `other`, CHECK-constrained). `scope` isn't a foreign key — `"community"` doesn't name a row in `tracks` — so it's validated in application code at sync time instead (`src/lib/artifact-links.ts`'s `syncArtifactLinks`, against whatever tracks currently exist): a row whose `scope` names neither `"community"` nor a real track is skipped and logged, same treatment `syncTracks` gives an unresolved leader/admin login. Every sync fully replaces the table (delete all, insert the file's whole set) rather than upserting by key — there's no natural unique key across scope/category/label worth building matching logic around for something this small.
+
+`src/lib/artifact-links.ts`'s `listArtifactLinks(scope)` reads one scope's links at a time — the `/policies` page (see [Track pages](#track-pages) below) filters `"community"` links to `category: policy`; a track page reads its own slug's links across every category.
+
+## Track pages
+
+Each track gets a dedicated page at `/tracks/[slug]`, rendered from **one shared markdown template** — `pass/track-page.md` in cf-internal, synced one-way into the `track_page_template` table (a singleton row; `migrations/014_track_page_template.sql`) via `POST /internal/track-page-template/sync`, bearer-protected by `TRACK_PAGE_TEMPLATE_SYNC_SECRET`. One template for every track, not one file per track — a track's own data fills in a handful of named placeholders (`src/lib/track-page-template.ts`'s `renderTrackPage`):
+
+- `{{name}}`, `{{description}}` — substituted as plain text.
+- `{{leaders}}`, `{{repositories}}`, `{{artifact_links}}` — each pre-rendered server-side as a markdown bullet list (or a plain "none yet" line, if empty) *before* substitution — deliberately no loop or conditional syntax in the template itself, so editing `pass/track-page.md` only ever requires knowing these five placeholder names, not a templating language.
+
+The substituted markdown is rendered to HTML with [markdown-it](https://github.com/markdown-it/markdown-it) (`html: false` — the template is trusted, hand-edited content the same way `pass/tracks.yaml` already is, but there's no reason to let raw HTML through a *markdown* template) and rendered directly into the page.
+
+`/tracks` (IDEA-007) is the directory linking to every track's page — always read live from `listTracks()`, never a hardcoded list, so a track added, renamed, or removed in `pass/tracks.yaml` shows up with no code change. `/policies` (IDEA-006) lists `"community"`-scope, `category: policy` artifact links. Both are linked from Main rather than embedded inline, reachable once the signed-in contributor's own profile is complete (same gate as search).
 
 ## Email confirmation
 

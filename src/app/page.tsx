@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { findByGithubId } from '@/lib/contributors'
 import { isProfileComplete } from '@/lib/profile-completeness'
@@ -48,6 +49,17 @@ export default async function Page({ searchParams }: PageProps) {
       <h2>Constructor Fabric Pass</h2>
       {notice ? <p className={notice.kind}>{notice.message}</p> : null}
       <ContributorSearch />
+      {/* IDEA-006/007 — linked from Main rather than embedded inline, so
+          Main stays focused on search; reuses the footer's own link
+          styling (.footer-links) rather than a new nav treatment. */}
+      <ul className="footer-links main-quick-links">
+        <li>
+          <Link href="/tracks">Browse tracks →</Link>
+        </li>
+        <li>
+          <Link href="/policies">Community policies →</Link>
+        </li>
+      </ul>
     </>
   )
 }
