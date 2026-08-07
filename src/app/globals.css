@@ -444,6 +444,24 @@ button,
   background: var(--panel);
 }
 
+/* Confirm/Block on the Admin page (IDEA-036) reuse this same primary/
+   secondary pair — a disabled one (already confirmed/blocked) needs to
+   read as unavailable even though its background is a solid, otherwise
+   full-opacity colour. */
+.button-primary:disabled,
+.button-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button-primary:disabled:hover {
+  background: var(--ink);
+}
+
+.button-secondary:disabled:hover {
+  background: var(--ground);
+}
+
 /* Telegram/Discord's field: same border, radius, and full width as `input`
    above, so the two read as one consistent list of fields — the current
    value sits where typed text would, the action button where a clear
@@ -545,7 +563,9 @@ button,
 }
 
 .completeness-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -721,8 +741,11 @@ button,
 
 /* IDEA-036 — replaced IDEA-012's original table (which needed horizontal
    scroll to see every column at once, see the since-removed
-   .admin-table-wrapper) with tiles that wrap and stay within the page's
-   normal fixed-width column. */
+   .admin-table-wrapper) with tiles. One tile per row, full width — a grid
+   of narrow tiles read as a spreadsheet again, the exact thing this
+   replaced; a single wide tile has room to lay Full Name (the primary
+   identifier), the labelled properties, and both badges out clearly instead
+   of cramming them into a card's worth of space. */
 .admin-filters {
   display: flex;
   flex-wrap: wrap;
@@ -736,16 +759,16 @@ button,
 }
 
 .admin-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
 .admin-tile {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.85rem 1rem;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -754,25 +777,49 @@ button,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
-.admin-tile-login {
-  font-weight: 600;
-}
-
+/* The primary identifier — everything else on the tile is a labelled
+   property of this person, not a peer of it (hence the size/weight jump
+   from .admin-tile-property below). */
 .admin-tile-name {
-  font-weight: 600;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
-.admin-tile-field {
+/* Each property carries its own icon instead of a text label ("GitHub:",
+   "Email:", …) — compact, and the icon's `title` still names it for anyone
+   hovering or using a screen reader. */
+.admin-tile-properties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.admin-tile-property {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: var(--muted);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
 }
 
+.admin-tile-property svg {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Both badges below carry their own icon (StatusMark / CompletenessMark)
+   specifically so the two aren't mistaken for each other — status is an
+   Admin's judgment call, completeness is derived from what the contributor
+   filled in, and at a glance they're two same-shaped pills otherwise. */
 .admin-status {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -796,11 +843,13 @@ button,
 
 .admin-actions {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
 }
 
-.admin-actions button {
-  margin: 0;
-  padding: 0.35rem 0.7rem;
+.admin-actions .button-primary,
+.admin-actions .button-secondary {
+  flex: 1;
+  padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
 }
