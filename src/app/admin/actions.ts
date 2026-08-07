@@ -1,5 +1,6 @@
 'use server'
 
+import { logAdminAction } from '@/lib/audit-log'
 import { findByGithubId, setContributorStatus } from '@/lib/contributors'
 import { isAdmin } from '@/lib/roles'
 import { getSession } from '@/lib/session'
@@ -26,9 +27,18 @@ export async function setContributorStatusAction(githubId: string, status: 'conf
 
   try {
     await setContributorStatus(githubId, status)
-    return { ok: true }
   } catch (error) {
     console.error(`setContributorStatusAction(${githubId}, ${status}) failed:`, error)
     return { ok: false, message: 'Could not update this contributor right now. Please try again in a moment.' }
   }
+
+  // IDEA-022 — logged after the write succeeds, never before: a logging
+  // failure must not read as if the Confirm/Block itself failed.
+  await logAdminAction({
+    actorGithubId: caller.githubId,
+    action: status === 'confirmed' ? 'confirm' : 'block',
+    targetGithubId: githubId,
+  })
+
+  return { ok: true }
 }

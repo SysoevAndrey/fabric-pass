@@ -12,16 +12,17 @@ const url = process.env.DATABASE_URL!
 const pool = new pg.Pool({ connectionString: url })
 
 beforeEach(async () => {
-  // track_admins/tracks (migrations/010_tracks.sql) and track_members
-  // (015_track_members.sql) FK-reference contributors, so they have to be
-  // listed for the drop too, or Postgres refuses to drop contributors out
+  // track_admins/tracks (migrations/010_tracks.sql), track_members
+  // (015_track_members.sql), and admin_actions (016_admin_actions.sql)
+  // FK-reference contributors, so they have to be listed for the drop too,
+  // or Postgres refuses to drop contributors out
   // from under them. artifact_links/track_page_template (013/014) have no FK
   // to contributors, but still have to be dropped here — otherwise a
   // leftover table from an earlier test survives schema_migrations being
   // wiped, and the next migrate() run fails trying to CREATE TABLE something
   // that already exists.
   await pool.query(
-    'DROP TABLE IF EXISTS track_members, track_admins, tracks, artifact_links, track_page_template, contributors, schema_migrations',
+    'DROP TABLE IF EXISTS track_members, admin_actions, track_admins, tracks, artifact_links, track_page_template, contributors, schema_migrations',
   )
 })
 
@@ -80,7 +81,8 @@ test('the name backfill combines first and last name, and leaves both-blank as N
   // (contributor status), 006 (alias/agent fields), 007 (email
   // confirmation), 008 (linkedin fields), 009 (admin role), 010 (tracks),
   // 011 (blocked status), 012 (profile completeness), 013 (artifact links),
-  // 014 (track page template), and 015 (track members) are also pending
+  // 014 (track page template), 015 (track members), and 016 (admin
+  // actions) are also pending
   // from this pre-002 starting point and apply right behind 002 —
   // irrelevant to what this test checks, but `migrate` returns every file
   // it applied.
@@ -100,6 +102,7 @@ test('the name backfill combines first and last name, and leaves both-blank as N
     '013_artifact_links.sql',
     '014_track_page_template.sql',
     '015_track_members.sql',
+    '016_admin_actions.sql',
   ])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
@@ -137,9 +140,9 @@ test('the telegram_id migration carries an existing value across to text and acc
   // 004 (provider profile fields), 005 (contributor status), 006
   // (alias/agent fields), 007 (email confirmation), 008 (linkedin fields),
   // 009 (admin role), 010 (tracks), 011 (blocked status), 012 (profile
-  // completeness), 013 (artifact links), 014 (track page template), and 015
-  // (track members) are also pending from this pre-003 starting point and
-  // apply right behind 003.
+  // completeness), 013 (artifact links), 014 (track page template), 015
+  // (track members), and 016 (admin actions) are also pending from this
+  // pre-003 starting point and apply right behind 003.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '003_telegram_id_as_text.sql',
@@ -155,6 +158,7 @@ test('the telegram_id migration carries an existing value across to text and acc
     '013_artifact_links.sql',
     '014_track_page_template.sql',
     '015_track_members.sql',
+    '016_admin_actions.sql',
   ])
 
   const { rows: columnRows } = await pool.query(
