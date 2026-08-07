@@ -580,7 +580,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/24
 
 By: vzhuman · 2026-08-06
 
-## [TAKEN] [vzhuman] IDEA-037 — Admin tiles: full-width single column, Full Name as primary identifier, labelled icons
+## [DONE] [vzhuman] IDEA-037 — Admin tiles: full-width single column, Full Name as primary identifier, labelled icons
 Idea:
 A follow-up to IDEA-036's Admin tiles (DONE): one tile per row instead of a multi-column grid, Full Name promoted to the visually primary identifier with everything else (GitHub, Email, Company, Discord) shown as icon-labelled secondary properties, the status and completeness badges each carrying a distinguishing icon so they're not mistaken for one another, and Confirm/Block restyled as primary/secondary buttons (reusing the profile form's own `.button-primary`/`.button-secondary`).
 
@@ -594,6 +594,8 @@ Expected outcome:
 
 Notes:
 Purely a UI pass over IDEA-036's own tiles — no data model or server-action change, aside from adding `discordUsername` to the row already fetched by `listContributorsForRegistry`.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/27 (merged as e97a3ed)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/26
 
