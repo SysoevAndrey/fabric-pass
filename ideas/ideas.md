@@ -237,7 +237,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/15
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-013 — Request to join a track
+## [TAKEN] [vzhuman] IDEA-013 — Request to join a track
 Idea:
 A contributor can request to join a track from that track's page. The request is stored, synced to cf-internal, and visible to that track's Track Admin(s) (and to Admins).
 
@@ -251,7 +251,7 @@ Depends on IDEA-010 (tracks must exist) and IDEA-007 (the track page this is req
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-014 — Track Admin: member list & join-request review
+## [TAKEN] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
 Idea:
 A page, visible to Track Admins (and Admins), listing the people assigned to their track(s) plus that track's pending join requests (IDEA-013), with Accept/Reject actions on requests.
 
@@ -267,7 +267,7 @@ Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-01
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-015 — Onboarding checklist for new contributors
+## [TAKEN] [vzhuman] IDEA-015 — Onboarding checklist for new contributors
 Idea:
 A "getting started" checklist on the Main page for a contributor whose profile isn't yet complete, tying together pieces that already exist separately: fill in the profile, read the community policies, join a track.
 
@@ -323,7 +323,7 @@ Depends on IDEA-010 (leader slots) and IDEA-014 (the review surface this needs, 
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-019 — Notify a contributor when their join request is decided
+## [TAKEN] [vzhuman] IDEA-019 — Notify a contributor when their join request is decided
 Idea:
 When a Track Admin (or Admin) accepts or rejects a join request (IDEA-013/014), the requesting contributor is told the outcome — currently nothing surfaces the decision back to them at all.
 
@@ -368,7 +368,7 @@ Same single-writer concern as IDEA-012: `status` is currently owned by the cf-in
 
 By: vzhuman · 2026-07-31
 
-## [TODO] IDEA-022 — Audit log for admin operations
+## [TAKEN] [vzhuman] IDEA-022 — Audit log for admin operations
 Idea:
 A record of every admin/Track-Admin action taken through the app — Confirm/Block (IDEA-012), Accept/Reject (IDEA-014) — so there's accountability for who changed what and when.
 
@@ -441,7 +441,7 @@ Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constr
 
 By: vzhuman · 2026-08-04
 
-## [DRAFT] [vzhuman] IDEA-027 — Droplet operational metrics, sourced
+## [TAKEN] [vzhuman] IDEA-027 — Droplet operational metrics, sourced
 Idea:
 Expose the production droplet's CPU, RAM, disk usage, and disk I/O to the app server-side, so IDEA-028's footer section has something real to display.
 
@@ -457,7 +457,7 @@ Depends on nothing existing in this app yet; IDEA-028 depends on this.
 
 By: vzhuman · 2026-08-04
 
-## [DRAFT] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
+## [TAKEN] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
 Idea:
 A section in the app's footer, visible only to Organization Admins, showing the production droplet's operational status — CPU, RAM, disk, and disk I/O (IDEA-027) — as four independent color-coded boxes (green/yellow/red), each with a hint on hover/tap showing its exact percentage.
 
@@ -625,7 +625,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/26
 
 By: vzhuman · 2026-08-07
 
-## [TODO] IDEA-038 — Profile & public profile polish: consistent badges, Cancel→Close, inline email confirmation, public profile icons and Close button
+## [TAKEN] [vzhuman] IDEA-038 — Profile & public profile polish: consistent badges, Cancel→Close, inline email confirmation, public profile icons and Close button
 Idea:
 Six polish items across the signed-in Profile page/form and the public profile page: consistent capitalization for the status/completeness badges wherever shown; the same badge+icon format used everywhere a contributor's status or completeness appears; the Profile edit form's Cancel button renamed to Close; the Email field's always-clickable Confirm/Re-confirm button replaced with a static Confirmed/Confirmation-required tag in view mode; a company icon on the public profile page; and a Close button (→ Main) on the public profile page, matching the Profile page's own Edit/Close pair.
 
@@ -651,5 +651,55 @@ By: vzhuman · 2026-08-07
 Idea: A track's leaders (`/tracks/[slug]`) resolved a filled leader slot to the contributor's real `name` field when set, showing full real names on a page visible to any signed-in contributor; always show `@github_login` instead, matching how the Admin tiles already fall back.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/37
+
+By: vzhuman · 2026-08-08
+
+## [DRAFT] [vzhuman] IDEA-040 — cf-internal config registry (org/server names, sync mapping)
+Idea:
+A small `pass/config.yaml` in cf-internal, one-way synced the same way as `tracks.yaml`, holding the values IDEA-041/042 need but that shouldn't be hardcoded: the GitHub organization name and the Discord server (guild) id. Foundational — IDEA-041/042 both depend on it existing first.
+
+Expected outcome:
+- `pass/config.yaml` exists in cf-internal with at least `github_organization` and `discord_guild_id`.
+- A new singleton table (same pattern as `track_page_template`) holds the synced values, read via a small `lib/app-config.ts`.
+- A push to the file syncs it to production the same way `tracks.yaml`/`artifact-links.yaml` already do.
+
+Notes:
+Singleton-row table, not per-field env vars — env vars need a droplet SSH session and a redeploy to change; this only needs a commit, matching the "easy to maintain for Track Admins and Org Admins" goal already established for IDEA-032/035.
+Depends on nothing existing in this app yet; IDEA-041/042 depend on this.
+
+By: vzhuman · 2026-08-08
+
+## [DRAFT] [vzhuman] IDEA-041 — Auto-invite a confirmed contributor to the GitHub org and Discord server
+Idea:
+When an Org Admin confirms a contributor (IDEA-012's Confirm button), automatically send them a GitHub organization invite and a Discord server invite, instead of that being a manual follow-up outside the app. A "Re-invite" action is available once a reasonable amount of time has passed since the last invite, for the case where the first one didn't land.
+
+Expected outcome:
+- Confirming a contributor triggers a GitHub org invite (`PUT /orgs/{org}/memberships/{username}`) and a Discord invite, best-effort — a failure here must never roll back or block the Confirm action itself, the same "never block the caller's own action" discipline `sendConfirmationEmail` already follows.
+- The Admin contributor list shows, per confirmed contributor, whether an invite was sent and when.
+- A "Re-invite" button appears once the last invite is older than a cooldown window, to resend without spamming GitHub/Discord's invite endpoints on repeated clicks.
+
+Notes:
+Two real technical constraints, not implementation details — need your call before this can move to TODO:
+1. **GitHub**: `PUT /orgs/{org}/memberships/{username}` needs a token with `admin:org` (or an org-installed GitHub App with the Members org permission) — a materially higher-privilege credential than `CF_INTERNAL_PAT` (repo-content-scoped only). This has to be a fresh token you mint, not something this app or I can generate.
+2. **Discord**: there is no API that silently drops an arbitrary user into a guild — Discord requires either (a) the user to click a normal invite link (`discord.gg/...`) and accept it themselves, or (b) a prior `guilds.join`-scoped OAuth consent from that specific user plus an access token from that consent, which this app doesn't currently request (today's Discord sign-in asks only for `identify`) or store (no provider access token is persisted after login at all, for any provider). Option (a) is achievable now; option (b) would mean re-authenticating every existing Discord-linked contributor with a wider scope and starting to persist a normally-discarded token — a much bigger change. Recommend (a) for a first version: a real, working Discord invite link, sent automatically, that still needs one click to accept — "automatically invited" rather than "automatically joined." Flagging rather than deciding, since it's a visible behavior difference from what was asked.
+Re-invite cooldown: recommend 15 minutes over the suggested 5 — GitHub/Discord's invite endpoints carry secondary rate limits that a 5-minute window makes easier to trip on a busy confirm day, and email/invite delivery itself can lag a few minutes, so 5 minutes mostly just invites double-sends without helping. Open for you to set otherwise.
+Needs a new `admin:org`-scoped GitHub token and a Discord bot token (with `Create Instant Invite` permission in the target guild) as new deploy secrets — provisioning both is on you; I can wire up the app-side once they exist.
+Depends on IDEA-040 for the org/guild identity this targets.
+
+By: vzhuman · 2026-08-08
+
+## [DRAFT] [vzhuman] IDEA-042 — Auto-add an approved track member to that track's GitHub team and Discord role
+Idea:
+When a Track Admin accepts a join request (IDEA-013/014), automatically add the contributor to that track's GitHub team and Discord role, so track membership actually grants the repository/channel access it's supposed to — rather than that access being a separate manual step. The track-to-team and track-to-role mapping lives in `pass/tracks.yaml`, alongside the rest of each track's data. A "Re-invite"/"Re-add" action mirrors IDEA-041's, for a Track Admin rather than an Org Admin.
+
+Expected outcome:
+- Each track entry in `pass/tracks.yaml` gains optional `github_team` (a team slug) and `discord_role_id` fields.
+- Accepting a join request (IDEA-014) adds the contributor to that GitHub team (`PUT /orgs/{org}/teams/{team_slug}/memberships/{username}`) and grants the Discord role (`PUT /guilds/{guild}/members/{user}/roles/{role}`) — both best-effort, same never-block-the-decision discipline as IDEA-041.
+- IDEA-014's member list shows, per member, whether team/role assignment succeeded, with a Track-Admin-facing retry action once a cooldown has passed.
+
+Notes:
+Discord role assignment additionally requires the contributor to already be a guild member — which, per IDEA-041, only happens once they've clicked that invite link. A join-request accepted before the contributor has actually joined the Discord server can only add the GitHub team immediately; the Discord role assignment needs to either wait or be retried later. Worth deciding: silently skip and let the Re-add button cover it, or surface that specific "not in the server yet" state distinctly from a real failure.
+Reuses IDEA-041's GitHub org token (team membership needs the same `admin:org`-level privilege, or org-admin/team-maintainer permission over that specific team) and Discord bot token (role assignment needs `Manage Roles`, with the bot's own role positioned above every role it's asked to grant in the guild's role hierarchy) — no new credentials beyond what IDEA-041 already needs.
+Depends on IDEA-013/014 (the join-request/acceptance this hooks into), IDEA-040 (org/guild identity), and IDEA-041 (the GitHub/Discord credentials and invite mechanism this extends from org-level to per-track).
 
 By: vzhuman · 2026-08-08
