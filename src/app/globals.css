@@ -148,6 +148,42 @@ main {
   white-space: nowrap;
 }
 
+/* IDEA-028 — Admin-only, sits alongside the footer's own links/copyright.
+   Each box is colored independently (own value against its own threshold),
+   not one blended overall status. */
+.droplet-status {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.droplet-status-box {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: default;
+}
+
+.droplet-status-green {
+  background: #e6f4ea;
+  color: #1a7f37;
+}
+
+.droplet-status-yellow {
+  background: #fff4e0;
+  color: #a85d00;
+}
+
+.droplet-status-red {
+  background: #fbe9e9;
+  color: #c33;
+}
+
+.droplet-status-unknown {
+  background: var(--panel);
+  color: var(--muted);
+}
+
 /* The trigger is the round initials tile; the rest only exists while open. */
 .user-menu {
   position: relative;

@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <Header user={user} />
         <main>{children}</main>
-        <Footer />
+        <Footer isAdmin={admin} />
       </body>
     </html>
   )

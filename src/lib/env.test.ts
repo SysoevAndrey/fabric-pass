@@ -54,3 +54,19 @@ test('treats a blank ROOT_GITHUB_ID as unset', () => {
   const result = envSchema.parse({ ...baseEnv, ROOT_GITHUB_ID: '' })
   expect(result.ROOT_GITHUB_ID).toBeUndefined()
 })
+
+test('parses with both DO credentials unset', () => {
+  expect(() => envSchema.parse(baseEnv)).not.toThrow()
+})
+
+test('parses with both DO credentials set', () => {
+  expect(() => envSchema.parse({ ...baseEnv, DO_API_TOKEN: 'do-token', DO_DROPLET_ID: '12345' })).not.toThrow()
+})
+
+test('rejects DO_API_TOKEN set without DO_DROPLET_ID', () => {
+  expect(() => envSchema.parse({ ...baseEnv, DO_API_TOKEN: 'do-token' })).toThrow()
+})
+
+test('rejects DO_DROPLET_ID set without DO_API_TOKEN', () => {
+  expect(() => envSchema.parse({ ...baseEnv, DO_DROPLET_ID: '12345' })).toThrow()
+})

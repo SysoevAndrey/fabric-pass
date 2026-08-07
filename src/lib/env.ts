@@ -52,6 +52,14 @@ export const envSchema = z
       (value) => (value === '' ? undefined : value),
       z.string().regex(/^\d+$/, 'ROOT_GITHUB_ID must be numeric').optional(),
     ),
+    // IDEA-027 — optional, the same way RESEND_API_KEY is: this app must
+    // still boot with no DigitalOcean token configured at all (local dev,
+    // or production before it's set up). See lib/droplet-metrics.ts, which
+    // reports "not configured" instead of fetching when either is unset.
+    // A read-only DO API token, generated in DO's own dashboard — not
+    // something this app or an agent can provision on its own.
+    DO_API_TOKEN: z.string().min(1).optional(),
+    DO_DROPLET_ID: z.string().min(1).optional(),
   })
   .refine((data) => Boolean(data.LINKEDIN_CLIENT_ID) === Boolean(data.LINKEDIN_CLIENT_SECRET), {
     // Independently optional fields would otherwise let exactly one of the
@@ -61,6 +69,10 @@ export const envSchema = z
     // presence test, instead of it having to guess which half-set case means.
     message: 'LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET must both be set, or both left unset',
     path: ['LINKEDIN_CLIENT_ID'],
+  })
+  .refine((data) => Boolean(data.DO_API_TOKEN) === Boolean(data.DO_DROPLET_ID), {
+    message: 'DO_API_TOKEN and DO_DROPLET_ID must both be set, or both left unset',
+    path: ['DO_API_TOKEN'],
   })
 
 export const env = envSchema.parse(process.env)
