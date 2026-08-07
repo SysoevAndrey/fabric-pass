@@ -115,6 +115,8 @@ Track-specific policy links, if any, are out of scope until IDEA-007's track dir
 Approach: the list of links comes from IDEA-032's artifact-links registry (cf-internal `pass/`), not hardcoded or scraped from the governance repository directly — the registry holds the label and URL, the governance repository still holds the actual policy documents.
 Depends on IDEA-032 for where these links are sourced from.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/29
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-007 — Track directory on Main page
@@ -131,6 +133,8 @@ Depends on IDEA-010 for the underlying tracks data — nothing to display until 
 A track's entry can also surface its own artifact links (e.g. vision doc, contributing guide) from IDEA-032's registry, scoped to that track's slug — the same mechanism IDEA-006/008/009 use for their own links.
 Depends on IDEA-032 for any artifact links shown alongside the rest of a track's entry.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/30
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-008 — Track roadmap diagrams
@@ -145,6 +149,8 @@ Depends on IDEA-007 for the directory to attach to. Diagram source/format (stati
 Approach: a diagram is a link into IDEA-032's artifact-links registry, pointing at wherever it's actually maintained (any repository under `constructorfabric`, or elsewhere) — this app never stores or generates the diagram itself, only the link to it.
 Depends on IDEA-032 for where this link is sourced from.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/31
+
 By: vzhuman · 2026-07-31
 
 ## [TAKEN] [vzhuman] IDEA-009 — Track meeting schedules
@@ -158,6 +164,8 @@ Notes:
 Depends on IDEA-007 for the directory to attach to. Whether schedules link out to an external calendar or are entered/maintained here directly is undecided.
 Approach: a schedule is a link into IDEA-032's artifact-links registry (e.g. to an external calendar or a scheduling doc), not data entered/maintained directly in this app — consistent with IDEA-006/008 using the same registry for their own links.
 Depends on IDEA-032 for where this link is sourced from.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/32
 
 By: vzhuman · 2026-07-31
 
@@ -505,6 +513,8 @@ Split out as its own idea rather than folded into IDEA-006/008/009 individually 
 Schema beyond the shape above is undecided: whether "scope" is a free-form track slug or an enum, whether entries carry a category (policy/vision/roadmap/schedule/etc.) for filtering or grouping, and whether one registry file covers everything or splits by concern (e.g. `pass/artifacts.yaml` vs. per-category files) are all open.
 Depends on IDEA-010 (`tracks.yaml` already exists) for the per-track scoping to key against.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/33
+
 By: vzhuman · 2026-08-06
 
 ## [DONE] [frontgeeks] IDEA-033 — MR step in the ideas flow: PR opens → In Test, merge → DONE
@@ -554,6 +564,8 @@ Overlaps with IDEA-007 (Track directory) — IDEA-007 describes *what* a track's
 Template format/placeholder syntax is undecided.
 Natural home for IDEA-008 (roadmap diagrams) and IDEA-032 (artifact links) once those exist, alongside the rest of a track's page.
 Marked DRAFT rather than TODO specifically because of the IDEA-007 overlap above — recording it shouldn't read as two approved, independently-buildable ideas for the same page.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/34
 
 By: vzhuman · 2026-08-06
 
