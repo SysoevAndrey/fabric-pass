@@ -20,13 +20,14 @@ const LEADER_SLOTS: { field: keyof Track; role: string }[] = [
   { field: 'researcherGithubId', role: 'Researcher' },
 ]
 
-/** Each filled leader slot's display label — the contributor's name,
- * falling back to their GitHub login (same fallback the Admin tiles use).
- * A slot whose github_id no longer resolves to a contributor row is
- * silently skipped rather than shown broken — shouldn't happen (tracks.ts's
- * syncTracks only ever writes a resolved id), but a row deleted out from
- * under a track since the last sync is exactly the kind of thing worth not
- * crashing the page over. */
+/** Each filled leader slot's display label — always the contributor's
+ * GitHub login, never their real name (this page is visible to any
+ * signed-in contributor, not just the leader's own team). A slot whose
+ * github_id no longer resolves to a contributor row is silently skipped
+ * rather than shown broken — shouldn't happen (tracks.ts's syncTracks only
+ * ever writes a resolved id), but a row deleted out from under a track
+ * since the last sync is exactly the kind of thing worth not crashing the
+ * page over. */
 async function resolveLeaders(track: Track): Promise<TrackPageLeader[]> {
   const leaders: TrackPageLeader[] = []
   for (const { field, role } of LEADER_SLOTS) {
@@ -34,7 +35,7 @@ async function resolveLeaders(track: Track): Promise<TrackPageLeader[]> {
     if (typeof githubId !== 'string') continue
     const contributor: Contributor | null = await findByGithubId(githubId)
     if (!contributor) continue
-    leaders.push({ role, name: contributor.name ?? `@${contributor.githubLogin}` })
+    leaders.push({ role, name: `@${contributor.githubLogin}` })
   }
   return leaders
 }
