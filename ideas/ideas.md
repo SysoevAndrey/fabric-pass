@@ -237,7 +237,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/15
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-013 — Request to join a track
+## [DONE] [vzhuman] IDEA-013 — Request to join a track
 Idea:
 A contributor can request to join a track from that track's page. The request is stored, synced to cf-internal, and visible to that track's Track Admin(s) (and to Admins).
 
@@ -249,11 +249,13 @@ Expected outcome:
 Notes:
 Depends on IDEA-010 (tracks must exist) and IDEA-007 (the track page this is requested from).
 
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/46 (merged as 5f5c6bd) — app-owned track_members table, not synced to cf-internal (contributor-initiated + admin-decided, same category as email confirmation).
+
 Task: https://github.com/constructorfabric/fabric-pass/issues/39
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
+## [DONE] [vzhuman] IDEA-014 — Track Admin: member list & join-request review
 Idea:
 A page, visible to Track Admins (and Admins), listing the people assigned to their track(s) plus that track's pending join requests (IDEA-013), with Accept/Reject actions on requests.
 
@@ -266,6 +268,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-011 (roles), IDEA-013 (the requests being reviewed), and IDEA-010 (tracks and their membership).
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/46 (merged as 5f5c6bd) — /tracks/admin, linked from the account menu as "Track membership".
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/40
 
@@ -329,7 +333,7 @@ Depends on IDEA-010 (leader slots) and IDEA-014 (the review surface this needs, 
 
 By: vzhuman · 2026-07-31
 
-## [TAKEN] [vzhuman] IDEA-019 — Notify a contributor when their join request is decided
+## [DONE] [vzhuman] IDEA-019 — Notify a contributor when their join request is decided
 Idea:
 When a Track Admin (or Admin) accepts or rejects a join request (IDEA-013/014), the requesting contributor is told the outcome — currently nothing surfaces the decision back to them at all.
 
@@ -338,6 +342,8 @@ Expected outcome:
 
 Notes:
 Depends on IDEA-013/014 for the decision this reports. Notification channel (in-app only vs. also email) is undecided.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/46 (merged as 5f5c6bd) — in-app status on the track page, plus a best-effort email via the existing Resend integration.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/42
 
@@ -661,8 +667,10 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/28
 
 By: vzhuman · 2026-08-07
 
-## [TAKEN] [vzhuman] IDEA-039 — Track leaders shown by GitHub login, not real name
+## [DONE] [vzhuman] IDEA-039 — Track leaders shown by GitHub login, not real name
 Idea: A track's leaders (`/tracks/[slug]`) resolved a filled leader slot to the contributor's real `name` field when set, showing full real names on a page visible to any signed-in contributor; always show `@github_login` instead, matching how the Admin tiles already fall back.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/38 (merged as 967c517)
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/37
 
