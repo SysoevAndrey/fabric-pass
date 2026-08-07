@@ -600,3 +600,23 @@ Result: PR https://github.com/constructorfabric/fabric-pass/pull/27 (merged as e
 Task: https://github.com/constructorfabric/fabric-pass/issues/26
 
 By: vzhuman · 2026-08-07
+
+## [TODO] IDEA-038 — Profile & public profile polish: consistent badges, Cancel→Close, inline email confirmation, public profile icons and Close button
+Idea:
+Six polish items across the signed-in Profile page/form and the public profile page: consistent capitalization for the status/completeness badges wherever shown; the same badge+icon format used everywhere a contributor's status or completeness appears; the Profile edit form's Cancel button renamed to Close; the Email field's always-clickable Confirm/Re-confirm button replaced with a static Confirmed/Confirmation-required tag in view mode; a company icon on the public profile page; and a Close button (→ Main) on the public profile page, matching the Profile page's own Edit/Close pair.
+
+Expected outcome:
+- Status (`draft`/`confirmed`/`blocked`) and completeness (`Incomplete`/`Ready`/`Complete`) badges use the same capitalization everywhere they're shown — Capitalized, matching completeness's existing `PROFILE_COMPLETENESS_LABELS` (status today renders its raw lowercase DB value with no label map at all).
+- The same badge shape (icon + label) is used for status/completeness wherever either appears.
+- Profile edit mode's Cancel button reads Close instead.
+- Profile view mode's Email field shows a static tag — green "Confirmed" or red "Confirmation required" — instead of today's Confirm/Re-confirm button, which is clickable (and triggers a real resend) even in read-only view mode. Edit mode keeps the actionable button.
+- The public profile page shows a company icon before the company name (plain text today).
+- The public profile page gets a Close button (X icon, "Close" hint) that navigates to Main.
+
+Notes:
+Item 2 is only partially decided: which of status/completeness actually belongs on the search-results list and on the public profile view is open — search only ever returns `confirmed` contributors, so a status badge there is always the same value; whether completeness is even appropriate to show about someone *else's* profile (vs. only your own) needs deciding before implementation.
+Item 3's "preferred" option per the request — rename Cancel to Close — is what's recorded above. The alternative, an actual rollback of changes made since entering edit mode, is a materially bigger feature (autosave has already persisted each field individually as it was typed; "rollback" means tracking and reverting every field back to its value on entry) and isn't the default here.
+Item 4 only changes Profile *view* mode — edit mode keeps today's actionable Confirm/Re-confirm button, since sending a confirmation email is still something the contributor needs to be able to trigger.
+Items 5/6 reuse existing pieces — `CompanyMark`/`CloseMark` (added for IDEA-036/037 and IDEA-001 respectively) and the Profile page's own `icon-button-square` pattern — no new icon design needed.
+
+By: vzhuman · 2026-08-07
