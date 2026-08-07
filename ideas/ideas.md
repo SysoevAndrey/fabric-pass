@@ -699,6 +699,8 @@ Notes:
 Singleton-row table, not per-field env vars — env vars need a droplet SSH session and a redeploy to change; this only needs a commit, matching the "easy to maintain for Track Admins and Org Admins" goal already established for IDEA-032/035.
 Depends on nothing existing in this app yet; IDEA-041/042 depend on this.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/51
+
 By: vzhuman · 2026-08-08
 
 ## [TAKEN] [vzhuman] IDEA-041 — Auto-invite a confirmed contributor to the GitHub org and Discord server
@@ -718,6 +720,8 @@ Re-invite cooldown: recommend 15 minutes over the suggested 5 — GitHub/Discord
 Needs a new `admin:org`-scoped GitHub token and a Discord bot token (with `Create Instant Invite` permission in the target guild) as new deploy secrets — provisioning both is on you; I can wire up the app-side once they exist.
 Depends on IDEA-040 for the org/guild identity this targets.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/52
+
 By: vzhuman · 2026-08-08
 
 ## [TAKEN] [vzhuman] IDEA-042 — Auto-add an approved track member to that track's GitHub team and Discord role
@@ -733,6 +737,8 @@ Notes:
 Discord role assignment additionally requires the contributor to already be a guild member — which, per IDEA-041, only happens once they've clicked that invite link. A join-request accepted before the contributor has actually joined the Discord server can only add the GitHub team immediately; the Discord role assignment needs to either wait or be retried later. Worth deciding: silently skip and let the Re-add button cover it, or surface that specific "not in the server yet" state distinctly from a real failure.
 Reuses IDEA-041's GitHub org token (team membership needs the same `admin:org`-level privilege, or org-admin/team-maintainer permission over that specific team) and Discord bot token (role assignment needs `Manage Roles`, with the bot's own role positioned above every role it's asked to grant in the guild's role hierarchy) — no new credentials beyond what IDEA-041 already needs.
 Depends on IDEA-013/014 (the join-request/acceptance this hooks into), IDEA-040 (org/guild identity), and IDEA-041 (the GitHub/Discord credentials and invite mechanism this extends from org-level to per-track).
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/53
 
 By: vzhuman · 2026-08-08
 
