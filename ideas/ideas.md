@@ -646,3 +646,8 @@ Items 5/6 reuse existing pieces — `CompanyMark`/`CloseMark` (added for IDEA-03
 Task: https://github.com/constructorfabric/fabric-pass/issues/28
 
 By: vzhuman · 2026-08-07
+
+## [TAKEN] [vzhuman] IDEA-039 — Track leaders shown by GitHub login, not real name
+Idea: A track's leaders (`/tracks/[slug]`) resolved a filled leader slot to the contributor's real `name` field when set, showing full real names on a page visible to any signed-in contributor; always show `@github_login` instead, matching how the Admin tiles already fall back.
+
+By: vzhuman · 2026-08-08
