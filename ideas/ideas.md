@@ -686,7 +686,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/37
 
 By: vzhuman · 2026-08-08
 
-## [DRAFT] [vzhuman] IDEA-040 — cf-internal config registry (org/server names, sync mapping)
+## [TAKEN] [vzhuman] IDEA-040 — cf-internal config registry (org/server names, sync mapping)
 Idea:
 A small `pass/config.yaml` in cf-internal, one-way synced the same way as `tracks.yaml`, holding the values IDEA-041/042 need but that shouldn't be hardcoded: the GitHub organization name and the Discord server (guild) id. Foundational — IDEA-041/042 both depend on it existing first.
 
@@ -701,7 +701,7 @@ Depends on nothing existing in this app yet; IDEA-041/042 depend on this.
 
 By: vzhuman · 2026-08-08
 
-## [DRAFT] [vzhuman] IDEA-041 — Auto-invite a confirmed contributor to the GitHub org and Discord server
+## [TAKEN] [vzhuman] IDEA-041 — Auto-invite a confirmed contributor to the GitHub org and Discord server
 Idea:
 When an Org Admin confirms a contributor (IDEA-012's Confirm button), automatically send them a GitHub organization invite and a Discord server invite, instead of that being a manual follow-up outside the app. A "Re-invite" action is available once a reasonable amount of time has passed since the last invite, for the case where the first one didn't land.
 
@@ -720,7 +720,7 @@ Depends on IDEA-040 for the org/guild identity this targets.
 
 By: vzhuman · 2026-08-08
 
-## [DRAFT] [vzhuman] IDEA-042 — Auto-add an approved track member to that track's GitHub team and Discord role
+## [TAKEN] [vzhuman] IDEA-042 — Auto-add an approved track member to that track's GitHub team and Discord role
 Idea:
 When a Track Admin accepts a join request (IDEA-013/014), automatically add the contributor to that track's GitHub team and Discord role, so track membership actually grants the repository/channel access it's supposed to — rather than that access being a separate manual step. The track-to-team and track-to-role mapping lives in `pass/tracks.yaml`, alongside the rest of each track's data. A "Re-invite"/"Re-add" action mirrors IDEA-041's, for a Track Admin rather than an Org Admin.
 
