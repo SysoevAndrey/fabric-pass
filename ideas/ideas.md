@@ -619,4 +619,6 @@ Item 3's "preferred" option per the request — rename Cancel to Close — is wh
 Item 4 only changes Profile *view* mode — edit mode keeps today's actionable Confirm/Re-confirm button, since sending a confirmation email is still something the contributor needs to be able to trigger.
 Items 5/6 reuse existing pieces — `CompanyMark`/`CloseMark` (added for IDEA-036/037 and IDEA-001 respectively) and the Profile page's own `icon-button-square` pattern — no new icon design needed.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/28
+
 By: vzhuman · 2026-08-07
