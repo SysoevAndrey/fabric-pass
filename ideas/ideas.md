@@ -725,3 +725,10 @@ Reuses IDEA-041's GitHub org token (team membership needs the same `admin:org`-l
 Depends on IDEA-013/014 (the join-request/acceptance this hooks into), IDEA-040 (org/guild identity), and IDEA-041 (the GitHub/Discord credentials and invite mechanism this extends from org-level to per-track).
 
 By: vzhuman · 2026-08-08
+
+## [DONE] [vzhuman] IDEA-043 — Fix a brief production outage from two concurrent deploy webhook calls
+Idea: PR #46 and PR #38 were merged ~3 seconds apart, firing two overlapping "Build and deploy" runs; their deploy-webhook calls raced on the same droplet, corrupting an image-layer extraction (`failed to Lchown ... no such file or directory`) and leaving `fabric-pass-app-1` stuck half-removed — production served 502 until fixed.
+
+Result: removed the stuck container and force-recreated `app` (`docker compose up -d --force-recreate app`) — confirmed `/` and `/tracks` back to 200, migration 015 applied, all four containers healthy. Self-inflicted (merged two PRs back-to-back without waiting for the first deploy to finish) and caught within minutes, not an independent discovery. Going forward: verify one PR's deploy has actually landed (not just that the GitHub Actions run reports success — that only covers build+push+webhook-call, not the droplet's own `docker compose up`) before merging the next.
+
+By: vzhuman · 2026-08-08
