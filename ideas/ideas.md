@@ -595,4 +595,6 @@ Expected outcome:
 Notes:
 Purely a UI pass over IDEA-036's own tiles — no data model or server-action change, aside from adding `discordUsername` to the row already fetched by `listContributorsForRegistry`.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/26
+
 By: vzhuman · 2026-08-07
