@@ -5,6 +5,7 @@ import { findByGithubId } from '@/lib/contributors'
 import { sendTrackDecisionEmail } from '@/lib/email'
 import { isAdmin, isTrackAdmin } from '@/lib/roles'
 import { getSession } from '@/lib/session'
+import { grantTrackAccess } from '@/lib/team-access'
 import { decideJoinRequest, NotPendingError } from '@/lib/track-members'
 import { findTrackBySlug } from '@/lib/tracks'
 
@@ -65,5 +66,37 @@ export async function decideJoinRequestAction(
   const requester = await findByGithubId(requesterGithubId)
   if (requester?.email) await sendTrackDecisionEmail(requester.email, track.name, decision)
 
+  // IDEA-042 — best-effort, after everything above, same discipline as
+  // admin/actions.ts's inviteConfirmedContributor call on Confirm.
+  if (decision === 'approved' && requester) await grantTrackAccess(requester, track)
+
+  return { ok: true }
+}
+
+/**
+ * IDEA-042's Re-add button — mirrors admin/actions.ts's
+ * reinviteContributorAction: same authorization, doesn't re-check the
+ * member is still 'approved' (the member list's own cooldown decides when
+ * to render the button), and re-running it early is harmless — it just
+ * retries the same grant.
+ */
+export async function readdTrackAccessAction(trackSlug: string, memberGithubId: string): Promise<DecideJoinRequestResult> {
+  const session = await getSession()
+  if (!session.github) return { ok: false, message: 'Please sign in with GitHub first.' }
+
+  const caller = await findByGithubId(session.github.id)
+  if (!caller) return { ok: false, message: 'Please sign in with GitHub first.' }
+
+  const track = await findTrackBySlug(trackSlug)
+  if (!track) return { ok: false, message: 'This track no longer exists.' }
+
+  if (!isAdmin(caller) && !(await isTrackAdmin(caller.githubId, track.id))) {
+    return { ok: false, message: 'Not authorized.' }
+  }
+
+  const member = await findByGithubId(memberGithubId)
+  if (!member) return { ok: false, message: 'This contributor no longer exists.' }
+
+  await grantTrackAccess(member, track)
   return { ok: true }
 }

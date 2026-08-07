@@ -31,6 +31,12 @@ const trackRowSchema = z.object({
     })
     .default({}),
   admins: z.array(z.string().min(1)).default([]),
+  // IDEA-042 — optional. github_team is a team slug (not a numeric id, same
+  // human-eyeball-verifiable reasoning as leader/admin logins above);
+  // discord_role_id is Discord's own numeric snowflake, since a role has
+  // no stable human-facing name the way a GitHub team slug does.
+  github_team: z.string().min(1).optional(),
+  discord_role_id: z.string().min(1).optional(),
 })
 
 const registryFileSchema = z.object({
@@ -71,6 +77,8 @@ export function parseTracksYaml(content: string): { tracks: TrackSync[]; invalid
       qualityGithubLogin: row.data.leaders.quality ?? undefined,
       researcherGithubLogin: row.data.leaders.researcher ?? undefined,
       adminGithubLogins: row.data.admins,
+      githubTeam: row.data.github_team,
+      discordRoleId: row.data.discord_role_id,
     })
   }
 

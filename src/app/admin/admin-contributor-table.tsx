@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import type { ContributorStatus } from '@/lib/contributors'
 import { CONTRIBUTOR_STATUS_LABELS } from '@/lib/contributor-status-labels'
 import { PROFILE_COMPLETENESS_LABELS, PROFILE_COMPLETENESS_VALUES, type ProfileCompleteness } from '@/lib/profile-completeness'
-import { setContributorStatusAction } from './actions'
+import { reinviteContributorAction, setContributorStatusAction } from './actions'
 import { CompanyMark, CompletenessMark, DiscordMark, EmailMark, GitHubMark, StatusMark } from '../marks'
 
 interface AdminContributorRow {
@@ -16,6 +16,24 @@ interface AdminContributorRow {
   discordUsername: string | null
   status: ContributorStatus
   profileCompleteness: ProfileCompleteness
+  /** IDEA-041 — ISO strings, not Date: server-to-client component props
+   * serialize through JSON, same as every other field on this row. `null`
+   * means never attempted. */
+  githubOrgInvitedAt: string | null
+  discordInvitedAt: string | null
+}
+
+/** IDEA-041's Re-invite cooldown, decided this session — see ideas.md. */
+const REINVITE_COOLDOWN_MS = 15 * 60 * 1000
+
+/** `true` once 15 minutes have passed since the more recent of the two
+ * invite attempts — or immediately, if neither has ever been attempted at
+ * all (nothing to wait out). */
+function canReinvite(row: AdminContributorRow): boolean {
+  const timestamps = [row.githubOrgInvitedAt, row.discordInvitedAt].filter((t): t is string => t !== null)
+  if (timestamps.length === 0) return true
+  const mostRecent = Math.max(...timestamps.map((t) => new Date(t).getTime()))
+  return Date.now() - mostRecent > REINVITE_COOLDOWN_MS
 }
 
 // Duplicated from contributors.ts's CONTRIBUTOR_STATUSES rather than
@@ -74,6 +92,27 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
       return
     }
     setRows((current) => current.map((row) => (row.githubId === githubId ? { ...row, status } : row)))
+  }
+
+  async function reinvite(githubId: string) {
+    setPendingGithubId(githubId)
+    setMessage(undefined)
+    const result = await reinviteContributorAction(githubId)
+    setPendingGithubId(undefined)
+    if (!result.ok) {
+      setMessage(result.message)
+      return
+    }
+    // Optimistic: the server stamps each channel independently based on
+    // which config values are actually set (see invites.ts), but this
+    // client-side row doesn't know which those were — setting both is a
+    // conservative approximation, not a lie the server disagrees with,
+    // since a channel that wasn't really touched just shows a cooldown
+    // that expires normally rather than one that's inaccurately short.
+    const now = new Date().toISOString()
+    setRows((current) =>
+      current.map((row) => (row.githubId === githubId ? { ...row, githubOrgInvitedAt: now, discordInvitedAt: now } : row)),
+    )
   }
 
   return (
@@ -171,6 +210,17 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
               >
                 Block
               </button>
+              {row.status === 'confirmed' ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={pendingGithubId === row.githubId || !canReinvite(row)}
+                  title="Re-send the GitHub org invite and the Discord invite email"
+                  onClick={() => reinvite(row.githubId)}
+                >
+                  Re-invite
+                </button>
+              ) : null}
             </div>
           </div>
         ))}

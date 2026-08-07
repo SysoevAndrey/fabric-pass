@@ -41,6 +41,8 @@ export default async function AdminPage() {
           discordUsername: c.discordUsername ?? null,
           status: c.status,
           profileCompleteness: c.profileCompleteness,
+          githubOrgInvitedAt: c.githubOrgInvitedAt?.toISOString() ?? null,
+          discordInvitedAt: c.discordInvitedAt?.toISOString() ?? null,
         }))}
       />
     </>

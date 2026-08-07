@@ -37,7 +37,18 @@ export default async function TrackAdminPage() {
     tracks.map(async (track) => ({
       trackSlug: track.slug,
       trackName: track.name,
-      members: await listTrackMembership(track.id),
+      // IDEA-042 — only a track with a GitHub team or Discord role
+      // configured ever has anything for Re-add to do; the review UI uses
+      // this to decide whether to show that button at all.
+      hasTeamOrRole: Boolean(track.githubTeam || track.discordRoleId),
+      members: (await listTrackMembership(track.id)).map((member) => ({
+        githubId: member.githubId,
+        githubLogin: member.githubLogin,
+        name: member.name,
+        status: member.status,
+        githubTeamAddedAt: member.githubTeamAddedAt?.toISOString() ?? null,
+        discordRoleAddedAt: member.discordRoleAddedAt?.toISOString() ?? null,
+      })),
     })),
   )
 

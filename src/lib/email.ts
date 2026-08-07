@@ -77,3 +77,20 @@ export async function sendTrackDecisionEmail(to: string, trackName: string, deci
     `<p>Your request to join the <strong>${trackName}</strong> track was ${verb}.</p><p><a href="${trackUrl}">${trackUrl}</a></p>`,
   )
 }
+
+/**
+ * IDEA-041 — Discord has no API that silently adds someone to a server
+ * (see lib/invites.ts's module doc), so "invited" here means "sent a real,
+ * working invite link" — one click to accept, not zero. `inviteUrl` comes
+ * from cf-internal's pass/config.yaml (lib/app-config.ts), not hardcoded,
+ * so it can be rotated without a code change. Never throws (see send()
+ * above).
+ */
+export async function sendDiscordInviteEmail(to: string, inviteUrl: string): Promise<void> {
+  await send(
+    to,
+    'Join the Constructor Fabric Discord — Constructor Fabric Pass',
+    `You're confirmed as a Constructor Fabric contributor. Join the community Discord server here:\n\n${inviteUrl}`,
+    `<p>You're confirmed as a Constructor Fabric contributor. Join the community Discord server here:</p><p><a href="${inviteUrl}">${inviteUrl}</a></p>`,
+  )
+}

@@ -18,6 +18,7 @@ const baseEnv = {
   TRACKS_SYNC_SECRET: 'tracks-sync-secret',
   ARTIFACT_LINKS_SYNC_SECRET: 'artifact-links-sync-secret',
   TRACK_PAGE_TEMPLATE_SYNC_SECRET: 'track-page-template-sync-secret',
+  CONFIG_SYNC_SECRET: 'config-sync-secret',
 }
 
 test('parses with both LinkedIn credentials unset', () => {
@@ -69,4 +70,24 @@ test('rejects DO_API_TOKEN set without DO_DROPLET_ID', () => {
 
 test('rejects DO_DROPLET_ID set without DO_API_TOKEN', () => {
   expect(() => envSchema.parse({ ...baseEnv, DO_DROPLET_ID: '12345' })).toThrow()
+})
+
+test('rejects a missing CONFIG_SYNC_SECRET', () => {
+  const { CONFIG_SYNC_SECRET: _unused, ...withoutConfigSecret } = baseEnv
+  expect(() => envSchema.parse(withoutConfigSecret)).toThrow()
+})
+
+// Unlike the DO_* pair above, GitHub org invites and Discord role grants
+// are independent capabilities — either can be configured without the
+// other, so there's no pairing constraint to enforce.
+test('parses with GITHUB_ORG_TOKEN set and DISCORD_BOT_TOKEN unset', () => {
+  expect(() => envSchema.parse({ ...baseEnv, GITHUB_ORG_TOKEN: 'github-org-token' })).not.toThrow()
+})
+
+test('parses with DISCORD_BOT_TOKEN set and GITHUB_ORG_TOKEN unset', () => {
+  expect(() => envSchema.parse({ ...baseEnv, DISCORD_BOT_TOKEN: 'discord-bot-token' })).not.toThrow()
+})
+
+test('parses with both GITHUB_ORG_TOKEN and DISCORD_BOT_TOKEN unset', () => {
+  expect(() => envSchema.parse(baseEnv)).not.toThrow()
 })

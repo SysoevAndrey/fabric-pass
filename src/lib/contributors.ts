@@ -68,6 +68,13 @@ export interface Contributor {
    * Exported to pass/contributors.yaml for visibility, same as
    * emailConfirmedAt, but never read back in from the file. */
   profileCompleteness: ProfileCompleteness
+  /** IDEA-041 — last time this app attempted to invite this contributor to
+   * the GitHub org / send them the Discord server invite, stamped on
+   * attempt (not just success) so the Admin list's Re-invite cooldown
+   * can't be bypassed by a run of failures. `undefined` means never
+   * attempted. See lib/invites.ts. */
+  githubOrgInvitedAt?: Date
+  discordInvitedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -125,6 +132,8 @@ interface Row {
   is_agent: boolean
   is_admin: boolean
   profile_completeness: ProfileCompleteness
+  github_org_invited_at: Date | null
+  discord_invited_at: Date | null
   created_at: Date
   updated_at: Date
 }
@@ -156,6 +165,8 @@ function toContributor(row: Row): Contributor {
     isAgent: row.is_agent,
     isAdmin: row.is_admin,
     profileCompleteness: row.profile_completeness,
+    githubOrgInvitedAt: row.github_org_invited_at ?? undefined,
+    discordInvitedAt: row.discord_invited_at ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -749,4 +760,14 @@ export async function setContributorStatus(githubId: string, status: Contributor
     status,
   ])
   if (result.rowCount === 0) throw new ContributorNotFoundError(githubId)
+}
+
+/** IDEA-041 — stamped on attempt (see lib/invites.ts's inviteConfirmedContributor,
+ * the only caller), backing the Admin list's 15-minute Re-invite cooldown. */
+export async function markGithubOrgInvited(githubId: string): Promise<void> {
+  await pool.query('UPDATE contributors SET github_org_invited_at = now() WHERE github_id = $1', [githubId])
+}
+
+export async function markDiscordInvited(githubId: string): Promise<void> {
+  await pool.query('UPDATE contributors SET discord_invited_at = now() WHERE github_id = $1', [githubId])
 }

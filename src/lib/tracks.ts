@@ -19,6 +19,11 @@ export interface Track {
   developerGithubId?: string
   qualityGithubId?: string
   researcherGithubId?: string
+  /** IDEA-042 — optional, from pass/tracks.yaml. A track with neither set
+   * never triggers a GitHub-team or Discord-role grant on join approval
+   * (see tracks/admin/actions.ts's decideJoinRequestAction). */
+  githubTeam?: string
+  discordRoleId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -34,6 +39,8 @@ interface TrackRow {
   developer_github_id: string | null
   quality_github_id: string | null
   researcher_github_id: string | null
+  github_team: string | null
+  discord_role_id: string | null
   created_at: Date
   updated_at: Date
 }
@@ -51,6 +58,8 @@ function toTrack(row: TrackRow): Track {
     developerGithubId: row.developer_github_id ?? undefined,
     qualityGithubId: row.quality_github_id ?? undefined,
     researcherGithubId: row.researcher_github_id ?? undefined,
+    githubTeam: row.github_team ?? undefined,
+    discordRoleId: row.discord_role_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -87,6 +96,11 @@ export interface TrackSync {
    * app treats the registry file as authoritative: whatever it currently
    * lists *is* the whole set. */
   adminGithubLogins: string[]
+  /** IDEA-042 — a GitHub team slug and a Discord role id, both optional and
+   * unrelated to leader/admin login resolution (neither names a
+   * contributor, so there's nothing here for resolveGithubId to do). */
+  githubTeam?: string
+  discordRoleId?: string
 }
 
 export interface TrackSyncResult {
@@ -149,8 +163,8 @@ export async function syncTracks(tracks: TrackSync[]): Promise<TrackSyncResult> 
     }
 
     const { rows } = await pool.query<{ id: string }>(
-      `INSERT INTO tracks (slug, name, description, repositories, product_manager_github_id, architect_github_id, developer_github_id, quality_github_id, researcher_github_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO tracks (slug, name, description, repositories, product_manager_github_id, architect_github_id, developer_github_id, quality_github_id, researcher_github_id, github_team, discord_role_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (slug) DO UPDATE
          SET name = EXCLUDED.name,
              description = EXCLUDED.description,
@@ -160,6 +174,8 @@ export async function syncTracks(tracks: TrackSync[]): Promise<TrackSyncResult> 
              developer_github_id = EXCLUDED.developer_github_id,
              quality_github_id = EXCLUDED.quality_github_id,
              researcher_github_id = EXCLUDED.researcher_github_id,
+             github_team = EXCLUDED.github_team,
+             discord_role_id = EXCLUDED.discord_role_id,
              updated_at = now()
        RETURNING id`,
       [
@@ -172,6 +188,8 @@ export async function syncTracks(tracks: TrackSync[]): Promise<TrackSyncResult> 
         leaderIds.developer ?? null,
         leaderIds.quality ?? null,
         leaderIds.researcher ?? null,
+        track.githubTeam ?? null,
+        track.discordRoleId ?? null,
       ],
     )
     const trackId = rows[0].id

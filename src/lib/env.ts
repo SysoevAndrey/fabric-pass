@@ -26,6 +26,9 @@ export const envSchema = z
     // independent-rotation reason as TRACKS_SYNC_SECRET above.
     ARTIFACT_LINKS_SYNC_SECRET: z.string().min(1),
     TRACK_PAGE_TEMPLATE_SYNC_SECRET: z.string().min(1),
+    // IDEA-040's own one-way sync (pass/config.yaml -> DB) — same
+    // independent-rotation reasoning as the others above.
+    CONFIG_SYNC_SECRET: z.string().min(1),
     // Optional, unlike everything above: this app must still boot (and did,
     // in production, before these existed) with no Resend key configured at
     // all — see lib/email.ts, which logs instead of sending when unset.
@@ -60,6 +63,18 @@ export const envSchema = z
     // something this app or an agent can provision on its own.
     DO_API_TOKEN: z.string().min(1).optional(),
     DO_DROPLET_ID: z.string().min(1).optional(),
+    // IDEA-041/042 — optional and independent of each other (unlike the
+    // DO_* pair above, GitHub org invites/team adds and Discord role
+    // grants are two genuinely separate capabilities; either can be set up
+    // without the other). Real, org-owner-provisioned credentials this app
+    // can't generate itself: GITHUB_ORG_TOKEN needs `admin:org` scope (a
+    // materially higher privilege than CF_INTERNAL_PAT's repo-content-only
+    // scope), DISCORD_BOT_TOKEN needs the bot invited into the guild with
+    // Manage Roles, positioned above every role it's asked to grant. See
+    // lib/github-org.ts/lib/discord-role.ts, which no-op with a logged
+    // reason whichever of these is unset.
+    GITHUB_ORG_TOKEN: z.string().min(1).optional(),
+    DISCORD_BOT_TOKEN: z.string().min(1).optional(),
   })
   .refine((data) => Boolean(data.LINKEDIN_CLIENT_ID) === Boolean(data.LINKEDIN_CLIENT_SECRET), {
     // Independently optional fields would otherwise let exactly one of the
