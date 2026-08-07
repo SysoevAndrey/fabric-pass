@@ -38,6 +38,7 @@ export default async function AdminPage() {
           name: c.name ?? null,
           email: c.email ?? null,
           company: c.company ?? null,
+          discordUsername: c.discordUsername ?? null,
           status: c.status,
           profileCompleteness: c.profileCompleteness,
         }))}

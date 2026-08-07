@@ -74,6 +74,39 @@ export function LinkedInMark({ size = 20 }: Props) {
   )
 }
 
+/** IDEA-036's Admin tiles — a company/organization a contributor's row
+ * lists, alongside GitHub/Email/Discord's own marks. */
+export function CompanyMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true">
+      <rect x="3" y="7.5" width="14" height="9.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 7.5V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+/** IDEA-036's Admin tiles — marks the org-membership `status` badge as
+ * distinct from the profile-completeness one (CompletenessMark below),
+ * since the two are easy to mistake for each other at a glance otherwise. */
+export function StatusMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true">
+      <path d="M10 2.5 16 4.75v4.5c0 3.75-2.5 6.5-6 7.25-3.5-.75-6-3.5-6-7.25v-4.5L10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/** IDEA-036's Admin tiles — the derived profile-completeness badge
+ * (IDEA-034), distinct from the admin-set `status` badge (StatusMark). */
+export function CompletenessMark({ size = 20 }: Props) {
+  return (
+    <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6.5 10.2 8.7 12.5 13.5 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function DiscordMark({ size = 20 }: Props) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">

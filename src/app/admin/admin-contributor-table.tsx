@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import type { ContributorStatus } from '@/lib/contributors'
 import { PROFILE_COMPLETENESS_LABELS, PROFILE_COMPLETENESS_VALUES, type ProfileCompleteness } from '@/lib/profile-completeness'
 import { setContributorStatusAction } from './actions'
+import { CompanyMark, CompletenessMark, DiscordMark, EmailMark, GitHubMark, StatusMark } from '../marks'
 
 interface AdminContributorRow {
   githubId: string
@@ -11,6 +12,7 @@ interface AdminContributorRow {
   name: string | null
   email: string | null
   company: string | null
+  discordUsername: string | null
   status: ContributorStatus
   profileCompleteness: ProfileCompleteness
 }
@@ -38,7 +40,10 @@ type CompletenessFilter = (typeof COMPLETENESS_FILTER_OPTIONS)[number]
  *
  * IDEA-036 added the status/completeness dropdowns and the tile layout
  * below, replacing the table (IDEA-012's original shape) that needed
- * horizontal scroll to see every column at once.
+ * horizontal scroll to see every column at once. A later pass made each
+ * tile full-width (one per row) with Full Name as the primary identifier —
+ * everything else (GitHub, Email, Company, Discord) is a labelled property
+ * of that person, not a peer of the name.
  */
 export function AdminContributorTable({ contributors }: { contributors: AdminContributorRow[] }) {
   const [query, setQuery] = useState('')
@@ -81,7 +86,7 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
           autoComplete="off"
         />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-          <option value="all">Every status</option>
+          <option value="all">Status</option>
           {CONTRIBUTOR_STATUS_VALUES.map((status) => (
             <option key={status} value={status}>
               {status}
@@ -89,7 +94,7 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
           ))}
         </select>
         <select value={completenessFilter} onChange={(e) => setCompletenessFilter(e.target.value as CompletenessFilter)}>
-          <option value="all">Every completeness</option>
+          <option value="all">Completeness</option>
           {PROFILE_COMPLETENESS_VALUES.map((value) => (
             <option key={value} value={value}>
               {PROFILE_COMPLETENESS_LABELS[value]}
@@ -106,18 +111,52 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
         {filtered.map((row) => (
           <div className="admin-tile" key={row.githubId}>
             <div className="admin-tile-header">
-              <span className="admin-tile-login">@{row.githubLogin}</span>
-              <span className={`admin-status admin-status-${row.status}`}>{row.status}</span>
+              <h3 className="admin-tile-name">{row.name ?? `@${row.githubLogin}`}</h3>
+              <span
+                className={`admin-status admin-status-${row.status}`}
+                title={`Status: ${row.status} — set by an Admin, not the contributor`}
+              >
+                <StatusMark size={13} />
+                {row.status}
+              </span>
             </div>
-            <div className="admin-tile-name">{row.name ?? '—'}</div>
-            <div className="admin-tile-field">{row.email ?? '—'}</div>
-            <div className="admin-tile-field">{row.company ?? '—'}</div>
-            <span className={`completeness-badge completeness-badge-${row.profileCompleteness}`}>
+
+            <div className="admin-tile-properties">
+              <span className="admin-tile-property" title="GitHub">
+                <GitHubMark size={14} />@{row.githubLogin}
+              </span>
+              {row.email ? (
+                <span className="admin-tile-property" title="Email">
+                  <EmailMark size={14} />
+                  {row.email}
+                </span>
+              ) : null}
+              {row.company ? (
+                <span className="admin-tile-property" title="Company">
+                  <CompanyMark size={14} />
+                  {row.company}
+                </span>
+              ) : null}
+              {row.discordUsername ? (
+                <span className="admin-tile-property" title="Discord">
+                  <DiscordMark size={14} />
+                  {row.discordUsername}
+                </span>
+              ) : null}
+            </div>
+
+            <span
+              className={`completeness-badge completeness-badge-${row.profileCompleteness}`}
+              title={`Profile completeness: ${PROFILE_COMPLETENESS_LABELS[row.profileCompleteness]} — derived from what the contributor has filled in, not admin-set`}
+            >
+              <CompletenessMark size={13} />
               {PROFILE_COMPLETENESS_LABELS[row.profileCompleteness]}
             </span>
+
             <div className="admin-actions">
               <button
                 type="button"
+                className="button-primary"
                 disabled={pendingGithubId === row.githubId || row.status === 'confirmed'}
                 onClick={() => setStatus(row.githubId, 'confirmed')}
               >
@@ -125,6 +164,7 @@ export function AdminContributorTable({ contributors }: { contributors: AdminCon
               </button>
               <button
                 type="button"
+                className="button-secondary"
                 disabled={pendingGithubId === row.githubId || row.status === 'blocked'}
                 onClick={() => setStatus(row.githubId, 'blocked')}
               >
