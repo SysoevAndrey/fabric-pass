@@ -10,7 +10,17 @@ function initials(value: string): string {
   return value.slice(0, 2).toUpperCase()
 }
 
-export function UserMenu({ login, name, isAdmin }: { login: string; name: string | null; isAdmin: boolean }) {
+export function UserMenu({
+  login,
+  name,
+  isAdmin,
+  isTrackAdmin,
+}: {
+  login: string
+  name: string | null
+  isAdmin: boolean
+  isTrackAdmin: boolean
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -47,6 +57,11 @@ export function UserMenu({ login, name, isAdmin }: { login: string; name: string
           <a className="user-menu-item" href="/profile" role="menuitem">
             Profile
           </a>
+          {isTrackAdmin ? (
+            <a className="user-menu-item" href="/tracks/admin" role="menuitem">
+              Track membership
+            </a>
+          ) : null}
           {isAdmin ? (
             <a className="user-menu-item" href="/admin" role="menuitem">
               Admin
