@@ -1,19 +1,32 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { decideJoinRequestAction } from './actions'
+import { decideJoinRequestAction, readdTrackAccessAction } from './actions'
 
 interface MemberRow {
   githubId: string
   githubLogin: string
   name?: string
   status: 'pending' | 'approved' | 'rejected'
+  githubTeamAddedAt: string | null
+  discordRoleAddedAt: string | null
 }
 
 interface Section {
   trackSlug: string
   trackName: string
+  hasTeamOrRole: boolean
   members: MemberRow[]
+}
+
+/** IDEA-042's Re-add cooldown — same 15 minutes as IDEA-041's Re-invite. */
+const READD_COOLDOWN_MS = 15 * 60 * 1000
+
+function canReadd(member: MemberRow): boolean {
+  const timestamps = [member.githubTeamAddedAt, member.discordRoleAddedAt].filter((t): t is string => t !== null)
+  if (timestamps.length === 0) return true
+  const mostRecent = Math.max(...timestamps.map((t) => new Date(t).getTime()))
+  return Date.now() - mostRecent > READD_COOLDOWN_MS
 }
 
 /**
@@ -56,11 +69,59 @@ export function TrackMembershipReview({ sections: initialSections }: { sections:
       setMessage(result.message)
       return
     }
+    // Approving also triggers the server-side team/role grant
+    // (tracks/admin/actions.ts's decideJoinRequestAction calls
+    // grantTrackAccess) — this client state has no way to know which of
+    // the two channels that actually touched, so it approximates "both"
+    // the same conservative way readd()'s own optimistic update does,
+    // rather than leaving Re-add showing no cooldown at all right after a
+    // grant attempt just happened.
+    const now = new Date().toISOString()
     setSections((current) =>
       current.map((section) =>
         section.trackSlug !== trackSlug
           ? section
-          : { ...section, members: section.members.map((m) => (m.githubId === githubId ? { ...m, status: decision } : m)) },
+          : {
+              ...section,
+              members: section.members.map((m) =>
+                m.githubId === githubId
+                  ? {
+                      ...m,
+                      status: decision,
+                      ...(decision === 'approved' ? { githubTeamAddedAt: now, discordRoleAddedAt: now } : {}),
+                    }
+                  : m,
+              ),
+            },
+      ),
+    )
+  }
+
+  async function readd(trackSlug: string, githubId: string) {
+    const key = `${trackSlug}/${githubId}`
+    setPendingKey(key)
+    setMessage(undefined)
+    const result = await readdTrackAccessAction(trackSlug, githubId)
+    setPendingKey(undefined)
+    if (!result.ok) {
+      setMessage(result.message)
+      return
+    }
+    // Same conservative-approximation reasoning as the Admin table's own
+    // Re-invite optimistic update (admin-contributor-table.tsx) — the
+    // server stamps each channel independently based on what the track
+    // actually has configured.
+    const now = new Date().toISOString()
+    setSections((current) =>
+      current.map((section) =>
+        section.trackSlug !== trackSlug
+          ? section
+          : {
+              ...section,
+              members: section.members.map((m) =>
+                m.githubId === githubId ? { ...m, githubTeamAddedAt: now, discordRoleAddedAt: now } : m,
+              ),
+            },
       ),
     )
   }
@@ -126,11 +187,39 @@ export function TrackMembershipReview({ sections: initialSections }: { sections:
             {approved.length > 0 ? (
               <>
                 <p className="subtitle">Members</p>
-                <ul className="track-member-list">
-                  {approved.map((member) => (
-                    <li key={member.githubId}>{member.name ?? `@${member.githubLogin}`}</li>
-                  ))}
-                </ul>
+                {section.hasTeamOrRole ? (
+                  // IDEA-042 — only a track with a GitHub team or Discord
+                  // role configured needs Re-add at all; a plain <ul> (see
+                  // the else branch) is enough otherwise, matching the
+                  // no-bespoke-UI-for-a-feature-that-doesn't-apply pattern
+                  // already established for artifact-links categories.
+                  <div className="admin-tiles">
+                    {approved.map((member) => (
+                      <div className="admin-tile" key={member.githubId}>
+                        <div className="admin-tile-header">
+                          <h3 className="admin-tile-name">{member.name ?? `@${member.githubLogin}`}</h3>
+                        </div>
+                        <div className="admin-actions">
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={pendingKey === `${section.trackSlug}/${member.githubId}` || !canReadd(member)}
+                            title="Re-add to this track's GitHub team and Discord role"
+                            onClick={() => readd(section.trackSlug, member.githubId)}
+                          >
+                            Re-add
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="track-member-list">
+                    {approved.map((member) => (
+                      <li key={member.githubId}>{member.name ?? `@${member.githubLogin}`}</li>
+                    ))}
+                  </ul>
+                )}
               </>
             ) : null}
           </section>

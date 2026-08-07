@@ -16,13 +16,14 @@ beforeEach(async () => {
   // (015_track_members.sql), and admin_actions (016_admin_actions.sql)
   // FK-reference contributors, so they have to be listed for the drop too,
   // or Postgres refuses to drop contributors out
-  // from under them. artifact_links/track_page_template (013/014) and
-  // droplet_metrics (017) have no FK to contributors, but still have to be
-  // dropped here — otherwise a leftover table from an earlier test survives
-  // schema_migrations being wiped, and the next migrate() run fails trying
-  // to CREATE TABLE something that already exists.
+  // from under them. artifact_links/track_page_template (013/014),
+  // droplet_metrics (017), and app_config (018) have no FK to contributors,
+  // but still have to be dropped here — otherwise a leftover table from an
+  // earlier test survives schema_migrations being wiped, and the next
+  // migrate() run fails trying to CREATE TABLE something that already
+  // exists.
   await pool.query(
-    'DROP TABLE IF EXISTS track_members, admin_actions, track_admins, tracks, artifact_links, track_page_template, droplet_metrics, contributors, schema_migrations',
+    'DROP TABLE IF EXISTS track_members, admin_actions, track_admins, tracks, artifact_links, track_page_template, droplet_metrics, app_config, contributors, schema_migrations',
   )
 })
 
@@ -81,11 +82,11 @@ test('the name backfill combines first and last name, and leaves both-blank as N
   // (contributor status), 006 (alias/agent fields), 007 (email
   // confirmation), 008 (linkedin fields), 009 (admin role), 010 (tracks),
   // 011 (blocked status), 012 (profile completeness), 013 (artifact links),
-  // 014 (track page template), 015 (track members), 016 (admin
-  // actions), and 017 (droplet metrics) are also pending
-  // from this pre-002 starting point and apply right behind 002 —
-  // irrelevant to what this test checks, but `migrate` returns every file
-  // it applied.
+  // 014 (track page template), 015 (track members), 016 (admin actions),
+  // 017 (droplet metrics), 018 (app config), 019 (invite tracking), and
+  // 020 (track team/role) are also pending from this pre-002 starting
+  // point and apply right behind 002 — irrelevant to what this test
+  // checks, but `migrate` returns every file it applied.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '002_contributor_name_and_nullable_fields.sql',
@@ -104,6 +105,9 @@ test('the name backfill combines first and last name, and leaves both-blank as N
     '015_track_members.sql',
     '016_admin_actions.sql',
     '017_droplet_metrics.sql',
+    '018_app_config.sql',
+    '019_invite_tracking.sql',
+    '020_track_team_role.sql',
   ])
 
   const { rows } = await pool.query('SELECT github_login, name FROM contributors ORDER BY github_login')
@@ -142,9 +146,9 @@ test('the telegram_id migration carries an existing value across to text and acc
   // (alias/agent fields), 007 (email confirmation), 008 (linkedin fields),
   // 009 (admin role), 010 (tracks), 011 (blocked status), 012 (profile
   // completeness), 013 (artifact links), 014 (track page template), 015
-  // (track members), 016 (admin actions), and 017 (droplet metrics) are
-  // also pending from this pre-003 starting point and apply right behind
-  // 003.
+  // (track members), 016 (admin actions), 017 (droplet metrics), 018 (app
+  // config), 019 (invite tracking), and 020 (track team/role) are also
+  // pending from this pre-003 starting point and apply right behind 003.
   const applied = await migrate(url)
   expect(applied).toEqual([
     '003_telegram_id_as_text.sql',
@@ -162,6 +166,9 @@ test('the telegram_id migration carries an existing value across to text and acc
     '015_track_members.sql',
     '016_admin_actions.sql',
     '017_droplet_metrics.sql',
+    '018_app_config.sql',
+    '019_invite_tracking.sql',
+    '020_track_team_role.sql',
   ])
 
   const { rows: columnRows } = await pool.query(

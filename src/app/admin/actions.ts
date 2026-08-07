@@ -2,6 +2,7 @@
 
 import { logAdminAction } from '@/lib/audit-log'
 import { findByGithubId, setContributorStatus } from '@/lib/contributors'
+import { inviteConfirmedContributor } from '@/lib/invites'
 import { isAdmin } from '@/lib/roles'
 import { getSession } from '@/lib/session'
 
@@ -40,5 +41,35 @@ export async function setContributorStatusAction(githubId: string, status: 'conf
     targetGithubId: githubId,
   })
 
+  // IDEA-041 — best-effort, after the status write and audit log, same
+  // "never undo what already succeeded" discipline.
+  if (status === 'confirmed') {
+    const confirmed = await findByGithubId(githubId)
+    if (confirmed) await inviteConfirmedContributor(confirmed)
+  }
+
+  return { ok: true }
+}
+
+/**
+ * IDEA-041's Re-invite button — same authorization and best-effort
+ * discipline as setContributorStatusAction, but doesn't touch `status`
+ * itself (the contributor is already confirmed by the time this is ever
+ * shown). The Admin table's own 15-minute cooldown decides when to render
+ * the button at all; this action doesn't re-check the cooldown server-side
+ * — re-running it a little early just re-sends the same invite, which is
+ * harmless, not a security boundary worth enforcing twice.
+ */
+export async function reinviteContributorAction(githubId: string): Promise<SetStatusResult> {
+  const session = await getSession()
+  if (!session.github) return { ok: false, message: 'Please sign in with GitHub first.' }
+
+  const caller = await findByGithubId(session.github.id)
+  if (!caller || !isAdmin(caller)) return { ok: false, message: 'Not authorized.' }
+
+  const contributor = await findByGithubId(githubId)
+  if (!contributor) return { ok: false, message: 'This contributor no longer exists.' }
+
+  await inviteConfirmedContributor(contributor)
   return { ok: true }
 }

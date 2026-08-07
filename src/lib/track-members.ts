@@ -12,6 +12,13 @@ export interface TrackMember {
   requestedAt: Date
   decidedAt?: Date
   decidedByGithubId?: string
+  /** IDEA-042 — last time this app attempted to add this member to the
+   * track's GitHub team / grant its Discord role, stamped on attempt (see
+   * lib/team-access.ts's grantTrackAccess, the only writer). `undefined`
+   * means never attempted — either never approved, or the track has
+   * neither `github_team` nor `discord_role_id` configured. */
+  githubTeamAddedAt?: Date
+  discordRoleAddedAt?: Date
 }
 
 interface TrackMemberRow {
@@ -23,6 +30,8 @@ interface TrackMemberRow {
   requested_at: Date
   decided_at: Date | null
   decided_by_github_id: string | null
+  github_team_added_at: Date | null
+  discord_role_added_at: Date | null
 }
 
 function toTrackMember(row: TrackMemberRow): TrackMember {
@@ -35,11 +44,14 @@ function toTrackMember(row: TrackMemberRow): TrackMember {
     requestedAt: row.requested_at,
     decidedAt: row.decided_at ?? undefined,
     decidedByGithubId: row.decided_by_github_id ?? undefined,
+    githubTeamAddedAt: row.github_team_added_at ?? undefined,
+    discordRoleAddedAt: row.discord_role_added_at ?? undefined,
   }
 }
 
 const SELECT_WITH_CONTRIBUTOR = `
-  SELECT tm.track_id, tm.github_id, c.github_login, c.name, tm.status, tm.requested_at, tm.decided_at, tm.decided_by_github_id
+  SELECT tm.track_id, tm.github_id, c.github_login, c.name, tm.status, tm.requested_at, tm.decided_at,
+         tm.decided_by_github_id, tm.github_team_added_at, tm.discord_role_added_at
     FROM track_members tm
     JOIN contributors c ON c.github_id = tm.github_id
 `
@@ -124,4 +136,20 @@ export async function decideJoinRequest(
     [trackId, githubId, decision, decidedByGithubId],
   )
   if (result.rowCount === 0) throw new NotPendingError(`${trackId}/${githubId}`)
+}
+
+/** IDEA-042 — stamped on attempt (see lib/team-access.ts's grantTrackAccess,
+ * the only caller), backing IDEA-014's member-list Re-add cooldown. */
+export async function markGithubTeamAdded(trackId: string, githubId: string): Promise<void> {
+  await pool.query('UPDATE track_members SET github_team_added_at = now() WHERE track_id = $1 AND github_id = $2', [
+    trackId,
+    githubId,
+  ])
+}
+
+export async function markDiscordRoleAdded(trackId: string, githubId: string): Promise<void> {
+  await pool.query('UPDATE track_members SET discord_role_added_at = now() WHERE track_id = $1 AND github_id = $2', [
+    trackId,
+    githubId,
+  ])
 }

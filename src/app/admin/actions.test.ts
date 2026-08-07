@@ -14,6 +14,7 @@ const { fakeSession, state } = vi.hoisted(() => ({
     calls: [] as { githubId: string; status: string }[],
     shouldThrow: false,
     loggedActions: [] as unknown[],
+    invited: [] as string[],
   },
 }))
 
@@ -31,13 +32,28 @@ vi.mock('@/lib/audit-log', () => ({
   },
 }))
 
+// IDEA-041's inviteConfirmedContributor talks to GitHub/Discord/the real
+// database — a double for the same reason logAdminAction is, above.
+vi.mock('@/lib/invites', () => ({
+  inviteConfirmedContributor: async (contributor: { githubId: string }) => {
+    state.invited.push(contributor.githubId)
+  },
+}))
+
 vi.mock('@/lib/contributors', async () => {
   const actual = await vi.importActual<typeof import('@/lib/contributors')>('@/lib/contributors')
   return {
     ...actual,
     findByGithubId: async (githubId: string) => {
-      if (!state.caller || state.caller.githubId !== githubId) return null
-      return { githubId: state.caller.githubId, isAdmin: state.caller.isAdmin }
+      if (state.caller && state.caller.githubId === githubId) {
+        return { githubId: state.caller.githubId, isAdmin: state.caller.isAdmin }
+      }
+      // setContributorStatusAction re-fetches the just-confirmed target
+      // contributor to hand to inviteConfirmedContributor — every id this
+      // test suite confirms/blocks (2002) needs to resolve too, not just
+      // the caller's own.
+      if (githubId === '2002') return { githubId: '2002', isAdmin: false }
+      return null
     },
     setContributorStatus: async (githubId: string, status: string) => {
       if (state.shouldThrow) throw new Error('connection refused')
@@ -58,22 +74,25 @@ beforeEach(() => {
   state.calls = []
   state.shouldThrow = false
   state.loggedActions = []
+  state.invited = []
 })
 
-test('an Admin can confirm a contributor', async () => {
+test('an Admin can confirm a contributor, which also triggers the invite', async () => {
   const result = await setContributorStatusAction('2002', 'confirmed')
 
   expect(result).toEqual({ ok: true })
   expect(state.calls).toEqual([{ githubId: '2002', status: 'confirmed' }])
   expect(state.loggedActions).toEqual([{ actorGithubId: '1001', action: 'confirm', targetGithubId: '2002' }])
+  expect(state.invited).toEqual(['2002'])
 })
 
-test('an Admin can block a contributor', async () => {
+test('an Admin can block a contributor — blocking never triggers an invite', async () => {
   const result = await setContributorStatusAction('2002', 'blocked')
 
   expect(result).toEqual({ ok: true })
   expect(state.calls).toEqual([{ githubId: '2002', status: 'blocked' }])
   expect(state.loggedActions).toEqual([{ actorGithubId: '1001', action: 'block', targetGithubId: '2002' }])
+  expect(state.invited).toEqual([])
 })
 
 test('refuses when nobody is signed in', async () => {
@@ -84,6 +103,7 @@ test('refuses when nobody is signed in', async () => {
   expect(result).toEqual({ ok: false, message: 'Please sign in with GitHub first.' })
   expect(state.calls).toEqual([])
   expect(state.loggedActions).toEqual([])
+  expect(state.invited).toEqual([])
 })
 
 // The page's own gate already keeps this button from ever rendering for a
@@ -97,6 +117,7 @@ test('refuses a signed-in contributor who is not an Admin', async () => {
   expect(result).toEqual({ ok: false, message: 'Not authorized.' })
   expect(state.calls).toEqual([])
   expect(state.loggedActions).toEqual([])
+  expect(state.invited).toEqual([])
 })
 
 // A session naming a githubId with no row (README's "session outlives its
@@ -109,6 +130,7 @@ test('refuses when the caller session names a row that no longer exists', async 
   expect(result).toEqual({ ok: false, message: 'Not authorized.' })
   expect(state.calls).toEqual([])
   expect(state.loggedActions).toEqual([])
+  expect(state.invited).toEqual([])
 })
 
 test('a database outage is reported without leaking the underlying error', async () => {
@@ -119,4 +141,5 @@ test('a database outage is reported without leaking the underlying error', async
   expect(result.ok).toBe(false)
   expect(result.message).toBe('Could not update this contributor right now. Please try again in a moment.')
   expect(state.loggedActions).toEqual([])
+  expect(state.invited).toEqual([])
 })
