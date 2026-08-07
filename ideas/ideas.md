@@ -461,7 +461,7 @@ Result: commit eab2d08 (deploy/webhook/server.mjs) — https://github.com/constr
 
 By: vzhuman · 2026-08-04
 
-## [TAKEN] [vzhuman] IDEA-027 — Droplet operational metrics, sourced
+## [DONE] [vzhuman] IDEA-027 — Droplet operational metrics, sourced
 Idea:
 Expose the production droplet's CPU, RAM, disk usage, and disk I/O to the app server-side, so IDEA-028's footer section has something real to display.
 
@@ -475,11 +475,13 @@ Recommended source: DigitalOcean's Droplet Monitoring API, via a read-only DO AP
 Alternative considered and rejected: reading `/proc`, `/sys`, or Docker stats directly from inside the app container, which would need mounting host paths or the Docker socket into the app — the same "host-root-equivalent power" already flagged as a real risk for the webhook container (cfabric-pass-setup.md's Implementation notes under Step 6), and the app is the public-facing, larger-attack-surface service, not a narrow bearer-token-gated one. Calling out to the DO API instead keeps the app itself unprivileged.
 Depends on nothing existing in this app yet; IDEA-028 depends on this.
 
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/50 (merged as af8dd44) — `do-agent` confirmed running on the droplet. Gated behind new optional `DO_API_TOKEN`/`DO_DROPLET_ID` (unprovisioned in this environment — you'll need to generate a read-only DO token and set both before this shows live data). CPU/RAM/disk-usage math follows DigitalOcean's documented formulas, verified against their written docs, not against a live token — worth a sanity check once configured.
+
 Task: https://github.com/constructorfabric/fabric-pass/issues/44
 
 By: vzhuman · 2026-08-04
 
-## [TAKEN] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
+## [DONE] [vzhuman] IDEA-028 — Admin-only droplet status section in the footer
 Idea:
 A section in the app's footer, visible only to Organization Admins, showing the production droplet's operational status — CPU, RAM, disk, and disk I/O (IDEA-027) — as four independent color-coded boxes (green/yellow/red), each with a hint on hover/tap showing its exact percentage.
 
@@ -491,6 +493,8 @@ Expected outcome:
 Notes:
 Suggested thresholds, not confirmed: green < 60%, yellow 60–85%, red > 85% — reasonable defaults, but worth agreeing on deliberately rather than treating these as settled.
 Depends on IDEA-027 for real data to show, and IDEA-011 for the Admin role to gate on.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/50 (merged as af8dd44) — thresholds shipped as originally proposed (green<60/yellow60-85/red>85); Disk I/O uses MB/s cutoffs instead, since it has no natural percentage denominator.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/45
 
