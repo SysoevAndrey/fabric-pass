@@ -821,7 +821,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/62
 
 By: vzhuman · 2026-08-10
 
-## [TAKEN] [vzhuman] IDEA-047 — Onboarding checklist: todo/done/hidden states, self-hide, and real policy-read tracking
+## [DONE] [vzhuman] IDEA-047 — Onboarding checklist: todo/done/hidden states, self-hide, and real policy-read tracking
 Idea:
 Extends IDEA-015's checklist with a third state, `hidden`, alongside `todo`/`done` — a contributor can hide any item once it's `done` (a small "Hide" control appears only on done items), and the whole checklist disappears once every item is hidden. Also replaces the "Read the community policies" step's always-a-plain-link shape with real completion tracking: done once the contributor has visited Policies and clicked through to at least one policy document, not merely landed on the page.
 
@@ -836,6 +836,8 @@ Expected outcome:
 Notes:
 Storage: three new nullable columns/states on `contributors`, matching this codebase's established flat-column-per-fixed-signal convention (e.g. `github_org_invited_at`) rather than a generic key-value table — simple for exactly three items, at the cost that a future fourth checklist item needs a fourth column.
 Depends on IDEA-015 (the checklist itself) and IDEA-034 (profile completeness values).
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/65 (merged as ea1a629). `/policies/visit` validates against the actual registry rather than redirecting blindly — an unrestricted `?url=` param on this app's own trusted domain would have been a real open-redirect vulnerability. Migration backfills the hidden state for whatever was already done under the old completeness-gated panel (verified against real production data post-deploy: every `ready`/`complete` contributor, 45 of 53, correctly starts with "complete profile" pre-hidden — nobody sees the checklist resurface for something they'd already finished). Full interactive loop — click-through tracking, instant hide, whole-panel disappearance surviving a real reload — live-verified in a browser before merge.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/63
 
