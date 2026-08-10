@@ -755,7 +755,7 @@ Result: removed the stuck container and force-recreated `app` (`docker compose u
 
 By: vzhuman · 2026-08-08
 
-## [TAKEN] [vzhuman] IDEA-044 — Deploy webhook: verify GitHub's signature and source IP
+## [DONE] [vzhuman] IDEA-044 — Deploy webhook: verify GitHub's signature and source IP
 Idea:
 The deploy webhook authenticates a plain bearer token sent by `curl` from an Actions runner. Now that this repo is public — endpoint, auth scheme and `server.mjs` all readable — replace that with a webhook GitHub itself delivers, whose `X-Hub-Signature-256` is verified and whose source IP is checked against GitHub's published hook ranges.
 
@@ -771,6 +771,11 @@ IP allowlisting is only worth doing on this design. GitHub's `hooks` list is 6 s
 Caddy proxies this endpoint, so the observed source IP has to come from `X-Forwarded-For` — which is client-spoofable unless Caddy is told to overwrite rather than append it. Getting this wrong turns the allowlist into a bypass, so `trusted_proxies` has to be set explicitly; the IP check is defence-in-depth behind the signature, never the primary control.
 Webhook delivery is at-least-once — GitHub retries, so duplicate deliveries are routine rather than exceptional. The webhook still has no concurrency guard, which makes IDEA-045 more pressing under this design, not less.
 Creating the webhook in repo settings (URL, secret, event) is an owner action; this repo's code can't do it.
+
+Result: PRs https://github.com/constructorfabric/fabric-pass/pull/58 (merged as 23dab7c) and https://github.com/constructorfabric/fabric-pass/pull/59 (merged as d22d76e). Verified live end to end: two real `workflow_run` deliveries passed the IP allowlist, the signature check and the event gate, and redeployed `app` — `deploying d22d76e… (run 31369715149)` in the webhook log, with `/`, `/tracks` and `/policies` all 200 afterwards.
+The webhook is registered at the **organization** level, not on the repo, so `GET /repos/.../hooks` reports none — worth knowing before concluding it's missing.
+#59 fixed a bug that would otherwise have silently killed every deploy: the origin is behind Cloudflare, so the address Caddy observes is a Cloudflare edge and the rightmost `X-Forwarded-For` entry is too. The first cut read those, and would have rejected every genuine delivery with a 403. It reads `CF-Connecting-IP` instead. Confirmed live that Cloudflare overwrites a client-supplied `CF-Connecting-IP` at the edge: a forged one came back 403 (rejected on the real address) rather than 401, which is what it would have returned had the forgery reached the signature check.
+Found only by testing against the real public URL — the ten-case local matrix in #58 passed because nothing fronts `localhost`.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/56
 
