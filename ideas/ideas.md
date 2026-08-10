@@ -773,3 +773,8 @@ Webhook delivery is at-least-once — GitHub retries, so duplicate deliveries ar
 Creating the webhook in repo settings (URL, secret, event) is an owner action; this repo's code can't do it.
 
 By: vzhuman · 2026-08-08
+
+## [TODO] IDEA-045 — Serialize deploys in the webhook instead of by hand
+Idea: IDEA-043's overlapping-deploy outage was closed with a human process ("verify one deploy landed before merging the next"), not code — `server.mjs` still starts a `docker compose pull` per request with no mutex. Guard it with an in-flight flag that coalesces (at most one queued follow-up, not one per request), so concurrent merges and GitHub's at-least-once webhook retries can't race the same droplet again.
+
+By: vzhuman · 2026-08-08
