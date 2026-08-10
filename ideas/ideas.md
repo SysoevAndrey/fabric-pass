@@ -781,8 +781,13 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/56
 
 By: vzhuman · 2026-08-08
 
-## [TAKEN] [vzhuman] IDEA-045 — Serialize deploys in the webhook instead of by hand
+## [DONE] [vzhuman] IDEA-045 — Serialize deploys in the webhook instead of by hand
 Idea: IDEA-043's overlapping-deploy outage was closed with a human process ("verify one deploy landed before merging the next"), not code — `server.mjs` still starts a `docker compose pull` per request with no mutex. Guard it with an in-flight flag that coalesces (at most one queued follow-up, not one per request), so concurrent merges and GitHub's at-least-once webhook retries can't race the same droplet again.
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/60 (merged as ec394ce). Verified live under the real failure shape rather than a simulated one — the #60 merge run and a manual dispatch delivered close enough together that the second landed mid-deploy, and the webhook log shows `deploy already in flight — coalescing into a single follow-up run` followed by two `deployed:` lines: one original plus one coalesced follow-up, where IDEA-043 had two racing pulls. `/`, `/tracks` and `/policies` all 200 afterwards.
+Coalescing rather than queueing, because every deploy pulls the same `:latest` — N deliveries mid-deploy need one follow-up, not N.
+Each `docker` step is also bounded. `done()` is what releases the lock, so a hanging pull would leave the runner permanently busy and silently stop every future deploy — worse than the race being prevented. Slight scope addition over this idea's literal text, included because the mutex isn't correct without it.
+The in-memory flag is only sufficient because the webhook is one Node process in one container; scaling it to more than one replica would need a real lock and would otherwise silently stop being a guard (noted in serialize.mjs's module doc).
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/57
 
