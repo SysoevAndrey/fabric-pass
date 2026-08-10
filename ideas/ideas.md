@@ -815,6 +815,8 @@ Notes:
 "Last updated" for Vision/Policies: today's sync is full-replace (delete-all + insert on every cf-internal push — migrations/013's own doc), so `updated_at` reflects "last time this file was synced," not a true per-document edit date. Stated plainly in the UI rather than implying more precision than the data supports.
 Depends on IDEA-005 (search), IDEA-006 (policies), IDEA-007 (tracks directory), IDEA-032 (artifact links).
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/62
+
 By: vzhuman · 2026-08-10
 
 ## [TAKEN] [vzhuman] IDEA-047 — Onboarding checklist: todo/done/hidden states, self-hide, and real policy-read tracking
@@ -832,6 +834,8 @@ Expected outcome:
 Notes:
 Storage: three new nullable columns/states on `contributors`, matching this codebase's established flat-column-per-fixed-signal convention (e.g. `github_org_invited_at`) rather than a generic key-value table — simple for exactly three items, at the cost that a future fourth checklist item needs a fourth column.
 Depends on IDEA-015 (the checklist itself) and IDEA-034 (profile completeness values).
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/63
 
 By: vzhuman · 2026-08-10
 
