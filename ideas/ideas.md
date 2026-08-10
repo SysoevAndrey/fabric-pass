@@ -797,7 +797,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/57
 
 By: vzhuman · 2026-08-08
 
-## [TAKEN] [vzhuman] IDEA-046 — Home page as tiles: Vision, Policies, Tracks, People
+## [DONE] [vzhuman] IDEA-046 — Home page as tiles: Vision, Policies, Tracks, People
 Idea:
 Redesign Main into a "Home" page: a title reading "Home", and a set of clickable tiles — Vision, Policies, Tracks, People — each showing a small stat and linking to a dedicated page. IDEA-015's onboarding checklist sits above the tile grid for as long as it has anything to show.
 
@@ -814,6 +814,8 @@ Notes:
 "Vision" already exists as an artifact-link category (IDEA-032, `category: 'vision'`) — no new registry needed, only a new page reading it.
 "Last updated" for Vision/Policies: today's sync is full-replace (delete-all + insert on every cf-internal push — migrations/013's own doc), so `updated_at` reflects "last time this file was synced," not a true per-document edit date. Stated plainly in the UI rather than implying more precision than the data supports.
 Depends on IDEA-005 (search), IDEA-006 (policies), IDEA-007 (tracks directory), IDEA-032 (artifact links).
+
+Result: PR https://github.com/constructorfabric/fabric-pass/pull/64 (merged as 9156f40). Live-verified in a browser against seeded data before merge — every tile clicked through, every zero-state checked, search confirmed still round-tripping from its new `/contributors` home — then confirmed in production: `/`, `/vision`, `/policies`, `/tracks`, `/contributors` all 200 after the automatic IDEA-044/045 webhook deploy.
 
 Task: https://github.com/constructorfabric/fabric-pass/issues/62
 
