@@ -772,9 +772,13 @@ Caddy proxies this endpoint, so the observed source IP has to come from `X-Forwa
 Webhook delivery is at-least-once — GitHub retries, so duplicate deliveries are routine rather than exceptional. The webhook still has no concurrency guard, which makes IDEA-045 more pressing under this design, not less.
 Creating the webhook in repo settings (URL, secret, event) is an owner action; this repo's code can't do it.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/56
+
 By: vzhuman · 2026-08-08
 
 ## [TODO] IDEA-045 — Serialize deploys in the webhook instead of by hand
 Idea: IDEA-043's overlapping-deploy outage was closed with a human process ("verify one deploy landed before merging the next"), not code — `server.mjs` still starts a `docker compose pull` per request with no mutex. Guard it with an in-flight flag that coalesces (at most one queued follow-up, not one per request), so concurrent merges and GitHub's at-least-once webhook retries can't race the same droplet again.
+
+Task: https://github.com/constructorfabric/fabric-pass/issues/57
 
 By: vzhuman · 2026-08-08
