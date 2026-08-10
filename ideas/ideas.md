@@ -797,43 +797,42 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/57
 
 By: vzhuman · 2026-08-08
 
-## [DRAFT] [vzhuman] IDEA-046 — Home page as tiles: Vision, Policies, Tracks, People
+## [TAKEN] [vzhuman] IDEA-046 — Home page as tiles: Vision, Policies, Tracks, People
 Idea:
 Redesign Main into a "Home" page: a title reading "Home", and a set of clickable tiles — Vision, Policies, Tracks, People — each showing a small stat and linking to a dedicated page. IDEA-015's onboarding checklist sits above the tile grid for as long as it has anything to show.
 
 Expected outcome:
 - Main's heading reads "Home".
 - Four tiles: Vision (last updated), Policies (last updated), Tracks (count of tracks), People (count of confirmed contributors).
-- Vision tile → a new page listing community-wide `vision`-category artifact links, same shape as the existing `/policies` page (IDEA-006).
+- Vision tile → a new page (`/vision`) listing community-wide `vision`-category artifact links, same shape as the existing `/policies` page (IDEA-006).
 - Policies tile → the existing `/policies` page, unchanged.
 - Tracks tile → the existing `/tracks` directory (IDEA-007).
-- People tile → contributor search (IDEA-005), which today renders inline on Main itself and would need to move to its own route.
+- People tile → a new page (`/contributors`, symmetric with the existing `/contributors/[hash]` public profile route) hosting contributor search (IDEA-005). Main's inline search moves there entirely — Main has no inline search after this ships.
 - The onboarding checklist renders above the tile grid, same visibility rule as today (refined further by IDEA-047).
 
 Notes:
 "Vision" already exists as an artifact-link category (IDEA-032, `category: 'vision'`) — no new registry needed, only a new page reading it.
-"Last updated" for Vision/Policies: today's sync is full-replace (delete-all + insert on every cf-internal push — migrations/013's own doc), so `updated_at` reflects "last time this file was synced," not a true per-document edit date. Worth stating plainly in the UI rather than implying more precision than the data supports.
-Open questions needing a decision before this moves to TODO: whether Main's inline search moves to the new People page entirely or stays duplicated on both; the exact route names for the new Vision and People pages; the display format for "last updated."
+"Last updated" for Vision/Policies: today's sync is full-replace (delete-all + insert on every cf-internal push — migrations/013's own doc), so `updated_at` reflects "last time this file was synced," not a true per-document edit date. Stated plainly in the UI rather than implying more precision than the data supports.
 Depends on IDEA-005 (search), IDEA-006 (policies), IDEA-007 (tracks directory), IDEA-032 (artifact links).
 
 By: vzhuman · 2026-08-10
 
-## [DRAFT] [vzhuman] IDEA-047 — Onboarding checklist: todo/done/hidden states, self-hide, and real policy-read tracking
+## [TAKEN] [vzhuman] IDEA-047 — Onboarding checklist: todo/done/hidden states, self-hide, and real policy-read tracking
 Idea:
 Extends IDEA-015's checklist with a third state, `hidden`, alongside `todo`/`done` — a contributor can hide any item once it's `done` (a small "Hide" control appears only on done items), and the whole checklist disappears once every item is hidden. Also replaces the "Read the community policies" step's always-a-plain-link shape with real completion tracking: done once the contributor has visited Policies and clicked through to at least one policy document, not merely landed on the page.
 
 Expected outcome:
 - Each of the three existing steps (complete profile, read policies, join a track) is independently `todo`/`done`/`hidden`, persisted per contributor.
 - "Complete profile" reads done once `profile_completeness` is `ready` or `complete` (not `incomplete`).
-- "Read policies" reads done once the contributor has clicked through to at least one policy link from the Policies page.
-- "Join a track" reads done once the contributor has one or more approved track memberships.
+- "Read policies" reads done once the contributor has clicked through to at least one policy link from the Policies page — tracked via a small internal redirect (`/policies/visit?url=...`) that records the click before forwarding to the real URL, not just visiting the page.
+- "Join a track" reads done once `anyMembershipSummary` reports `approved` — the existing single-state signal already backing this step today, reused as-is.
 - A done item shows a "Hide" control; clicking it sets that item to `hidden` immediately, no confirmation step.
 - The whole checklist section (heading included) stops rendering once every item is `hidden`.
 
 Notes:
-Storage: proposed as three new nullable columns/states on `contributors`, matching this codebase's established flat-column-per-fixed-signal convention (e.g. `github_org_invited_at`) rather than a generic key-value table — simple for exactly three items, at the cost that a future fourth checklist item needs a fourth column. Flagging the tradeoff rather than deciding it unilaterally.
-Open question, real engineering-effort difference either way: outbound policy links today go straight to an external URL in a new tab (`target="_blank"`) — nothing hits this app's server on click. Tracking a genuine click needs either (a) routing each policy link through a small internal redirect (e.g. `/policies/visit?url=...`) that records the click then 302s to the real URL — the only option that actually matches "clicked a link" — or (b) a plain visited-the-page proxy, a weaker signal but zero extra routing.
-Open question: "join a track" done condition — reusing today's existing single `'approved'` summary state (`anyMembershipSummary`) as-is, vs. an actual count across every track the contributor belongs to. These read identically for someone in at most one track and diverge only once multi-track membership is common.
+Storage: three new nullable columns/states on `contributors`, matching this codebase's established flat-column-per-fixed-signal convention (e.g. `github_org_invited_at`) rather than a generic key-value table — simple for exactly three items, at the cost that a future fourth checklist item needs a fourth column.
 Depends on IDEA-015 (the checklist itself) and IDEA-034 (profile completeness values).
+
+By: vzhuman · 2026-08-10
 
 By: vzhuman · 2026-08-10
