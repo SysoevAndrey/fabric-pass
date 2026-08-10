@@ -754,3 +754,22 @@ Idea: PR #46 and PR #38 were merged ~3 seconds apart, firing two overlapping "Bu
 Result: removed the stuck container and force-recreated `app` (`docker compose up -d --force-recreate app`) — confirmed `/` and `/tracks` back to 200, migration 015 applied, all four containers healthy. Self-inflicted (merged two PRs back-to-back without waiting for the first deploy to finish) and caught within minutes, not an independent discovery. Going forward: verify one PR's deploy has actually landed (not just that the GitHub Actions run reports success — that only covers build+push+webhook-call, not the droplet's own `docker compose up`) before merging the next.
 
 By: vzhuman · 2026-08-08
+
+## [TAKEN] [vzhuman] IDEA-044 — Deploy webhook: verify GitHub's signature and source IP
+Idea:
+The deploy webhook authenticates a plain bearer token sent by `curl` from an Actions runner. Now that this repo is public — endpoint, auth scheme and `server.mjs` all readable — replace that with a webhook GitHub itself delivers, whose `X-Hub-Signature-256` is verified and whose source IP is checked against GitHub's published hook ranges.
+
+Expected outcome:
+- `.github/workflows/deploy.yml` no longer calls the droplet at all; GitHub delivers a `workflow_run` webhook once "Build and deploy" completes.
+- The webhook verifies `X-Hub-Signature-256` (HMAC-SHA256 over the raw request body) with a timing-safe comparison, and rejects anything that doesn't match.
+- Requests arriving from outside GitHub's published `hooks` CIDR ranges are rejected.
+- A delivery whose `workflow_run.conclusion` isn't `success`, or whose branch isn't `main`, never triggers a deploy.
+
+Notes:
+The real gain is that the shared secret stops travelling over the wire: today's bearer token is transmitted in full on every deploy, whereas an HMAC signature proves possession without sending it. Brute-force resistance is *not* the gain — `DEPLOY_WEBHOOK_SECRET` is already 64 hex chars (256-bit).
+IP allowlisting is only worth doing on this design. GitHub's `hooks` list is 6 stable CIDR ranges; the `actions` list is 7,297 and is shared by every GitHub-hosted runner on earth, so allowlisting *that* would be close to meaningless as a boundary.
+Caddy proxies this endpoint, so the observed source IP has to come from `X-Forwarded-For` — which is client-spoofable unless Caddy is told to overwrite rather than append it. Getting this wrong turns the allowlist into a bypass, so `trusted_proxies` has to be set explicitly; the IP check is defence-in-depth behind the signature, never the primary control.
+Webhook delivery is at-least-once — GitHub retries, so duplicate deliveries are routine rather than exceptional. The webhook still has no concurrency guard, which makes IDEA-045 more pressing under this design, not less.
+Creating the webhook in repo settings (URL, secret, event) is an owner action; this repo's code can't do it.
+
+By: vzhuman · 2026-08-08
