@@ -783,7 +783,7 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/57
 
 By: vzhuman · 2026-08-08
 
-## [TAKEN] [SysoevAndrey] IDEA-046 — Adopt @gears-frontx/ui-kit: install and audit replaceable UI
+## [TAKEN] [SysoevAndrey] IDEA-048 — Adopt @gears-frontx/ui-kit: install and audit replaceable UI
 Idea: Install `@gears-frontx/ui-kit@0.3.0-alpha.2` and map every place in the app where hand-rolled UI can be replaced by a ui-kit component, producing an adoption plan for follow-up ideas.
 
 By: SysoevAndrey · 2026-08-13
