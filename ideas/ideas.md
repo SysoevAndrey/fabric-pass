@@ -793,4 +793,6 @@ By: SysoevAndrey · 2026-08-13
 ## [TAKEN] [SysoevAndrey] IDEA-049 — ui-kit foundation: theme.css tokens + client re-export wrappers
 Idea: First adoption slice of IDEA-048's plan — land the `@gears-frontx/ui-kit` dependency, import `theme.css` pinned to the app's light theme (`data-theme="light"`), and add a `'use client'` re-export module so server components can render the kit's hook-using components. No visual change yet.
 
+Task: https://github.com/constructorfabric/fabric-pass/issues/70
+
 By: SysoevAndrey · 2026-08-13
