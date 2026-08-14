@@ -858,25 +858,25 @@ Depends on IDEA-014 (the screen itself) and IDEA-004 (the public profile being l
 
 By: vzhuman · 2026-08-14
 
-## [DRAFT] [vzhuman] IDEA-049 — Replace Accept/Reject with Maintainer / Contributor / Decline
+## [DRAFT] [vzhuman] IDEA-049 — Track member roles: Contributor and Maintainer, as two separate flows
 Idea:
-IDEA-014's review screen currently offers a plain binary Accept/Reject on each pending request. Replace it with three choices: add the requester as a Maintainer, add them as a Contributor, or Decline their request — so track access is granted at the right level in one step, not as a flat approved/not-approved.
+IDEA-014's review screen currently offers a plain binary Accept/Reject on each pending request. Deciding a join request and changing an existing member's standing are two genuinely separate flows, not one three-way choice at decision time:
+- Deciding a pending request stays binary — add the requester as a Contributor, or Decline. No Maintainer option here.
+- Promoting an existing Contributor to Maintainer (or demoting a Maintainer back to Contributor) is a separate action, taken later, on someone who's already an approved member.
 
 Expected outcome:
-- Not fully specified yet — see Notes below; this needs a decision before it can move to TODO.
+- A pending request's only two outcomes are "Add as Contributor" (renames today's Accept/`approved`) and "Decline" (renames today's Reject/`rejected`) — no role choice at this step.
+- Every approved member has a role — Contributor or Maintainer — visible on the review screen.
+- A separate control, shown only on an already-approved member's own row, lets a Track Admin (or Admin) promote a Contributor to Maintainer or demote a Maintainer back to Contributor.
 
 Notes:
-"Decline" is a straightforward rename of what already exists — `track_members.status = 'rejected'` — no new behavior there.
-"Contributor" most likely maps to today's existing `approved` status as-is — plain track membership, nothing new to build.
-"Maintainer" is the real open question, and it isn't a small one: this app currently has **no in-app write path at all** for anything resembling elevated per-track standing. Checked directly against the code before writing this down, not assumed:
-- `track_admins` (the Track Admin role IDEA-014's own review screen authorization already keys off, via `isTrackAdmin`/`adminTrackIds`) is written *only* by `syncTracks`, i.e. only from cf-internal's `pass/tracks.yaml` — there is no in-app action anywhere that inserts or deletes a row in it today.
-- A track's five leader slots (Product Manager/Architect/Developer/Quality/Researcher — IDEA-010) are equally sync-only, written by that same `syncTracks` call, read-only everywhere else in the app.
-
-So "Maintainer" needs one of three genuinely different designs, each with a different real cost:
-1. **A new, purely in-app concept** — e.g. a `role` column on `track_members` itself (which *is* already app-owned, unlike the two tables above), with no connection to `track_admins` or the leader slots. Cheapest to build, but starts as a label with no permission difference from a plain Contributor unless something later reads it.
-2. **Maintainer = Track Admin** — this decision would write to `track_admins` from an in-app action for the first time ever, breaking the "cf-internal owns this" model that table has had since IDEA-010. A real, deliberate precedent change, not a small one.
-3. **Maintainer = filling a leader slot** — this is largely the same idea as the already-recorded **IDEA-018** ("Volunteer for an open track leader slot"), which is still `TODO` and unclaimed. Worth reconciling with that idea rather than building the same capability twice under two different names.
-Depends on IDEA-014 (the screen this changes) and, depending which design gets picked, possibly supersedes or merges with IDEA-018.
+Checked directly against the code before the first draft of this idea, and it still holds: neither `track_admins` (cf-internal-sync-only, no in-app writer) nor a track's five leader slots (equally sync-only) are the right place for this. A new `role` column on `track_members` itself is the natural fit — that table is already fully app-owned (IDEA-013), unlike those two, so adding an in-app-editable role to it breaks no existing single-writer model.
+Still open, not yet decided:
+- Who can promote/demote — presumably the same authorization as Accept/Decline (`isTrackAdmin`/`isAdmin`), but not yet confirmed as identical.
+- Whether Maintainer carries any actual permission/access difference yet (e.g. a different GitHub team or Discord role via IDEA-042's `grantTrackAccess`, which today grants per-track, not per-role-within-a-track), or starts as a plain label with access differences left for a later idea.
+- Exact control shape for promote/demote on the review screen.
+Distinct from IDEA-018 ("Volunteer for an open track leader slot") — that idea is about the five named leader slots (Product Manager/Architect/etc.), which this one deliberately does not touch.
+Depends on IDEA-014 (the screen both flows live on).
 
 By: vzhuman · 2026-08-14
 
