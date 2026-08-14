@@ -843,4 +843,39 @@ Task: https://github.com/constructorfabric/fabric-pass/issues/63
 
 By: vzhuman · 2026-08-10
 
-By: vzhuman · 2026-08-10
+## [DRAFT] [vzhuman] IDEA-048 — Requestor details on the Track membership review screen
+Idea:
+IDEA-014's `/tracks/admin` review screen shows a pending or approved member by little more than their GitHub login/name today. A Track Admin deciding on a request has to leave the page (search GitHub, guess at a public profile URL) to learn anything else about who's asking. Show the requester's GitHub account, company, and a link to their public profile directly on each row.
+
+Expected outcome:
+- Each row (pending and approved) shows the requester's GitHub login (already shown) plus their company, if set.
+- Each row links to the requester's public profile (IDEA-004).
+
+Notes:
+`company` isn't in `track-members.ts`'s `SELECT_WITH_CONTRIBUTOR` join today — needs adding, same shape as `github_login`/`name` already being pulled from `contributors`.
+The profile-link part has a real edge case worth deciding, not glossing over: `getPublicProfile` (IDEA-004) only ever resolves a `confirmed` contributor — nothing stops a still-`draft` contributor from requesting to join a track (`requestToJoinTrack` has no status gate), so a genuinely public, working profile link won't always exist for every row. Needs a decision: omit the link (plain text company/login only) for a `draft` requester, or something else.
+Depends on IDEA-014 (the screen itself) and IDEA-004 (the public profile being linked to).
+
+By: vzhuman · 2026-08-14
+
+## [DRAFT] [vzhuman] IDEA-049 — Replace Accept/Reject with Maintainer / Contributor / Decline
+Idea:
+IDEA-014's review screen currently offers a plain binary Accept/Reject on each pending request. Replace it with three choices: add the requester as a Maintainer, add them as a Contributor, or Decline their request — so track access is granted at the right level in one step, not as a flat approved/not-approved.
+
+Expected outcome:
+- Not fully specified yet — see Notes below; this needs a decision before it can move to TODO.
+
+Notes:
+"Decline" is a straightforward rename of what already exists — `track_members.status = 'rejected'` — no new behavior there.
+"Contributor" most likely maps to today's existing `approved` status as-is — plain track membership, nothing new to build.
+"Maintainer" is the real open question, and it isn't a small one: this app currently has **no in-app write path at all** for anything resembling elevated per-track standing. Checked directly against the code before writing this down, not assumed:
+- `track_admins` (the Track Admin role IDEA-014's own review screen authorization already keys off, via `isTrackAdmin`/`adminTrackIds`) is written *only* by `syncTracks`, i.e. only from cf-internal's `pass/tracks.yaml` — there is no in-app action anywhere that inserts or deletes a row in it today.
+- A track's five leader slots (Product Manager/Architect/Developer/Quality/Researcher — IDEA-010) are equally sync-only, written by that same `syncTracks` call, read-only everywhere else in the app.
+
+So "Maintainer" needs one of three genuinely different designs, each with a different real cost:
+1. **A new, purely in-app concept** — e.g. a `role` column on `track_members` itself (which *is* already app-owned, unlike the two tables above), with no connection to `track_admins` or the leader slots. Cheapest to build, but starts as a label with no permission difference from a plain Contributor unless something later reads it.
+2. **Maintainer = Track Admin** — this decision would write to `track_admins` from an in-app action for the first time ever, breaking the "cf-internal owns this" model that table has had since IDEA-010. A real, deliberate precedent change, not a small one.
+3. **Maintainer = filling a leader slot** — this is largely the same idea as the already-recorded **IDEA-018** ("Volunteer for an open track leader slot"), which is still `TODO` and unclaimed. Worth reconciling with that idea rather than building the same capability twice under two different names.
+Depends on IDEA-014 (the screen this changes) and, depending which design gets picked, possibly supersedes or merges with IDEA-018.
+
+By: vzhuman · 2026-08-14
